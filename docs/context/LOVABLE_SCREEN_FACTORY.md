@@ -5,6 +5,10 @@
 O projeto Lovable e o laboratorio visual. Ele deve gerar e refinar 100% das
 telas antes de serem implementadas no Flutter final.
 
+As telas Flutter criadas antes do Lovable devem ser vistas como funcionais e
+temporarias. Elas existem para validar dados, fluxos e contratos; o acabamento
+de produto vem depois que a tela correspondente estiver boa no Lovable.
+
 O Lovable nao e o app final porque:
 
 - captura de notificacoes bancarias exige Android nativo;

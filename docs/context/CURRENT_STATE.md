@@ -10,8 +10,9 @@
 - App Flutter criado em `apps/mobile`.
 - API Fastify criada em `apps/api`.
 - Contratos OpenAPI/JSON Schema criados em `packages/contracts`.
-- Mobile tem Drift/SQLite inicial com seeds, dashboard, confirmacao simples e
-  outbox local.
+- Mobile tem Drift/SQLite com tabelas principais do Marco 03, seeds,
+  dashboard, caixa de revisao funcional simples, edicao basica, confirmacao,
+  ignorar, duplicado e outbox local.
 - API tem `/health`, `/sync/push`, `/sync/pull` e stubs dos endpoints do plano.
 
 ## Comandos Uteis
@@ -69,4 +70,5 @@ Antes de continuar qualquer marco, leia:
 - Verificar limites atuais do provedor gratuito de deploy quando chegar no
   Marco 08.
 - Implementar telas Flutter completas equivalentes ao Lovable.
+- Refinar no Lovable a Caixa de Revisao de produto antes de polir o Flutter.
 - Substituir armazenamento local simples por criptografia SQLCipher no Marco 09.

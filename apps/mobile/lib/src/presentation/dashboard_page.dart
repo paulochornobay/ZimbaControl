@@ -64,27 +64,6 @@ class DashboardPage extends StatelessWidget {
                 ),
             ],
           ),
-          bottomNavigationBar: NavigationBar(
-            selectedIndex: 0,
-            destinations: const [
-              NavigationDestination(
-                icon: Icon(Icons.home_outlined),
-                label: 'Inicio',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.inbox_outlined),
-                label: 'Revisao',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.tune_outlined),
-                label: 'Filtros',
-              ),
-              NavigationDestination(
-                icon: Icon(Icons.settings_outlined),
-                label: 'Ajustes',
-              ),
-            ],
-          ),
         );
       },
     );

@@ -29,6 +29,21 @@ proprio. A nuvem nao e requisito para operacao diaria basica.
    duplicado.
 7. Confirmacao gera operacao em `sync_outbox`.
 
+## Estado do Nucleo Local
+
+O MVP local atual cobre:
+
+- seed de familia, contas, cartao, categorias, centros de custo e merchants;
+- transacoes com beneficiarios, fonte de confianca e status de revisao;
+- `review_inbox` aberta/resolvida;
+- outbox para operacoes locais;
+- dashboard inicial;
+- caixa de revisao funcional simples;
+- edicao basica de descricao, valor, tipo, categoria e centro de custo.
+
+As telas ainda nao sao definitivas; Lovable continua sendo a fonte para o
+acabamento visual e fluxos completos.
+
 ## Modelo Canonico
 
 Transacao:

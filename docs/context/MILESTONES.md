@@ -5,7 +5,7 @@
 - Marco 00 - Bussola do Projeto: concluido
 - Marco 01 - Cofre Visual Lovable: concluido
 - Marco 02 - Fundacao do Monorepo: concluido
-- Marco 03 - Nucleo Local Offline: iniciado
+- Marco 03 - Nucleo Local Offline: concluido para MVP local
 - Marco 04 - Caixa de Revisao: planejado
 - Marco 05 - Importacao CSV/OFX: planejado
 - Marco 06 - Deduplicacao, Parcelas e Faturas: planejado
@@ -71,8 +71,9 @@ Criterio de aceite:
 
 - Criar, editar, listar e revisar lancamentos sem internet.
 
-Status: iniciado. Ja existe banco Drift local com seeds, dashboard inicial,
-criacao de rascunho manual e confirmacao simples com outbox.
+Status: concluido para MVP local. Existe banco Drift local com as tabelas
+principais do marco, seeds, dashboard inicial, criacao de rascunho manual,
+edicao basica, revisao local, confirmacao/ignorar/duplicado e outbox.
 
 ## Marco 04 - Caixa de Revisao
 
@@ -85,6 +86,9 @@ Entregaveis:
 Criterio de aceite:
 
 - Revisar 20 a 30 itens seguidos com poucos toques e baixa fadiga.
+
+Status: proximo. Ja existe uma tela funcional simples no Flutter, mas a tela
+de produto deve ser refinada primeiro no Lovable e depois portada.
 
 ## Marco 05 - Importacao CSV/OFX
 
