@@ -1,19 +1,8 @@
-import 'dart:io';
-
 import 'package:drift/drift.dart';
-import 'package:drift/native.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
+
+import 'connection/database_connection.dart';
 
 part 'app_database.g.dart';
-
-LazyDatabase _openConnection() {
-  return LazyDatabase(() async {
-    final documents = await getApplicationDocumentsDirectory();
-    final file = File(p.join(documents.path, 'zimbacontrol.sqlite'));
-    return NativeDatabase.createInBackground(file);
-  });
-}
 
 @DataClassName('PersonRow')
 class People extends Table {
@@ -205,7 +194,7 @@ class SyncOutbox extends Table {
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(_openConnection());
+  AppDatabase() : super(openConnection());
 
   AppDatabase.forTesting(super.executor);
 

@@ -13,6 +13,8 @@
 - Mobile tem Drift/SQLite com tabelas principais do Marco 03, seeds,
   dashboard, caixa de revisao funcional simples, edicao basica, confirmacao,
   ignorar, duplicado e outbox local.
+- Para teste visual no Chrome, o banco usa Drift Web com `sql.js`; Android e
+  desktop nativo continuam usando SQLite nativo.
 - API tem `/health`, `/sync/push`, `/sync/pull` e stubs dos endpoints do plano.
 
 ## Comandos Uteis
@@ -32,6 +34,15 @@ flutter pub get
 flutter run
 flutter test
 flutter analyze
+```
+
+Preview web no macOS sem Xcode:
+
+```sh
+cd apps/mobile
+flutter build web
+python3 -m http.server 54321 --directory build/web
+open http://localhost:54321
 ```
 
 API:

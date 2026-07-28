@@ -10,6 +10,8 @@ proprio. A nuvem nao e requisito para operacao diaria basica.
 
 - UI mobile: Flutter.
 - Persistencia local: Drift + SQLite.
+- Teste web local: Drift Web com `sql.js`, apenas para preview no Chrome sem
+  Xcode/emulador.
 - Android nativo: Kotlin `NotificationListenerService`.
 - Background Android: WorkManager.
 - Backend: Node.js + TypeScript + Fastify.
@@ -43,6 +45,13 @@ O MVP local atual cobre:
 
 As telas ainda nao sao definitivas; Lovable continua sendo a fonte para o
 acabamento visual e fluxos completos.
+
+## Preview Web
+
+O preview web existe para facilitar teste no macOS quando Xcode ou emulador
+Android nao estao prontos. Ele nao substitui o alvo Android-first. No Chrome,
+o banco usa `sql.js` carregado por CDN; em Android/desktop nativo, o app usa
+SQLite nativo.
 
 ## Modelo Canonico
 
