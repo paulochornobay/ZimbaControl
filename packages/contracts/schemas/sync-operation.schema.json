@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zimbacontrol.local/schemas/sync-operation.schema.json",
+  "title": "SyncOperation",
+  "type": "object",
+  "required": [
+    "opId",
+    "deviceId",
+    "householdId",
+    "entityType",
+    "entityId",
+    "operationType",
+    "baseVersion",
+    "payload",
+    "createdAt"
+  ],
+  "properties": {
+    "opId": { "type": "string" },
+    "deviceId": { "type": "string" },
+    "householdId": { "type": "string" },
+    "entityType": {
+      "type": "string",
+      "enum": ["transaction", "rule", "reviewItem", "duplicateCandidate"]
+    },
+    "entityId": { "type": "string" },
+    "operationType": {
+      "type": "string",
+      "enum": ["create", "update", "delete", "resolve"]
+    },
+    "baseVersion": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "payload": {
+      "type": "object"
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

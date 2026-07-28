@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zimbacontrol.local/schemas/canonical-source-record.schema.json",
+  "title": "CanonicalSourceRecord",
+  "type": "object",
+  "required": ["id", "sourceKind", "provider", "confidence"],
+  "properties": {
+    "id": { "type": "string" },
+    "sourceKind": {
+      "type": "string",
+      "enum": ["notification", "csv", "ofx", "manual"]
+    },
+    "provider": { "type": "string" },
+    "externalId": { "type": "string" },
+    "fileHash": { "type": "string" },
+    "rowHash": { "type": "string" },
+    "notificationKey": { "type": "string" },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  },
+  "additionalProperties": false
+}

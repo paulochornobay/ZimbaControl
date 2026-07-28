@@ -1,0 +1,21 @@
+{
+  "name": "zimbacontrol",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Offline-first family finance app monorepo.",
+  "workspaces": [
+    "apps/api",
+    "packages/contracts"
+  ],
+  "scripts": {
+    "check": "npm --workspace @zimbacontrol/contracts run check && npm --workspace @zimbacontrol/api run check",
+    "api:dev": "npm --workspace @zimbacontrol/api run dev",
+    "api:test": "npm --workspace @zimbacontrol/api test",
+    "mobile:test": "cd apps/mobile && flutter test",
+    "mobile:analyze": "cd apps/mobile && flutter analyze",
+    "lovable:dev": "cd prototypes/lovable && npm install && npm run dev"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

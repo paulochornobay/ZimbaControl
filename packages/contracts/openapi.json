@@ -1,0 +1,157 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ZimbaControl API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "responses": {
+          "200": {
+            "description": "Service health"
+          }
+        }
+      }
+    },
+    "/sync/push": {
+      "post": {
+        "summary": "Push local outbox operations",
+        "responses": {
+          "200": {
+            "description": "Operation results: applied, duplicate, conflict or rejected"
+          },
+          "400": {
+            "description": "Invalid sync payload"
+          }
+        }
+      }
+    },
+    "/sync/pull": {
+      "get": {
+        "summary": "Pull incremental sync events",
+        "parameters": [
+          {
+            "name": "householdId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sinceSeq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Incremental events"
+          }
+        }
+      }
+    },
+    "/transactions": {
+      "get": {
+        "summary": "List transactions",
+        "responses": {
+          "200": {
+            "description": "Transaction list"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create transaction",
+        "responses": {
+          "501": {
+            "description": "Planned endpoint"
+          }
+        }
+      }
+    },
+    "/transactions/{id}": {
+      "patch": {
+        "summary": "Update transaction",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "501": {
+            "description": "Planned endpoint"
+          }
+        }
+      }
+    },
+    "/imports": {
+      "post": {
+        "summary": "Create import batch",
+        "responses": {
+          "501": {
+            "description": "Planned endpoint"
+          }
+        }
+      }
+    },
+    "/duplicates/{id}/resolve": {
+      "post": {
+        "summary": "Resolve duplicate candidate",
+        "responses": {
+          "501": {
+            "description": "Planned endpoint"
+          }
+        }
+      }
+    },
+    "/review/{id}/resolve": {
+      "post": {
+        "summary": "Resolve review item",
+        "responses": {
+          "501": {
+            "description": "Planned endpoint"
+          }
+        }
+      }
+    },
+    "/rules": {
+      "get": {
+        "summary": "List classification rules",
+        "responses": {
+          "200": {
+            "description": "Rule list"
+          }
+        }
+      },
+      "post": {
+        "summary": "Create classification rule",
+        "responses": {
+          "501": {
+            "description": "Planned endpoint"
+          }
+        }
+      }
+    },
+    "/rules/{id}": {
+      "patch": {
+        "summary": "Update classification rule",
+        "responses": {
+          "501": {
+            "description": "Planned endpoint"
+          }
+        }
+      }
+    }
+  }
+}
