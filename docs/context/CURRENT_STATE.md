@@ -21,6 +21,22 @@
   parser CSV/OFX, hashes de arquivo/linha, staging, adapters Nubank/Mercado
   Pago, resumo de lote, promocao para Caixa de Revisao e deteccao de
   reimportacao duplicada.
+- Mobile tem conciliacao financeira do Marco 07: candidatos de duplicidade,
+  merge de fontes sem criar nova despesa, fatura como transferencia, parcelas
+  de cartao em `installment_plans` e consorcio ligado ao plano do carro.
+- Mobile tem captura Android do Marco 08: `NotificationListenerService`,
+  allowlist de apps, SQLite nativo para eventos brutos, WorkManager, ponte
+  MethodChannel, tabela Drift `raw_notification_events`, parser local inicial e
+  painel em Ajustes para permissao/status.
+- Mobile tem painel e movimentacoes do Marco 09: Resumo operacional do mes,
+  quebras por pessoa/categoria/centro/origem, compromissos futuros, projecao
+  simples, ultimas movimentacoes e tela Movimentacoes com busca/filtros. A
+  importacao CSV/OFX agora fica como acao dentro de Movimentacoes.
+- O app ainda chama `seedIfEmpty()` ao iniciar. Em uma instalacao limpa, isso
+  cria dados de exemplo/desenvolvimento para testar dashboard, revisao,
+  familia, consorcio e importacao. Para uso real, limpar dados do app no
+  Android remove esses lancamentos; depois devemos transformar a seed em uma
+  acao explicita de demo.
 - Para teste visual no Chrome, o banco usa Drift Web com `sql.js`; Android e
   desktop nativo continuam usando SQLite nativo.
 - API tem `/health`, `/sync/push`, `/sync/pull` e stubs dos endpoints do plano.
@@ -51,6 +67,13 @@ flutter pub get
 flutter run
 flutter test
 flutter analyze
+flutter build apk --debug
+```
+
+APK debug gerado em:
+
+```sh
+apps/mobile/build/app/outputs/flutter-apk/app-debug.apk
 ```
 
 Preview web no macOS sem Xcode:
@@ -114,24 +137,24 @@ Antes de continuar qualquer marco, leia:
   Marco 11.
 - Implementar telas Flutter completas equivalentes ao Lovable conforme cada
   marco avancar.
-- Marco 07 precisa implementar conciliacao financeira entre fontes:
-  deduplicacao heuristica, merge de origem, fatura como transferencia,
-  parcelas de cartao e consorcio com explicacao.
+- Validar Marco 08 em Android fisico com permissao real de notificacoes e apps
+  Nubank/Mercado Pago instalados.
+- Transformar a seed automatica em opcao explicita antes de uso real continuo.
 - Substituir armazenamento local simples por criptografia SQLCipher quando
   viavel no Marco 12.
 
 ## Proximo Marco
 
-Marco 07 - Conciliacao Financeira.
+Marco 10 - Backup e Recuperacao.
 
 Sequencia recomendada:
 
-1. Criar candidatos de duplicidade por valor, data, conta/cartao e merchant.
-2. Mesclar `transaction_sources` sem perder origem.
-3. Tratar pagamento de fatura como transferencia para o cartao.
-4. Ligar parcelas de cartao a `installment_plans`.
-5. Usar o plano de consorcio existente para identificar compromissos.
-6. Enviar casos incertos de baixa confianca para a Caixa de Revisao.
-7. Exibir explicacao clara da conciliacao aplicada ou sugerida.
-8. Testar notificacao + CSV/OFX + manual sem duplicar gasto.
-9. Atualizar estes arquivos de contexto ao concluir o marco.
+1. Definir formato versionado de backup local.
+2. Exportar transacoes, fontes, beneficiarios, recorrencias, parcelas,
+   cadastros, importacoes e preferencias.
+3. Criar validacao de restauracao antes de substituir dados.
+4. Implementar restauracao local com confirmacao de risco.
+5. Exportar CSV simples para consulta externa.
+6. Compartilhar arquivo pelo recurso nativo do Android.
+7. Testar reinstalacao/limpeza de dados e recuperacao sem MongoDB.
+8. Atualizar estes arquivos de contexto ao concluir o marco.

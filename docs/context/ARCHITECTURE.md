@@ -49,6 +49,9 @@ backup local.
 - Consorcio usa plano proprio de compromisso; compra parcelada no cartao usa
   plano de parcelas de compra.
 - Uma transacao pode ter multiplas fontes: notificacao, CSV, OFX e manual.
+- A conciliacao deve preservar todas as fontes em `transaction_sources`; quando
+  uma linha de extrato confirma uma notificacao, ela mescla a origem em vez de
+  criar uma segunda despesa.
 
 Estado implementado no Marco 05:
 
@@ -75,6 +78,12 @@ O MVP local atual cobre:
 - estrutura familiar local com proprietarios de contas/cartoes, usuario de
   acesso separado, recorrencias e consorcio;
 - importacao CSV/OFX local com staging, hashes e promocao para revisao;
+- conciliacao financeira local com candidatos de duplicidade, merge de fontes,
+  fatura como transferencia, parcelas de cartao e consorcio;
+- captura Android local com listener nativo, allowlist, eventos brutos,
+  parser inicial e rascunhos na Caixa de Revisao;
+- resumo operacional e movimentacoes com filtros por mes, tipo, status, origem
+  e busca textual;
 - edicao basica de descricao, valor, tipo, categoria e centro de custo.
 
 As telas ainda evoluirao por marco. Lovable continua sendo a fonte para
@@ -138,6 +147,15 @@ Entidades planejadas:
 - `DuplicateCandidate`
 - `RawNotificationEvent`
 
+Implementado localmente ate o Marco 08:
+
+- `RecurringSchedule`
+- `InstallmentPlan`
+- `ImportBatch`
+- `StagedSourceRecord`
+- `DuplicateCandidate`
+- `RawNotificationEvent`
+
 Sugestoes:
 
 - toda sugestao deve carregar `confidence`, `explanation` e regra responsavel;
@@ -179,6 +197,17 @@ Sinais:
 - valor, moeda, merchant normalizado, conta/cartao, janela de data e marcador
   de parcela.
 
+Estado implementado no Marco 07:
+
+- `externalId` e `fileHash + rowHash` continuam bloqueando duplicatas exatas.
+- Novos registros validos passam por heuristica de conciliacao por valor,
+  data, conta e descricao normalizada.
+- Confianca alta vira `merge_candidate` e, ao promover o lote, adiciona nova
+  linha em `transaction_sources` na transacao existente.
+- Confianca intermediaria segue para Caixa de Revisao com
+  `duplicateStatus = probable` e explicacao em `duplicate_candidates`.
+- `duplicate_candidates` guarda score, regra e explicacao para auditoria local.
+
 ## Faturas e Transferencias
 
 Pagamento de fatura de cartao nao e despesa nova. Deve virar transferencia
@@ -193,6 +222,9 @@ No nucleo local atual, `kind = transfer` fica fora dos calculos de receita e
 despesa do dashboard. A transferencia preserva conta de origem, conta de
 destino, pagador e beneficiario.
 
+No Marco 07, importacoes com texto de pagamento de fatura passam a entrar como
+`kind = transfer` para revisao, evitando registrar a fatura como nova despesa.
+
 ## Importacao Local
 
 - CSV e OFX sao suportados no app local; XLSX fica fora do MVP inicial.
@@ -205,6 +237,11 @@ destino, pagador e beneficiario.
 - Registros validos sao promovidos como transacoes pendentes na Caixa de
   Revisao, preservando `fileHash`, `rowHash`, `externalId`, provider e payload
   bruto do registro.
+- Registros conciliados com alta confianca sao mesclados como nova fonte da
+  transacao existente, sem criar novo lancamento financeiro.
+- Compras com marcador `02/10` ou `parcela 2/10` criam/associam plano
+  `credit_card_purchase`.
+- Registros de consorcio sao associados a `plan-consorcio-carro`.
 
 ## Captura Android
 
@@ -214,6 +251,37 @@ destino, pagador e beneficiario.
 - WorkManager faz reprocessamento e recuperacao.
 - Eventos brutos podem ser expurgados apos consolidacao, conforme politica
   configuravel.
+
+Estado implementado no Marco 08:
+
+- `ZimbaNotificationListenerService` captura `package`, horario, titulo, texto,
+  `bigText`, id/tag e chave da notificacao.
+- A allowlist fica em `SharedPreferences` nativo e comeca vazia por seguranca.
+- O evento bruto e gravado imediatamente em SQLite nativo
+  `zimba_notification_events.db`.
+- `NotificationReprocessWorker` deixa o caminho de recuperacao preparado.
+- `MethodChannel br.com.zimbacontrol/notifications` expoe status, permissao,
+  allowlist, eventos recentes e expurgo.
+- Flutter sincroniza eventos recentes para Drift em `raw_notification_events`.
+- Parser local inicial identifica valores em BRL, Nubank/Mercado Pago por
+  pacote, cria rascunho pendente ou mescla fonte com transacao existente.
+- Preview web/macOS retorna estado indisponivel sem quebrar a tela.
+
+## Painel e Movimentacoes
+
+Estado implementado no Marco 09:
+
+- `watchAllTransactions` e `watchAllTransactionDetails` expoem transacoes
+  hidratadas para telas fora da Caixa de Revisao.
+- `buildOperationalDashboardSummary` calcula o mes atual, receitas, despesas,
+  saldo, pendencias, transferencias, compromissos futuros, projecao simples e
+  quebras por pessoa, categoria, centro de custo e origem.
+- A tela Resumo prioriza leitura operacional: quanto entrou, quanto saiu, para
+  quem foi, de onde veio e o que ainda vencera.
+- A tela Movimentacoes filtra localmente por mes atual, tipo, status, origem e
+  busca em descricao, merchant, pessoa, categoria, centro de custo e provider.
+- Importacao CSV/OFX foi mantida como acao dentro de Movimentacoes, sem virar
+  item principal separado na navegacao.
 
 ## Sync Futuro
 

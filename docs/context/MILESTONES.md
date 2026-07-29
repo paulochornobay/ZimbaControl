@@ -9,10 +9,10 @@
 - Marco 04 - Caixa de Revisao Real: concluido
 - Marco 05 - Estrutura Financeira Familiar: concluido
 - Marco 06 - Importacao CSV/OFX: concluido
-- Marco 07 - Conciliacao Financeira: proximo
-- Marco 08 - Captura Android: planejado
-- Marco 09 - Painel e Movimentacoes: planejado
-- Marco 10 - Backup e Recuperacao: planejado
+- Marco 07 - Conciliacao Financeira: concluido
+- Marco 08 - Captura Android: concluido
+- Marco 09 - Painel e Movimentacoes: concluido
+- Marco 10 - Backup e Recuperacao: proximo
 - Marco 11 - Sync e Acesso Opcional: planejado
 - Marco 12 - Seguranca e Publicacao: planejado
 
@@ -179,7 +179,12 @@ Criterio de aceite:
 
 - A mesma compra capturada por notificacao e extrato aparece apenas uma vez.
 
-Status: proximo.
+Status: concluido. O banco local agora tem `duplicate_candidates`,
+deduplicacao heuristica por valor/data/conta/descricao, merge de
+`transaction_sources` preservando origem, reimportacao sem nova despesa,
+pagamento de fatura classificado como transferencia, parcelas de cartao criando
+planos `credit_card_purchase` e consorcio ligado ao plano proprio do carro.
+Casos incertos seguem para a Caixa de Revisao com explicacao.
 
 ## Marco 08 - Captura Android
 
@@ -197,6 +202,14 @@ Criterio de aceite:
 
 - Uma notificacao autorizada gera um rascunho revisavel mesmo sem internet.
 
+Status: concluido para MVP tecnico. O Android agora tem
+`NotificationListenerService`, allowlist por app, persistencia nativa imediata
+em SQLite, WorkManager preparado para reprocessamento, ponte MethodChannel com
+Flutter, tabela Drift `raw_notification_events`, parser local simples de valor
+e criacao/merge de rascunhos na Caixa de Revisao. A tela Ajustes mostra
+permissao, apps monitorados e ultimos eventos. Validacao final em Android
+fisico ainda e recomendada com apps reais.
+
 ## Marco 09 - Painel e Movimentacoes
 
 Entregaveis:
@@ -213,6 +226,13 @@ Criterio de aceite:
 - Responder rapidamente quanto entrou, quanto saiu, para quem foi e o que ainda
   vencera.
 
+Status: concluido. A tela Resumo agora usa o mes atual como painel
+operacional, com receitas, despesas, saldo, pendencias, transferencias,
+compromissos futuros, projecao simples, quebras por pessoa, categoria, centro
+de custo e origem, alem de ultimas movimentacoes. A rota Movimentacoes virou
+lista real com busca, filtro de mes, tipo, status e origem; importacao CSV/OFX
+continua acessivel por acao dentro da tela.
+
 ## Marco 10 - Backup e Recuperacao
 
 Entregaveis:
@@ -226,6 +246,8 @@ Entregaveis:
 Criterio de aceite:
 
 - Reinstalar o aplicativo e recuperar os dados sem MongoDB.
+
+Status: proximo.
 
 ## Marco 11 - Sync e Acesso Opcional
 

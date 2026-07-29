@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:drift/drift.dart';
 
 import '../../application/import_parser.dart';
+import '../../infrastructure/notification_capture_service.dart';
 import 'connection/database_connection.dart';
 
 part 'app_database.g.dart';
@@ -307,6 +310,48 @@ class StagedSourceRecords extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@DataClassName('DuplicateCandidateRow')
+class DuplicateCandidates extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get transactionId => text()();
+  TextColumn get candidateTransactionId => text().nullable()();
+  TextColumn get stagedSourceRecordId => text().nullable()();
+  RealColumn get score => real()();
+  TextColumn get status => text().withDefault(const Constant('pending'))();
+  TextColumn get reason => text()();
+  TextColumn get explanation => text()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get resolvedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('RawNotificationEventRow')
+class RawNotificationEvents extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get platformEventId => text()();
+  TextColumn get packageName => text()();
+  TextColumn get appLabel => text().nullable()();
+  TextColumn get title => text().nullable()();
+  TextColumn get bodyText => text().nullable()();
+  TextColumn get bigText => text().nullable()();
+  IntColumn get notificationId => integer().nullable()();
+  TextColumn get tag => text().nullable()();
+  DateTimeColumn get postedAt => dateTime()();
+  DateTimeColumn get capturedAt => dateTime()();
+  TextColumn get status => text().withDefault(const Constant('captured'))();
+  TextColumn get rawPayloadJson => text().nullable()();
+  TextColumn get draftTransactionId => text().nullable()();
+  TextColumn get errorMessage => text().nullable()();
+  DateTimeColumn get processedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     People,
@@ -326,6 +371,8 @@ class StagedSourceRecords extends Table {
     InstallmentPlans,
     ImportBatches,
     StagedSourceRecords,
+    DuplicateCandidates,
+    RawNotificationEvents,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -337,7 +384,7 @@ class AppDatabase extends _$AppDatabase {
   static const reviewFilterPreferenceKey = 'review_filter';
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -377,6 +424,12 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(importBatches);
         await migrator.createTable(stagedSourceRecords);
       }
+      if (from < 6) {
+        await migrator.createTable(duplicateCandidates);
+      }
+      if (from < 7) {
+        await migrator.createTable(rawNotificationEvents);
+      }
     },
   );
 
@@ -386,6 +439,17 @@ class AppDatabase extends _$AppDatabase {
       ..orderBy([(row) => OrderingTerm.desc(row.occurredAt)])
       ..limit(20);
     return query.watch();
+  }
+
+  Stream<List<FinanceTransaction>> watchAllTransactions() {
+    final query = select(transactions)
+      ..where((row) => row.deletedAt.isNull())
+      ..orderBy([(row) => OrderingTerm.desc(row.occurredAt)]);
+    return query.watch();
+  }
+
+  Stream<List<ReviewTransactionDetails>> watchAllTransactionDetails() {
+    return watchAllTransactions().asyncMap(_hydrateReviewTransactions);
   }
 
   Stream<List<FinanceTransaction>> watchPendingReview() {
@@ -541,6 +605,194 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Future<List<DuplicateCandidateRow>> listDuplicateCandidates() {
+    final query = select(duplicateCandidates)
+      ..orderBy([(row) => OrderingTerm.desc(row.createdAt)]);
+    return query.get();
+  }
+
+  Future<List<TransactionSourceRow>> listTransactionSources(
+    String transactionId,
+  ) {
+    final query = select(transactionSources)
+      ..where((row) => row.transactionId.equals(transactionId));
+    return query.get();
+  }
+
+  Future<List<RawNotificationEventRow>> listRawNotificationEvents({
+    int limit = 25,
+  }) {
+    final query = select(rawNotificationEvents)
+      ..orderBy([(row) => OrderingTerm.desc(row.capturedAt)])
+      ..limit(limit);
+    return query.get();
+  }
+
+  Stream<List<RawNotificationEventRow>> watchRawNotificationEvents({
+    int limit = 25,
+  }) {
+    final query = select(rawNotificationEvents)
+      ..orderBy([(row) => OrderingTerm.desc(row.capturedAt)])
+      ..limit(limit);
+    return query.watch();
+  }
+
+  Future<NotificationCaptureSyncResult> syncNotificationCaptureEvents([
+    NotificationCaptureService service = const NotificationCaptureService(),
+  ]) async {
+    final events = await service.getRecentEvents();
+    var recorded = 0;
+    for (final event in events) {
+      await recordRawNotificationEvent(event);
+      recorded += 1;
+    }
+    final drafts = await processPendingRawNotificationEvents();
+    return NotificationCaptureSyncResult(recorded: recorded, drafts: drafts);
+  }
+
+  Future<void> recordRawNotificationEvent(
+    CapturedNotificationEvent event,
+  ) async {
+    if (event.id.trim().isEmpty) {
+      return;
+    }
+
+    await into(rawNotificationEvents).insertOnConflictUpdate(
+      RawNotificationEventsCompanion.insert(
+        id: 'raw-notif-${_compactId(event.id)}',
+        householdId: householdMain,
+        platformEventId: event.id,
+        packageName: event.packageName,
+        appLabel: Value(event.appLabel),
+        title: Value(event.title),
+        bodyText: Value(event.text),
+        bigText: Value(event.bigText),
+        notificationId: Value(event.notificationId),
+        tag: Value(event.tag),
+        postedAt: event.postedAt,
+        capturedAt: event.capturedAt,
+        rawPayloadJson: Value(event.rawPayloadJson),
+      ),
+    );
+  }
+
+  Future<int> processPendingRawNotificationEvents() async {
+    final rows =
+        await (select(rawNotificationEvents)
+              ..where((row) => row.status.equals('captured'))
+              ..orderBy([(row) => OrderingTerm.asc(row.capturedAt)]))
+            .get();
+    var drafts = 0;
+
+    for (final row in rows) {
+      final parsed = _parseRawNotificationEvent(row);
+      if (parsed == null) {
+        await _markRawNotification(
+          row.id,
+          status: 'ignored_no_amount',
+          errorMessage: 'Nao foi possivel identificar valor financeiro.',
+        );
+        continue;
+      }
+
+      final existing = await _findDuplicateNotification(row.platformEventId);
+      if (existing != null) {
+        await _markRawNotification(
+          row.id,
+          status: 'duplicate',
+          draftTransactionId: existing,
+        );
+        continue;
+      }
+
+      final match = await _findLikelyTransactionMatch(parsed);
+      if (match != null && match.score >= 0.82) {
+        await _mergeNotificationSourceWithTransaction(
+          row: row,
+          provider: parsed.provider,
+          confidence: parsed.confidence,
+          transactionId: match.transactionId,
+          explanation: match.explanation,
+        );
+        continue;
+      }
+
+      final txId = 'tx-${row.id}';
+      final existingTx = await getTransaction(txId);
+      if (existingTx != null) {
+        await _markRawNotification(
+          row.id,
+          status: 'duplicate',
+          draftTransactionId: txId,
+        );
+        continue;
+      }
+
+      await into(transactions).insert(
+        _transaction(
+          id: txId,
+          kind: parsed.amountCents! >= 0 ? 'income' : 'expense',
+          reviewStatus: 'pending',
+          duplicateStatus: match == null ? 'none' : 'probable',
+          amountCents: parsed.amountCents!,
+          description: parsed.description!,
+          accountId: _accountForProvider(parsed.provider),
+          occurredAt: parsed.occurredAt!,
+          confidence: parsed.confidence,
+        ),
+      );
+      await into(
+        transactionBeneficiaries,
+      ).insert(_beneficiary(txId, 'eu', true));
+      await into(reviewInbox).insert(
+        _reviewItem(
+          txId,
+          match == null
+              ? 'notification_capture_needs_review'
+              : 'possible_duplicate_needs_review',
+          DateTime.now(),
+        ),
+      );
+      await into(transactionSources).insert(
+        TransactionSourcesCompanion.insert(
+          id: 'src-$txId',
+          transactionId: txId,
+          sourceKind: 'notification',
+          provider: parsed.provider,
+          notificationKey: Value(row.platformEventId),
+          rawPayloadJson: Value(_rawNotificationPayload(row)),
+          occurredAt: Value(row.postedAt),
+          confidence: Value(parsed.confidence),
+        ),
+      );
+      if (match != null) {
+        await into(duplicateCandidates).insert(
+          DuplicateCandidatesCompanion.insert(
+            id: 'dup-${row.id}',
+            householdId: householdMain,
+            transactionId: match.transactionId,
+            candidateTransactionId: Value(txId),
+            score: match.score,
+            status: const Value('pending_review'),
+            reason: 'heuristic_notification_match',
+            explanation: match.explanation,
+            createdAt: DateTime.now(),
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+      }
+      await _markRawNotification(
+        row.id,
+        status: 'draft_created',
+        draftTransactionId: txId,
+      );
+      await _enqueueOutbox(txId, 'create');
+      drafts += 1;
+    }
+
+    return drafts;
+  }
+
   Future<ImportBatchDetails> importStatementFile({
     required String fileName,
     required List<int> bytes,
@@ -558,6 +810,7 @@ class AppDatabase extends _$AppDatabase {
     var duplicate = 0;
     var review = 0;
     final staged = <StagedSourceRecordsCompanion>[];
+    final candidates = <DuplicateCandidatesCompanion>[];
 
     for (final record in parsed.records) {
       final duplicateTransactionId = await _findDuplicateSource(
@@ -570,16 +823,28 @@ class AppDatabase extends _$AppDatabase {
         fileHash: parsed.fileHash,
         rowHash: record.rowHash,
       );
+      final likelyMatch =
+          !record.isValid || duplicateTransactionId != null || alreadyStaged
+          ? null
+          : await _findLikelyTransactionMatch(record);
+      final stagedId = 'staged-$batchId-${record.rowIndex}';
+      final shouldMerge = likelyMatch != null && likelyMatch.score >= 0.82;
       final status = !record.isValid
           ? 'invalid'
           : duplicateTransactionId != null || alreadyStaged
           ? 'duplicate'
+          : shouldMerge
+          ? 'merge_candidate'
           : 'needs_review';
+      final duplicateOfTransactionId =
+          duplicateTransactionId ?? likelyMatch?.transactionId;
+      final errorMessage = record.errorMessage ?? likelyMatch?.explanation;
 
       switch (status) {
         case 'invalid':
           invalid += 1;
         case 'duplicate':
+        case 'merge_candidate':
           duplicate += 1;
         default:
           valid += 1;
@@ -588,7 +853,7 @@ class AppDatabase extends _$AppDatabase {
 
       staged.add(
         StagedSourceRecordsCompanion.insert(
-          id: 'staged-$batchId-${record.rowIndex}',
+          id: stagedId,
           batchId: batchId,
           householdId: householdMain,
           sourceKind: record.sourceKind,
@@ -603,13 +868,29 @@ class AppDatabase extends _$AppDatabase {
           currencyCode: Value(record.currencyCode),
           accountHint: Value(record.accountHint),
           status: status,
-          duplicateOfTransactionId: Value(duplicateTransactionId),
-          errorMessage: Value(record.errorMessage),
+          duplicateOfTransactionId: Value(duplicateOfTransactionId),
+          errorMessage: Value(errorMessage),
           rawPayloadJson: Value(record.rawPayload),
           confidence: Value(record.confidence),
           createdAt: now,
         ),
       );
+
+      if (likelyMatch != null) {
+        candidates.add(
+          DuplicateCandidatesCompanion.insert(
+            id: 'dup-$stagedId',
+            householdId: householdMain,
+            transactionId: likelyMatch.transactionId,
+            stagedSourceRecordId: Value(stagedId),
+            score: likelyMatch.score,
+            status: Value(shouldMerge ? 'auto_merged' : 'pending_review'),
+            reason: 'heuristic_source_match',
+            explanation: likelyMatch.explanation,
+            createdAt: now,
+          ),
+        );
+      }
     }
 
     final batchCompanion = ImportBatchesCompanion.insert(
@@ -632,6 +913,9 @@ class AppDatabase extends _$AppDatabase {
     if (staged.isNotEmpty) {
       await batch((batch) {
         batch.insertAll(stagedSourceRecords, staged);
+        if (candidates.isNotEmpty) {
+          batch.insertAll(duplicateCandidates, candidates);
+        }
       });
     }
 
@@ -662,11 +946,23 @@ class AppDatabase extends _$AppDatabase {
     final rows =
         await (select(stagedSourceRecords)
               ..where((row) => row.batchId.equals(batchId))
-              ..where((row) => row.status.equals('needs_review')))
+              ..where(
+                (row) => row.status.isIn(['needs_review', 'merge_candidate']),
+              ))
             .get();
     var promoted = 0;
 
     for (final row in rows) {
+      if (row.status == 'merge_candidate' &&
+          row.duplicateOfTransactionId != null) {
+        await _mergeStagedSourceWithTransaction(
+          row: row,
+          importBatch: importBatch,
+          transactionId: row.duplicateOfTransactionId!,
+        );
+        continue;
+      }
+
       if (row.descriptionRaw == null ||
           row.amountCents == null ||
           row.occurredAt == null) {
@@ -679,15 +975,23 @@ class AppDatabase extends _$AppDatabase {
         continue;
       }
 
+      final classification = await _classifyStagedRecord(row);
       await into(transactions).insert(
         _transaction(
           id: txId,
-          kind: row.amountCents! >= 0 ? 'income' : 'expense',
+          kind: classification.kind,
           reviewStatus: 'pending',
-          duplicateStatus: 'none',
+          duplicateStatus: row.duplicateOfTransactionId == null
+              ? 'none'
+              : 'probable',
           amountCents: row.amountCents!,
           description: row.descriptionRaw!,
-          accountId: _accountForProvider(row.provider),
+          accountId: classification.accountId,
+          transferFromAccountId: classification.transferFromAccountId,
+          transferToAccountId: classification.transferToAccountId,
+          installmentPlanId: classification.installmentPlanId,
+          categoryId: classification.categoryId,
+          costCenterId: classification.costCenterId,
           occurredAt: row.occurredAt!,
           confidence: row.confidence,
         ),
@@ -695,9 +999,9 @@ class AppDatabase extends _$AppDatabase {
       await into(
         transactionBeneficiaries,
       ).insert(_beneficiary(txId, 'eu', true));
-      await into(reviewInbox).insert(
-        _reviewItem(txId, 'imported_statement_needs_review', DateTime.now()),
-      );
+      await into(
+        reviewInbox,
+      ).insert(_reviewItem(txId, classification.reviewReason, DateTime.now()));
       await into(transactionSources).insert(
         TransactionSourcesCompanion.insert(
           id: 'src-$txId',
@@ -718,6 +1022,14 @@ class AppDatabase extends _$AppDatabase {
         StagedSourceRecordsCompanion(
           status: const Value('promoted'),
           promotedAt: Value(DateTime.now()),
+        ),
+      );
+      await (update(
+        duplicateCandidates,
+      )..where((item) => item.stagedSourceRecordId.equals(row.id))).write(
+        DuplicateCandidatesCompanion(
+          candidateTransactionId: Value(txId),
+          status: const Value('pending_review'),
         ),
       );
       await _enqueueOutbox(txId, 'create');
@@ -1456,6 +1768,542 @@ class AppDatabase extends _$AppDatabase {
     return byExternalId?.transactionId;
   }
 
+  Future<String?> _findDuplicateNotification(String notificationKey) async {
+    final exact =
+        await (select(transactionSources)
+              ..where((row) => row.notificationKey.equals(notificationKey))
+              ..limit(1))
+            .getSingleOrNull();
+    return exact?.transactionId;
+  }
+
+  Future<_ReconciliationMatch?> _findLikelyTransactionMatch(
+    CanonicalImportRecord record,
+  ) async {
+    if (!record.isValid) {
+      return null;
+    }
+
+    final candidates =
+        await (select(transactions)
+              ..where((row) => row.deletedAt.isNull())
+              ..where((row) => row.amountCents.equals(record.amountCents!)))
+            .get();
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    final providerAccountId = _accountForProvider(record.provider);
+    final recordTokens = _conciliationTokens(record.description ?? '');
+    _ReconciliationMatch? best;
+
+    for (final candidate in candidates) {
+      final daysApart = candidate.occurredAt
+          .difference(record.occurredAt!)
+          .inDays
+          .abs();
+      if (daysApart > 3) {
+        continue;
+      }
+
+      var score = 0.4;
+      final parts = <String>['valor igual'];
+
+      if (daysApart == 0) {
+        score += 0.25;
+        parts.add('mesma data');
+      } else if (daysApart == 1) {
+        score += 0.22;
+        parts.add('data com diferenca de 1 dia');
+      } else {
+        score += 0.15;
+        parts.add('data proxima');
+      }
+
+      if (providerAccountId != null &&
+          candidate.accountId == providerAccountId) {
+        score += 0.1;
+        parts.add('mesma conta');
+      } else if (candidate.accountId == null) {
+        score += 0.04;
+        parts.add('conta ainda nao definida');
+      }
+
+      final candidateTokens = _conciliationTokens(candidate.descriptionRaw);
+      final overlap = _tokenOverlap(recordTokens, candidateTokens);
+      if (overlap >= 0.6) {
+        score += 0.25;
+        parts.add('descricao muito parecida');
+      } else if (overlap >= 0.35) {
+        score += 0.18;
+        parts.add('descricao parecida');
+      } else if (_normalizedConciliationText(
+            candidate.descriptionRaw,
+          ).contains(_normalizedConciliationText(record.description ?? '')) ||
+          _normalizedConciliationText(
+            record.description ?? '',
+          ).contains(_normalizedConciliationText(candidate.descriptionRaw))) {
+        score += 0.2;
+        parts.add('descricao contida em outra fonte');
+      }
+
+      if (score < 0.65) {
+        continue;
+      }
+
+      final match = _ReconciliationMatch(
+        transactionId: candidate.id,
+        score: score.clamp(0, 1).toDouble(),
+        explanation:
+            'Possivel mesma movimentacao: ${parts.join(', ')}. '
+            'Confianca ${(score.clamp(0, 1) * 100).round()}%.',
+      );
+      if (best == null || match.score > best.score) {
+        best = match;
+      }
+    }
+
+    return best;
+  }
+
+  Future<void> _mergeNotificationSourceWithTransaction({
+    required RawNotificationEventRow row,
+    required String provider,
+    required double confidence,
+    required String transactionId,
+    required String explanation,
+  }) async {
+    final now = DateTime.now();
+    final transaction = await getTransaction(transactionId);
+    if (transaction == null) {
+      return;
+    }
+
+    await into(transactionSources).insert(
+      TransactionSourcesCompanion.insert(
+        id: 'src-merge-${row.id}',
+        transactionId: transactionId,
+        sourceKind: 'notification',
+        provider: provider,
+        notificationKey: Value(row.platformEventId),
+        rawPayloadJson: Value(_rawNotificationPayload(row)),
+        occurredAt: Value(row.postedAt),
+        confidence: Value(confidence),
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+    if (confidence > transaction.sourceConfidence) {
+      await (update(
+        transactions,
+      )..where((item) => item.id.equals(transactionId))).write(
+        TransactionsCompanion(
+          sourceConfidence: Value(confidence),
+          updatedAt: Value(now),
+        ),
+      );
+    }
+    await into(duplicateCandidates).insert(
+      DuplicateCandidatesCompanion.insert(
+        id: 'dup-${row.id}',
+        householdId: householdMain,
+        transactionId: transactionId,
+        score: 0.9,
+        status: const Value('auto_merged'),
+        reason: 'heuristic_notification_match',
+        explanation: explanation,
+        createdAt: now,
+        resolvedAt: Value(now),
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+    await _markRawNotification(
+      row.id,
+      status: 'merged',
+      draftTransactionId: transactionId,
+    );
+    await _enqueueOutbox(transactionId, 'update');
+  }
+
+  CanonicalImportRecord? _parseRawNotificationEvent(
+    RawNotificationEventRow row,
+  ) {
+    final text = [
+      row.title,
+      row.bodyText,
+      row.bigText,
+    ].whereType<String>().join(' ');
+    final amount = _parseNotificationAmountCents(text);
+    if (amount == null) {
+      return null;
+    }
+
+    final provider = _providerForPackage(row.packageName);
+    final description = _notificationDescription(row);
+    return CanonicalImportRecord(
+      rowIndex: 0,
+      rowHash: row.platformEventId,
+      sourceKind: 'notification',
+      provider: provider,
+      rawPayload: _rawNotificationPayload(row),
+      externalId: row.platformEventId,
+      occurredAt: row.postedAt,
+      postedAt: row.postedAt,
+      description: description,
+      amountCents: amount,
+      accountHint: provider,
+      confidence: 0.76,
+    );
+  }
+
+  int? _parseNotificationAmountCents(String text) {
+    final match = RegExp(
+      r'(?:R\$\s*)?-?\d{1,3}(?:[.\s]\d{3})*(?:,\d{2})|(?:R\$\s*)?-?\d+,\d{2}',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (match == null) {
+      return null;
+    }
+
+    final parsed = parseAmountCents(match.group(0) ?? '');
+    if (parsed == null) {
+      return null;
+    }
+
+    final normalized = _normalizedConciliationText(text);
+    final isIncome =
+        normalized.contains('receb') ||
+        normalized.contains('deposito') ||
+        normalized.contains('transferencia recebida') ||
+        normalized.contains('pix recebido');
+    final isExpense =
+        normalized.contains('compra') ||
+        normalized.contains('pagamento') ||
+        normalized.contains('enviado') ||
+        normalized.contains('debito') ||
+        normalized.contains('cartao');
+
+    if (isIncome && !isExpense) {
+      return parsed.abs();
+    }
+    return -parsed.abs();
+  }
+
+  String _providerForPackage(String packageName) {
+    final normalized = packageName.toLowerCase();
+    if (normalized.contains('nubank') || normalized.contains('.nu')) {
+      return 'nubank';
+    }
+    if (normalized.contains('mercadopago') || normalized.contains('mercado')) {
+      return 'mercado_pago';
+    }
+    return 'unknown';
+  }
+
+  String _notificationDescription(RawNotificationEventRow row) {
+    final candidates = [row.title, row.bodyText, row.bigText, row.appLabel];
+    final description = candidates
+        .whereType<String>()
+        .map((value) => value.trim())
+        .firstWhere((value) => value.isNotEmpty, orElse: () => 'Notificacao');
+    return description.length <= 96
+        ? description
+        : description.substring(0, 96);
+  }
+
+  String _rawNotificationPayload(RawNotificationEventRow row) {
+    if (row.rawPayloadJson != null && row.rawPayloadJson!.trim().isNotEmpty) {
+      return row.rawPayloadJson!;
+    }
+    return jsonEncode({
+      'platformEventId': row.platformEventId,
+      'packageName': row.packageName,
+      'appLabel': row.appLabel,
+      'title': row.title,
+      'text': row.bodyText,
+      'bigText': row.bigText,
+      'notificationId': row.notificationId,
+      'tag': row.tag,
+      'postedAt': row.postedAt.toIso8601String(),
+      'capturedAt': row.capturedAt.toIso8601String(),
+    });
+  }
+
+  Future<void> _markRawNotification(
+    String id, {
+    required String status,
+    String? draftTransactionId,
+    String? errorMessage,
+  }) {
+    return (update(
+      rawNotificationEvents,
+    )..where((row) => row.id.equals(id))).write(
+      RawNotificationEventsCompanion(
+        status: Value(status),
+        draftTransactionId: Value(draftTransactionId),
+        errorMessage: Value(errorMessage),
+        processedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> _mergeStagedSourceWithTransaction({
+    required StagedSourceRecordRow row,
+    required ImportBatchRow importBatch,
+    required String transactionId,
+  }) async {
+    final now = DateTime.now();
+    final transaction = await getTransaction(transactionId);
+    if (transaction == null) {
+      return;
+    }
+
+    await into(transactionSources).insert(
+      TransactionSourcesCompanion.insert(
+        id: 'src-merge-${row.id}',
+        transactionId: transactionId,
+        sourceKind: row.sourceKind,
+        provider: row.provider,
+        externalId: Value(row.externalId),
+        fileHash: Value(importBatch.fileHash),
+        rowHash: Value(row.rowHash),
+        rawPayloadJson: Value(row.rawPayloadJson),
+        occurredAt: Value(row.occurredAt),
+        confidence: Value(row.confidence),
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+    if (row.confidence > transaction.sourceConfidence) {
+      await (update(
+        transactions,
+      )..where((item) => item.id.equals(transactionId))).write(
+        TransactionsCompanion(
+          sourceConfidence: Value(row.confidence),
+          updatedAt: Value(now),
+        ),
+      );
+    }
+    await (update(
+      stagedSourceRecords,
+    )..where((item) => item.id.equals(row.id))).write(
+      StagedSourceRecordsCompanion(
+        status: const Value('merged'),
+        duplicateOfTransactionId: Value(transactionId),
+        promotedAt: Value(now),
+      ),
+    );
+    await (update(
+      duplicateCandidates,
+    )..where((item) => item.stagedSourceRecordId.equals(row.id))).write(
+      DuplicateCandidatesCompanion(
+        status: const Value('auto_merged'),
+        resolvedAt: Value(now),
+      ),
+    );
+    await _enqueueOutbox(transactionId, 'update');
+  }
+
+  Future<_PromotedRecordClassification> _classifyStagedRecord(
+    StagedSourceRecordRow row,
+  ) async {
+    final accountId = _accountForProvider(row.provider);
+    final description = row.descriptionRaw ?? '';
+    if (_isInvoicePayment(description)) {
+      final transferToAccountId = accountId == 'nu' ? null : 'nu';
+      return _PromotedRecordClassification(
+        kind: 'transfer',
+        accountId: accountId,
+        transferFromAccountId: accountId,
+        transferToAccountId: transferToAccountId,
+        reviewReason: 'invoice_payment_transfer_needs_review',
+      );
+    }
+
+    if (_isConsortiumPayment(description)) {
+      return _PromotedRecordClassification(
+        kind: row.amountCents! >= 0 ? 'income' : 'expense',
+        accountId: accountId,
+        installmentPlanId: 'plan-consorcio-carro',
+        categoryId: 'transporte',
+        costCenterId: 'casa',
+        reviewReason: 'consortium_payment_needs_review',
+      );
+    }
+
+    final installment = _installmentHint(description);
+    if (installment != null && row.occurredAt != null) {
+      final planId = await _ensureCreditCardInstallmentPlan(row, installment);
+      return _PromotedRecordClassification(
+        kind: row.amountCents! >= 0 ? 'income' : 'expense',
+        accountId: accountId,
+        installmentPlanId: planId,
+        reviewReason: 'installment_purchase_needs_review',
+      );
+    }
+
+    return _PromotedRecordClassification(
+      kind: row.amountCents! >= 0 ? 'income' : 'expense',
+      accountId: accountId,
+      reviewReason: row.duplicateOfTransactionId == null
+          ? 'imported_statement_needs_review'
+          : 'possible_duplicate_needs_review',
+    );
+  }
+
+  Future<String> _ensureCreditCardInstallmentPlan(
+    StagedSourceRecordRow row,
+    _InstallmentHint installment,
+  ) async {
+    final occurredAt = row.occurredAt!;
+    final label = _cleanInstallmentLabel(row.descriptionRaw ?? 'Compra');
+    final planId =
+        'plan-card-${_compactId(label)}-${_monthKey(occurredAt)}-'
+        '${installment.totalInstallments}-${row.amountCents!.abs()}';
+    final start = _shiftMonth(occurredAt, 1 - installment.currentInstallment);
+    final end = _shiftMonth(
+      occurredAt,
+      installment.totalInstallments - installment.currentInstallment,
+    );
+
+    await into(installmentPlans).insert(
+      InstallmentPlansCompanion.insert(
+        id: planId,
+        householdId: householdMain,
+        label: label,
+        planKind: 'credit_card_purchase',
+        ownerPersonId: const Value('eu'),
+        totalAmountCents: Value(
+          row.amountCents!.abs() * installment.totalInstallments,
+        ),
+        installmentAmountCents: row.amountCents!.abs(),
+        currentInstallment: installment.currentInstallment,
+        totalInstallments: installment.totalInstallments,
+        startMonth: _monthKey(start),
+        endMonth: Value(_monthKey(end)),
+        updatedAt: DateTime.now(),
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+
+    return planId;
+  }
+
+  bool _isInvoicePayment(String description) {
+    final text = _normalizedConciliationText(description);
+    return text.contains('pagamento fatura') ||
+        text.contains('pag fatura') ||
+        text.contains('fatura cartao') ||
+        text.contains('fatura nubank') ||
+        text.contains('pagamento cartao');
+  }
+
+  bool _isConsortiumPayment(String description) {
+    return _normalizedConciliationText(description).contains('consorcio');
+  }
+
+  _InstallmentHint? _installmentHint(String description) {
+    final text = _foldAccents(description.toLowerCase());
+    final match = RegExp(
+      r'(?:parcela\s*)?(\d{1,2})\s*/\s*(\d{1,2})',
+    ).firstMatch(text);
+    if (match == null) {
+      return null;
+    }
+
+    final current = int.parse(match.group(1)!);
+    final total = int.parse(match.group(2)!);
+    if (current <= 0 || total <= 1 || current > total || total > 120) {
+      return null;
+    }
+    return _InstallmentHint(
+      currentInstallment: current,
+      totalInstallments: total,
+    );
+  }
+
+  String _cleanInstallmentLabel(String description) {
+    final cleaned = description
+        .replaceAll(
+          RegExp(r'(?:parcela\s*)?\d{1,2}\s*/\s*\d{1,2}', caseSensitive: false),
+          '',
+        )
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    return cleaned.isEmpty ? 'Compra parcelada' : cleaned;
+  }
+
+  String _normalizedConciliationText(String value) {
+    return _foldAccents(value.toLowerCase())
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  String _foldAccents(String value) {
+    const replacements = {
+      'á': 'a',
+      'à': 'a',
+      'ã': 'a',
+      'â': 'a',
+      'é': 'e',
+      'ê': 'e',
+      'í': 'i',
+      'ó': 'o',
+      'ô': 'o',
+      'õ': 'o',
+      'ú': 'u',
+      'ç': 'c',
+    };
+    return value.split('').map((char) => replacements[char] ?? char).join();
+  }
+
+  Set<String> _conciliationTokens(String value) {
+    const ignored = {
+      'de',
+      'da',
+      'do',
+      'das',
+      'dos',
+      'em',
+      'no',
+      'na',
+      'pagamento',
+      'compra',
+      'pix',
+    };
+    return _normalizedConciliationText(value)
+        .split(' ')
+        .where((token) => token.length >= 3 && !ignored.contains(token))
+        .toSet();
+  }
+
+  double _tokenOverlap(Set<String> left, Set<String> right) {
+    if (left.isEmpty || right.isEmpty) {
+      return 0;
+    }
+    final intersection = left.intersection(right).length;
+    final smallest = left.length < right.length ? left.length : right.length;
+    return intersection / smallest;
+  }
+
+  String _compactId(String value) {
+    final compact = _normalizedConciliationText(
+      value,
+    ).replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '');
+    if (compact.isEmpty) {
+      return 'compra';
+    }
+    return compact.length <= 32 ? compact : compact.substring(0, 32);
+  }
+
+  String _monthKey(DateTime date) {
+    return '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}';
+  }
+
+  DateTime _shiftMonth(DateTime date, int months) {
+    return DateTime(date.year, date.month + months, 1);
+  }
+
   Future<bool> _hasStagedSource({
     required String fileHash,
     required String rowHash,
@@ -1901,4 +2749,58 @@ class ImportBatchDetails {
 
   final ImportBatchRow batch;
   final List<StagedSourceRecordRow> records;
+}
+
+class NotificationCaptureSyncResult {
+  const NotificationCaptureSyncResult({
+    required this.recorded,
+    required this.drafts,
+  });
+
+  final int recorded;
+  final int drafts;
+}
+
+class _ReconciliationMatch {
+  const _ReconciliationMatch({
+    required this.transactionId,
+    required this.score,
+    required this.explanation,
+  });
+
+  final String transactionId;
+  final double score;
+  final String explanation;
+}
+
+class _PromotedRecordClassification {
+  const _PromotedRecordClassification({
+    required this.kind,
+    required this.accountId,
+    required this.reviewReason,
+    this.transferFromAccountId,
+    this.transferToAccountId,
+    this.installmentPlanId,
+    this.categoryId,
+    this.costCenterId,
+  });
+
+  final String kind;
+  final String? accountId;
+  final String reviewReason;
+  final String? transferFromAccountId;
+  final String? transferToAccountId;
+  final String? installmentPlanId;
+  final String? categoryId;
+  final String? costCenterId;
+}
+
+class _InstallmentHint {
+  const _InstallmentHint({
+    required this.currentInstallment,
+    required this.totalInstallments,
+  });
+
+  final int currentInstallment;
+  final int totalInstallments;
 }

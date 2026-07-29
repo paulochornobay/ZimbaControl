@@ -11354,6 +11354,1707 @@ class StagedSourceRecordsCompanion
   }
 }
 
+class $DuplicateCandidatesTable extends DuplicateCandidates
+    with TableInfo<$DuplicateCandidatesTable, DuplicateCandidateRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DuplicateCandidatesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _householdIdMeta = const VerificationMeta(
+    'householdId',
+  );
+  @override
+  late final GeneratedColumn<String> householdId = GeneratedColumn<String>(
+    'household_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _transactionIdMeta = const VerificationMeta(
+    'transactionId',
+  );
+  @override
+  late final GeneratedColumn<String> transactionId = GeneratedColumn<String>(
+    'transaction_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _candidateTransactionIdMeta =
+      const VerificationMeta('candidateTransactionId');
+  @override
+  late final GeneratedColumn<String> candidateTransactionId =
+      GeneratedColumn<String>(
+        'candidate_transaction_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _stagedSourceRecordIdMeta =
+      const VerificationMeta('stagedSourceRecordId');
+  @override
+  late final GeneratedColumn<String> stagedSourceRecordId =
+      GeneratedColumn<String>(
+        'staged_source_record_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _scoreMeta = const VerificationMeta('score');
+  @override
+  late final GeneratedColumn<double> score = GeneratedColumn<double>(
+    'score',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending'),
+  );
+  static const VerificationMeta _reasonMeta = const VerificationMeta('reason');
+  @override
+  late final GeneratedColumn<String> reason = GeneratedColumn<String>(
+    'reason',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _explanationMeta = const VerificationMeta(
+    'explanation',
+  );
+  @override
+  late final GeneratedColumn<String> explanation = GeneratedColumn<String>(
+    'explanation',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _resolvedAtMeta = const VerificationMeta(
+    'resolvedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> resolvedAt = GeneratedColumn<DateTime>(
+    'resolved_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    householdId,
+    transactionId,
+    candidateTransactionId,
+    stagedSourceRecordId,
+    score,
+    status,
+    reason,
+    explanation,
+    createdAt,
+    resolvedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'duplicate_candidates';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DuplicateCandidateRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('household_id')) {
+      context.handle(
+        _householdIdMeta,
+        householdId.isAcceptableOrUnknown(
+          data['household_id']!,
+          _householdIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_householdIdMeta);
+    }
+    if (data.containsKey('transaction_id')) {
+      context.handle(
+        _transactionIdMeta,
+        transactionId.isAcceptableOrUnknown(
+          data['transaction_id']!,
+          _transactionIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_transactionIdMeta);
+    }
+    if (data.containsKey('candidate_transaction_id')) {
+      context.handle(
+        _candidateTransactionIdMeta,
+        candidateTransactionId.isAcceptableOrUnknown(
+          data['candidate_transaction_id']!,
+          _candidateTransactionIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('staged_source_record_id')) {
+      context.handle(
+        _stagedSourceRecordIdMeta,
+        stagedSourceRecordId.isAcceptableOrUnknown(
+          data['staged_source_record_id']!,
+          _stagedSourceRecordIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('score')) {
+      context.handle(
+        _scoreMeta,
+        score.isAcceptableOrUnknown(data['score']!, _scoreMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_scoreMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('reason')) {
+      context.handle(
+        _reasonMeta,
+        reason.isAcceptableOrUnknown(data['reason']!, _reasonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_reasonMeta);
+    }
+    if (data.containsKey('explanation')) {
+      context.handle(
+        _explanationMeta,
+        explanation.isAcceptableOrUnknown(
+          data['explanation']!,
+          _explanationMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_explanationMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('resolved_at')) {
+      context.handle(
+        _resolvedAtMeta,
+        resolvedAt.isAcceptableOrUnknown(data['resolved_at']!, _resolvedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  DuplicateCandidateRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DuplicateCandidateRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      householdId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}household_id'],
+      )!,
+      transactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}transaction_id'],
+      )!,
+      candidateTransactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}candidate_transaction_id'],
+      ),
+      stagedSourceRecordId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}staged_source_record_id'],
+      ),
+      score: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}score'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      reason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reason'],
+      )!,
+      explanation: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}explanation'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      resolvedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}resolved_at'],
+      ),
+    );
+  }
+
+  @override
+  $DuplicateCandidatesTable createAlias(String alias) {
+    return $DuplicateCandidatesTable(attachedDatabase, alias);
+  }
+}
+
+class DuplicateCandidateRow extends DataClass
+    implements Insertable<DuplicateCandidateRow> {
+  final String id;
+  final String householdId;
+  final String transactionId;
+  final String? candidateTransactionId;
+  final String? stagedSourceRecordId;
+  final double score;
+  final String status;
+  final String reason;
+  final String explanation;
+  final DateTime createdAt;
+  final DateTime? resolvedAt;
+  const DuplicateCandidateRow({
+    required this.id,
+    required this.householdId,
+    required this.transactionId,
+    this.candidateTransactionId,
+    this.stagedSourceRecordId,
+    required this.score,
+    required this.status,
+    required this.reason,
+    required this.explanation,
+    required this.createdAt,
+    this.resolvedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['household_id'] = Variable<String>(householdId);
+    map['transaction_id'] = Variable<String>(transactionId);
+    if (!nullToAbsent || candidateTransactionId != null) {
+      map['candidate_transaction_id'] = Variable<String>(
+        candidateTransactionId,
+      );
+    }
+    if (!nullToAbsent || stagedSourceRecordId != null) {
+      map['staged_source_record_id'] = Variable<String>(stagedSourceRecordId);
+    }
+    map['score'] = Variable<double>(score);
+    map['status'] = Variable<String>(status);
+    map['reason'] = Variable<String>(reason);
+    map['explanation'] = Variable<String>(explanation);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || resolvedAt != null) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt);
+    }
+    return map;
+  }
+
+  DuplicateCandidatesCompanion toCompanion(bool nullToAbsent) {
+    return DuplicateCandidatesCompanion(
+      id: Value(id),
+      householdId: Value(householdId),
+      transactionId: Value(transactionId),
+      candidateTransactionId: candidateTransactionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(candidateTransactionId),
+      stagedSourceRecordId: stagedSourceRecordId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(stagedSourceRecordId),
+      score: Value(score),
+      status: Value(status),
+      reason: Value(reason),
+      explanation: Value(explanation),
+      createdAt: Value(createdAt),
+      resolvedAt: resolvedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resolvedAt),
+    );
+  }
+
+  factory DuplicateCandidateRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DuplicateCandidateRow(
+      id: serializer.fromJson<String>(json['id']),
+      householdId: serializer.fromJson<String>(json['householdId']),
+      transactionId: serializer.fromJson<String>(json['transactionId']),
+      candidateTransactionId: serializer.fromJson<String?>(
+        json['candidateTransactionId'],
+      ),
+      stagedSourceRecordId: serializer.fromJson<String?>(
+        json['stagedSourceRecordId'],
+      ),
+      score: serializer.fromJson<double>(json['score']),
+      status: serializer.fromJson<String>(json['status']),
+      reason: serializer.fromJson<String>(json['reason']),
+      explanation: serializer.fromJson<String>(json['explanation']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      resolvedAt: serializer.fromJson<DateTime?>(json['resolvedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'householdId': serializer.toJson<String>(householdId),
+      'transactionId': serializer.toJson<String>(transactionId),
+      'candidateTransactionId': serializer.toJson<String?>(
+        candidateTransactionId,
+      ),
+      'stagedSourceRecordId': serializer.toJson<String?>(stagedSourceRecordId),
+      'score': serializer.toJson<double>(score),
+      'status': serializer.toJson<String>(status),
+      'reason': serializer.toJson<String>(reason),
+      'explanation': serializer.toJson<String>(explanation),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'resolvedAt': serializer.toJson<DateTime?>(resolvedAt),
+    };
+  }
+
+  DuplicateCandidateRow copyWith({
+    String? id,
+    String? householdId,
+    String? transactionId,
+    Value<String?> candidateTransactionId = const Value.absent(),
+    Value<String?> stagedSourceRecordId = const Value.absent(),
+    double? score,
+    String? status,
+    String? reason,
+    String? explanation,
+    DateTime? createdAt,
+    Value<DateTime?> resolvedAt = const Value.absent(),
+  }) => DuplicateCandidateRow(
+    id: id ?? this.id,
+    householdId: householdId ?? this.householdId,
+    transactionId: transactionId ?? this.transactionId,
+    candidateTransactionId: candidateTransactionId.present
+        ? candidateTransactionId.value
+        : this.candidateTransactionId,
+    stagedSourceRecordId: stagedSourceRecordId.present
+        ? stagedSourceRecordId.value
+        : this.stagedSourceRecordId,
+    score: score ?? this.score,
+    status: status ?? this.status,
+    reason: reason ?? this.reason,
+    explanation: explanation ?? this.explanation,
+    createdAt: createdAt ?? this.createdAt,
+    resolvedAt: resolvedAt.present ? resolvedAt.value : this.resolvedAt,
+  );
+  DuplicateCandidateRow copyWithCompanion(DuplicateCandidatesCompanion data) {
+    return DuplicateCandidateRow(
+      id: data.id.present ? data.id.value : this.id,
+      householdId: data.householdId.present
+          ? data.householdId.value
+          : this.householdId,
+      transactionId: data.transactionId.present
+          ? data.transactionId.value
+          : this.transactionId,
+      candidateTransactionId: data.candidateTransactionId.present
+          ? data.candidateTransactionId.value
+          : this.candidateTransactionId,
+      stagedSourceRecordId: data.stagedSourceRecordId.present
+          ? data.stagedSourceRecordId.value
+          : this.stagedSourceRecordId,
+      score: data.score.present ? data.score.value : this.score,
+      status: data.status.present ? data.status.value : this.status,
+      reason: data.reason.present ? data.reason.value : this.reason,
+      explanation: data.explanation.present
+          ? data.explanation.value
+          : this.explanation,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      resolvedAt: data.resolvedAt.present
+          ? data.resolvedAt.value
+          : this.resolvedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DuplicateCandidateRow(')
+          ..write('id: $id, ')
+          ..write('householdId: $householdId, ')
+          ..write('transactionId: $transactionId, ')
+          ..write('candidateTransactionId: $candidateTransactionId, ')
+          ..write('stagedSourceRecordId: $stagedSourceRecordId, ')
+          ..write('score: $score, ')
+          ..write('status: $status, ')
+          ..write('reason: $reason, ')
+          ..write('explanation: $explanation, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('resolvedAt: $resolvedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    householdId,
+    transactionId,
+    candidateTransactionId,
+    stagedSourceRecordId,
+    score,
+    status,
+    reason,
+    explanation,
+    createdAt,
+    resolvedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DuplicateCandidateRow &&
+          other.id == this.id &&
+          other.householdId == this.householdId &&
+          other.transactionId == this.transactionId &&
+          other.candidateTransactionId == this.candidateTransactionId &&
+          other.stagedSourceRecordId == this.stagedSourceRecordId &&
+          other.score == this.score &&
+          other.status == this.status &&
+          other.reason == this.reason &&
+          other.explanation == this.explanation &&
+          other.createdAt == this.createdAt &&
+          other.resolvedAt == this.resolvedAt);
+}
+
+class DuplicateCandidatesCompanion
+    extends UpdateCompanion<DuplicateCandidateRow> {
+  final Value<String> id;
+  final Value<String> householdId;
+  final Value<String> transactionId;
+  final Value<String?> candidateTransactionId;
+  final Value<String?> stagedSourceRecordId;
+  final Value<double> score;
+  final Value<String> status;
+  final Value<String> reason;
+  final Value<String> explanation;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> resolvedAt;
+  final Value<int> rowid;
+  const DuplicateCandidatesCompanion({
+    this.id = const Value.absent(),
+    this.householdId = const Value.absent(),
+    this.transactionId = const Value.absent(),
+    this.candidateTransactionId = const Value.absent(),
+    this.stagedSourceRecordId = const Value.absent(),
+    this.score = const Value.absent(),
+    this.status = const Value.absent(),
+    this.reason = const Value.absent(),
+    this.explanation = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  DuplicateCandidatesCompanion.insert({
+    required String id,
+    required String householdId,
+    required String transactionId,
+    this.candidateTransactionId = const Value.absent(),
+    this.stagedSourceRecordId = const Value.absent(),
+    required double score,
+    this.status = const Value.absent(),
+    required String reason,
+    required String explanation,
+    required DateTime createdAt,
+    this.resolvedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       householdId = Value(householdId),
+       transactionId = Value(transactionId),
+       score = Value(score),
+       reason = Value(reason),
+       explanation = Value(explanation),
+       createdAt = Value(createdAt);
+  static Insertable<DuplicateCandidateRow> custom({
+    Expression<String>? id,
+    Expression<String>? householdId,
+    Expression<String>? transactionId,
+    Expression<String>? candidateTransactionId,
+    Expression<String>? stagedSourceRecordId,
+    Expression<double>? score,
+    Expression<String>? status,
+    Expression<String>? reason,
+    Expression<String>? explanation,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? resolvedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (householdId != null) 'household_id': householdId,
+      if (transactionId != null) 'transaction_id': transactionId,
+      if (candidateTransactionId != null)
+        'candidate_transaction_id': candidateTransactionId,
+      if (stagedSourceRecordId != null)
+        'staged_source_record_id': stagedSourceRecordId,
+      if (score != null) 'score': score,
+      if (status != null) 'status': status,
+      if (reason != null) 'reason': reason,
+      if (explanation != null) 'explanation': explanation,
+      if (createdAt != null) 'created_at': createdAt,
+      if (resolvedAt != null) 'resolved_at': resolvedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  DuplicateCandidatesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? householdId,
+    Value<String>? transactionId,
+    Value<String?>? candidateTransactionId,
+    Value<String?>? stagedSourceRecordId,
+    Value<double>? score,
+    Value<String>? status,
+    Value<String>? reason,
+    Value<String>? explanation,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? resolvedAt,
+    Value<int>? rowid,
+  }) {
+    return DuplicateCandidatesCompanion(
+      id: id ?? this.id,
+      householdId: householdId ?? this.householdId,
+      transactionId: transactionId ?? this.transactionId,
+      candidateTransactionId:
+          candidateTransactionId ?? this.candidateTransactionId,
+      stagedSourceRecordId: stagedSourceRecordId ?? this.stagedSourceRecordId,
+      score: score ?? this.score,
+      status: status ?? this.status,
+      reason: reason ?? this.reason,
+      explanation: explanation ?? this.explanation,
+      createdAt: createdAt ?? this.createdAt,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (householdId.present) {
+      map['household_id'] = Variable<String>(householdId.value);
+    }
+    if (transactionId.present) {
+      map['transaction_id'] = Variable<String>(transactionId.value);
+    }
+    if (candidateTransactionId.present) {
+      map['candidate_transaction_id'] = Variable<String>(
+        candidateTransactionId.value,
+      );
+    }
+    if (stagedSourceRecordId.present) {
+      map['staged_source_record_id'] = Variable<String>(
+        stagedSourceRecordId.value,
+      );
+    }
+    if (score.present) {
+      map['score'] = Variable<double>(score.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (reason.present) {
+      map['reason'] = Variable<String>(reason.value);
+    }
+    if (explanation.present) {
+      map['explanation'] = Variable<String>(explanation.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (resolvedAt.present) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DuplicateCandidatesCompanion(')
+          ..write('id: $id, ')
+          ..write('householdId: $householdId, ')
+          ..write('transactionId: $transactionId, ')
+          ..write('candidateTransactionId: $candidateTransactionId, ')
+          ..write('stagedSourceRecordId: $stagedSourceRecordId, ')
+          ..write('score: $score, ')
+          ..write('status: $status, ')
+          ..write('reason: $reason, ')
+          ..write('explanation: $explanation, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('resolvedAt: $resolvedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $RawNotificationEventsTable extends RawNotificationEvents
+    with TableInfo<$RawNotificationEventsTable, RawNotificationEventRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $RawNotificationEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _householdIdMeta = const VerificationMeta(
+    'householdId',
+  );
+  @override
+  late final GeneratedColumn<String> householdId = GeneratedColumn<String>(
+    'household_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _platformEventIdMeta = const VerificationMeta(
+    'platformEventId',
+  );
+  @override
+  late final GeneratedColumn<String> platformEventId = GeneratedColumn<String>(
+    'platform_event_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _packageNameMeta = const VerificationMeta(
+    'packageName',
+  );
+  @override
+  late final GeneratedColumn<String> packageName = GeneratedColumn<String>(
+    'package_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _appLabelMeta = const VerificationMeta(
+    'appLabel',
+  );
+  @override
+  late final GeneratedColumn<String> appLabel = GeneratedColumn<String>(
+    'app_label',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bodyTextMeta = const VerificationMeta(
+    'bodyText',
+  );
+  @override
+  late final GeneratedColumn<String> bodyText = GeneratedColumn<String>(
+    'body_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bigTextMeta = const VerificationMeta(
+    'bigText',
+  );
+  @override
+  late final GeneratedColumn<String> bigText = GeneratedColumn<String>(
+    'big_text',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notificationIdMeta = const VerificationMeta(
+    'notificationId',
+  );
+  @override
+  late final GeneratedColumn<int> notificationId = GeneratedColumn<int>(
+    'notification_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _tagMeta = const VerificationMeta('tag');
+  @override
+  late final GeneratedColumn<String> tag = GeneratedColumn<String>(
+    'tag',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _postedAtMeta = const VerificationMeta(
+    'postedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> postedAt = GeneratedColumn<DateTime>(
+    'posted_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _capturedAtMeta = const VerificationMeta(
+    'capturedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> capturedAt = GeneratedColumn<DateTime>(
+    'captured_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('captured'),
+  );
+  static const VerificationMeta _rawPayloadJsonMeta = const VerificationMeta(
+    'rawPayloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> rawPayloadJson = GeneratedColumn<String>(
+    'raw_payload_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _draftTransactionIdMeta =
+      const VerificationMeta('draftTransactionId');
+  @override
+  late final GeneratedColumn<String> draftTransactionId =
+      GeneratedColumn<String>(
+        'draft_transaction_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _errorMessageMeta = const VerificationMeta(
+    'errorMessage',
+  );
+  @override
+  late final GeneratedColumn<String> errorMessage = GeneratedColumn<String>(
+    'error_message',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _processedAtMeta = const VerificationMeta(
+    'processedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> processedAt = GeneratedColumn<DateTime>(
+    'processed_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    householdId,
+    platformEventId,
+    packageName,
+    appLabel,
+    title,
+    bodyText,
+    bigText,
+    notificationId,
+    tag,
+    postedAt,
+    capturedAt,
+    status,
+    rawPayloadJson,
+    draftTransactionId,
+    errorMessage,
+    processedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'raw_notification_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<RawNotificationEventRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('household_id')) {
+      context.handle(
+        _householdIdMeta,
+        householdId.isAcceptableOrUnknown(
+          data['household_id']!,
+          _householdIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_householdIdMeta);
+    }
+    if (data.containsKey('platform_event_id')) {
+      context.handle(
+        _platformEventIdMeta,
+        platformEventId.isAcceptableOrUnknown(
+          data['platform_event_id']!,
+          _platformEventIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_platformEventIdMeta);
+    }
+    if (data.containsKey('package_name')) {
+      context.handle(
+        _packageNameMeta,
+        packageName.isAcceptableOrUnknown(
+          data['package_name']!,
+          _packageNameMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_packageNameMeta);
+    }
+    if (data.containsKey('app_label')) {
+      context.handle(
+        _appLabelMeta,
+        appLabel.isAcceptableOrUnknown(data['app_label']!, _appLabelMeta),
+      );
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    }
+    if (data.containsKey('body_text')) {
+      context.handle(
+        _bodyTextMeta,
+        bodyText.isAcceptableOrUnknown(data['body_text']!, _bodyTextMeta),
+      );
+    }
+    if (data.containsKey('big_text')) {
+      context.handle(
+        _bigTextMeta,
+        bigText.isAcceptableOrUnknown(data['big_text']!, _bigTextMeta),
+      );
+    }
+    if (data.containsKey('notification_id')) {
+      context.handle(
+        _notificationIdMeta,
+        notificationId.isAcceptableOrUnknown(
+          data['notification_id']!,
+          _notificationIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('tag')) {
+      context.handle(
+        _tagMeta,
+        tag.isAcceptableOrUnknown(data['tag']!, _tagMeta),
+      );
+    }
+    if (data.containsKey('posted_at')) {
+      context.handle(
+        _postedAtMeta,
+        postedAt.isAcceptableOrUnknown(data['posted_at']!, _postedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_postedAtMeta);
+    }
+    if (data.containsKey('captured_at')) {
+      context.handle(
+        _capturedAtMeta,
+        capturedAt.isAcceptableOrUnknown(data['captured_at']!, _capturedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_capturedAtMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('raw_payload_json')) {
+      context.handle(
+        _rawPayloadJsonMeta,
+        rawPayloadJson.isAcceptableOrUnknown(
+          data['raw_payload_json']!,
+          _rawPayloadJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('draft_transaction_id')) {
+      context.handle(
+        _draftTransactionIdMeta,
+        draftTransactionId.isAcceptableOrUnknown(
+          data['draft_transaction_id']!,
+          _draftTransactionIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('error_message')) {
+      context.handle(
+        _errorMessageMeta,
+        errorMessage.isAcceptableOrUnknown(
+          data['error_message']!,
+          _errorMessageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('processed_at')) {
+      context.handle(
+        _processedAtMeta,
+        processedAt.isAcceptableOrUnknown(
+          data['processed_at']!,
+          _processedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  RawNotificationEventRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return RawNotificationEventRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      householdId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}household_id'],
+      )!,
+      platformEventId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}platform_event_id'],
+      )!,
+      packageName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}package_name'],
+      )!,
+      appLabel: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}app_label'],
+      ),
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      ),
+      bodyText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body_text'],
+      ),
+      bigText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}big_text'],
+      ),
+      notificationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}notification_id'],
+      ),
+      tag: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tag'],
+      ),
+      postedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}posted_at'],
+      )!,
+      capturedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}captured_at'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      rawPayloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}raw_payload_json'],
+      ),
+      draftTransactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}draft_transaction_id'],
+      ),
+      errorMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_message'],
+      ),
+      processedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}processed_at'],
+      ),
+    );
+  }
+
+  @override
+  $RawNotificationEventsTable createAlias(String alias) {
+    return $RawNotificationEventsTable(attachedDatabase, alias);
+  }
+}
+
+class RawNotificationEventRow extends DataClass
+    implements Insertable<RawNotificationEventRow> {
+  final String id;
+  final String householdId;
+  final String platformEventId;
+  final String packageName;
+  final String? appLabel;
+  final String? title;
+  final String? bodyText;
+  final String? bigText;
+  final int? notificationId;
+  final String? tag;
+  final DateTime postedAt;
+  final DateTime capturedAt;
+  final String status;
+  final String? rawPayloadJson;
+  final String? draftTransactionId;
+  final String? errorMessage;
+  final DateTime? processedAt;
+  const RawNotificationEventRow({
+    required this.id,
+    required this.householdId,
+    required this.platformEventId,
+    required this.packageName,
+    this.appLabel,
+    this.title,
+    this.bodyText,
+    this.bigText,
+    this.notificationId,
+    this.tag,
+    required this.postedAt,
+    required this.capturedAt,
+    required this.status,
+    this.rawPayloadJson,
+    this.draftTransactionId,
+    this.errorMessage,
+    this.processedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['household_id'] = Variable<String>(householdId);
+    map['platform_event_id'] = Variable<String>(platformEventId);
+    map['package_name'] = Variable<String>(packageName);
+    if (!nullToAbsent || appLabel != null) {
+      map['app_label'] = Variable<String>(appLabel);
+    }
+    if (!nullToAbsent || title != null) {
+      map['title'] = Variable<String>(title);
+    }
+    if (!nullToAbsent || bodyText != null) {
+      map['body_text'] = Variable<String>(bodyText);
+    }
+    if (!nullToAbsent || bigText != null) {
+      map['big_text'] = Variable<String>(bigText);
+    }
+    if (!nullToAbsent || notificationId != null) {
+      map['notification_id'] = Variable<int>(notificationId);
+    }
+    if (!nullToAbsent || tag != null) {
+      map['tag'] = Variable<String>(tag);
+    }
+    map['posted_at'] = Variable<DateTime>(postedAt);
+    map['captured_at'] = Variable<DateTime>(capturedAt);
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || rawPayloadJson != null) {
+      map['raw_payload_json'] = Variable<String>(rawPayloadJson);
+    }
+    if (!nullToAbsent || draftTransactionId != null) {
+      map['draft_transaction_id'] = Variable<String>(draftTransactionId);
+    }
+    if (!nullToAbsent || errorMessage != null) {
+      map['error_message'] = Variable<String>(errorMessage);
+    }
+    if (!nullToAbsent || processedAt != null) {
+      map['processed_at'] = Variable<DateTime>(processedAt);
+    }
+    return map;
+  }
+
+  RawNotificationEventsCompanion toCompanion(bool nullToAbsent) {
+    return RawNotificationEventsCompanion(
+      id: Value(id),
+      householdId: Value(householdId),
+      platformEventId: Value(platformEventId),
+      packageName: Value(packageName),
+      appLabel: appLabel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(appLabel),
+      title: title == null && nullToAbsent
+          ? const Value.absent()
+          : Value(title),
+      bodyText: bodyText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bodyText),
+      bigText: bigText == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bigText),
+      notificationId: notificationId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notificationId),
+      tag: tag == null && nullToAbsent ? const Value.absent() : Value(tag),
+      postedAt: Value(postedAt),
+      capturedAt: Value(capturedAt),
+      status: Value(status),
+      rawPayloadJson: rawPayloadJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rawPayloadJson),
+      draftTransactionId: draftTransactionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(draftTransactionId),
+      errorMessage: errorMessage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorMessage),
+      processedAt: processedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(processedAt),
+    );
+  }
+
+  factory RawNotificationEventRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return RawNotificationEventRow(
+      id: serializer.fromJson<String>(json['id']),
+      householdId: serializer.fromJson<String>(json['householdId']),
+      platformEventId: serializer.fromJson<String>(json['platformEventId']),
+      packageName: serializer.fromJson<String>(json['packageName']),
+      appLabel: serializer.fromJson<String?>(json['appLabel']),
+      title: serializer.fromJson<String?>(json['title']),
+      bodyText: serializer.fromJson<String?>(json['bodyText']),
+      bigText: serializer.fromJson<String?>(json['bigText']),
+      notificationId: serializer.fromJson<int?>(json['notificationId']),
+      tag: serializer.fromJson<String?>(json['tag']),
+      postedAt: serializer.fromJson<DateTime>(json['postedAt']),
+      capturedAt: serializer.fromJson<DateTime>(json['capturedAt']),
+      status: serializer.fromJson<String>(json['status']),
+      rawPayloadJson: serializer.fromJson<String?>(json['rawPayloadJson']),
+      draftTransactionId: serializer.fromJson<String?>(
+        json['draftTransactionId'],
+      ),
+      errorMessage: serializer.fromJson<String?>(json['errorMessage']),
+      processedAt: serializer.fromJson<DateTime?>(json['processedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'householdId': serializer.toJson<String>(householdId),
+      'platformEventId': serializer.toJson<String>(platformEventId),
+      'packageName': serializer.toJson<String>(packageName),
+      'appLabel': serializer.toJson<String?>(appLabel),
+      'title': serializer.toJson<String?>(title),
+      'bodyText': serializer.toJson<String?>(bodyText),
+      'bigText': serializer.toJson<String?>(bigText),
+      'notificationId': serializer.toJson<int?>(notificationId),
+      'tag': serializer.toJson<String?>(tag),
+      'postedAt': serializer.toJson<DateTime>(postedAt),
+      'capturedAt': serializer.toJson<DateTime>(capturedAt),
+      'status': serializer.toJson<String>(status),
+      'rawPayloadJson': serializer.toJson<String?>(rawPayloadJson),
+      'draftTransactionId': serializer.toJson<String?>(draftTransactionId),
+      'errorMessage': serializer.toJson<String?>(errorMessage),
+      'processedAt': serializer.toJson<DateTime?>(processedAt),
+    };
+  }
+
+  RawNotificationEventRow copyWith({
+    String? id,
+    String? householdId,
+    String? platformEventId,
+    String? packageName,
+    Value<String?> appLabel = const Value.absent(),
+    Value<String?> title = const Value.absent(),
+    Value<String?> bodyText = const Value.absent(),
+    Value<String?> bigText = const Value.absent(),
+    Value<int?> notificationId = const Value.absent(),
+    Value<String?> tag = const Value.absent(),
+    DateTime? postedAt,
+    DateTime? capturedAt,
+    String? status,
+    Value<String?> rawPayloadJson = const Value.absent(),
+    Value<String?> draftTransactionId = const Value.absent(),
+    Value<String?> errorMessage = const Value.absent(),
+    Value<DateTime?> processedAt = const Value.absent(),
+  }) => RawNotificationEventRow(
+    id: id ?? this.id,
+    householdId: householdId ?? this.householdId,
+    platformEventId: platformEventId ?? this.platformEventId,
+    packageName: packageName ?? this.packageName,
+    appLabel: appLabel.present ? appLabel.value : this.appLabel,
+    title: title.present ? title.value : this.title,
+    bodyText: bodyText.present ? bodyText.value : this.bodyText,
+    bigText: bigText.present ? bigText.value : this.bigText,
+    notificationId: notificationId.present
+        ? notificationId.value
+        : this.notificationId,
+    tag: tag.present ? tag.value : this.tag,
+    postedAt: postedAt ?? this.postedAt,
+    capturedAt: capturedAt ?? this.capturedAt,
+    status: status ?? this.status,
+    rawPayloadJson: rawPayloadJson.present
+        ? rawPayloadJson.value
+        : this.rawPayloadJson,
+    draftTransactionId: draftTransactionId.present
+        ? draftTransactionId.value
+        : this.draftTransactionId,
+    errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
+    processedAt: processedAt.present ? processedAt.value : this.processedAt,
+  );
+  RawNotificationEventRow copyWithCompanion(
+    RawNotificationEventsCompanion data,
+  ) {
+    return RawNotificationEventRow(
+      id: data.id.present ? data.id.value : this.id,
+      householdId: data.householdId.present
+          ? data.householdId.value
+          : this.householdId,
+      platformEventId: data.platformEventId.present
+          ? data.platformEventId.value
+          : this.platformEventId,
+      packageName: data.packageName.present
+          ? data.packageName.value
+          : this.packageName,
+      appLabel: data.appLabel.present ? data.appLabel.value : this.appLabel,
+      title: data.title.present ? data.title.value : this.title,
+      bodyText: data.bodyText.present ? data.bodyText.value : this.bodyText,
+      bigText: data.bigText.present ? data.bigText.value : this.bigText,
+      notificationId: data.notificationId.present
+          ? data.notificationId.value
+          : this.notificationId,
+      tag: data.tag.present ? data.tag.value : this.tag,
+      postedAt: data.postedAt.present ? data.postedAt.value : this.postedAt,
+      capturedAt: data.capturedAt.present
+          ? data.capturedAt.value
+          : this.capturedAt,
+      status: data.status.present ? data.status.value : this.status,
+      rawPayloadJson: data.rawPayloadJson.present
+          ? data.rawPayloadJson.value
+          : this.rawPayloadJson,
+      draftTransactionId: data.draftTransactionId.present
+          ? data.draftTransactionId.value
+          : this.draftTransactionId,
+      errorMessage: data.errorMessage.present
+          ? data.errorMessage.value
+          : this.errorMessage,
+      processedAt: data.processedAt.present
+          ? data.processedAt.value
+          : this.processedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RawNotificationEventRow(')
+          ..write('id: $id, ')
+          ..write('householdId: $householdId, ')
+          ..write('platformEventId: $platformEventId, ')
+          ..write('packageName: $packageName, ')
+          ..write('appLabel: $appLabel, ')
+          ..write('title: $title, ')
+          ..write('bodyText: $bodyText, ')
+          ..write('bigText: $bigText, ')
+          ..write('notificationId: $notificationId, ')
+          ..write('tag: $tag, ')
+          ..write('postedAt: $postedAt, ')
+          ..write('capturedAt: $capturedAt, ')
+          ..write('status: $status, ')
+          ..write('rawPayloadJson: $rawPayloadJson, ')
+          ..write('draftTransactionId: $draftTransactionId, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('processedAt: $processedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    householdId,
+    platformEventId,
+    packageName,
+    appLabel,
+    title,
+    bodyText,
+    bigText,
+    notificationId,
+    tag,
+    postedAt,
+    capturedAt,
+    status,
+    rawPayloadJson,
+    draftTransactionId,
+    errorMessage,
+    processedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is RawNotificationEventRow &&
+          other.id == this.id &&
+          other.householdId == this.householdId &&
+          other.platformEventId == this.platformEventId &&
+          other.packageName == this.packageName &&
+          other.appLabel == this.appLabel &&
+          other.title == this.title &&
+          other.bodyText == this.bodyText &&
+          other.bigText == this.bigText &&
+          other.notificationId == this.notificationId &&
+          other.tag == this.tag &&
+          other.postedAt == this.postedAt &&
+          other.capturedAt == this.capturedAt &&
+          other.status == this.status &&
+          other.rawPayloadJson == this.rawPayloadJson &&
+          other.draftTransactionId == this.draftTransactionId &&
+          other.errorMessage == this.errorMessage &&
+          other.processedAt == this.processedAt);
+}
+
+class RawNotificationEventsCompanion
+    extends UpdateCompanion<RawNotificationEventRow> {
+  final Value<String> id;
+  final Value<String> householdId;
+  final Value<String> platformEventId;
+  final Value<String> packageName;
+  final Value<String?> appLabel;
+  final Value<String?> title;
+  final Value<String?> bodyText;
+  final Value<String?> bigText;
+  final Value<int?> notificationId;
+  final Value<String?> tag;
+  final Value<DateTime> postedAt;
+  final Value<DateTime> capturedAt;
+  final Value<String> status;
+  final Value<String?> rawPayloadJson;
+  final Value<String?> draftTransactionId;
+  final Value<String?> errorMessage;
+  final Value<DateTime?> processedAt;
+  final Value<int> rowid;
+  const RawNotificationEventsCompanion({
+    this.id = const Value.absent(),
+    this.householdId = const Value.absent(),
+    this.platformEventId = const Value.absent(),
+    this.packageName = const Value.absent(),
+    this.appLabel = const Value.absent(),
+    this.title = const Value.absent(),
+    this.bodyText = const Value.absent(),
+    this.bigText = const Value.absent(),
+    this.notificationId = const Value.absent(),
+    this.tag = const Value.absent(),
+    this.postedAt = const Value.absent(),
+    this.capturedAt = const Value.absent(),
+    this.status = const Value.absent(),
+    this.rawPayloadJson = const Value.absent(),
+    this.draftTransactionId = const Value.absent(),
+    this.errorMessage = const Value.absent(),
+    this.processedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  RawNotificationEventsCompanion.insert({
+    required String id,
+    required String householdId,
+    required String platformEventId,
+    required String packageName,
+    this.appLabel = const Value.absent(),
+    this.title = const Value.absent(),
+    this.bodyText = const Value.absent(),
+    this.bigText = const Value.absent(),
+    this.notificationId = const Value.absent(),
+    this.tag = const Value.absent(),
+    required DateTime postedAt,
+    required DateTime capturedAt,
+    this.status = const Value.absent(),
+    this.rawPayloadJson = const Value.absent(),
+    this.draftTransactionId = const Value.absent(),
+    this.errorMessage = const Value.absent(),
+    this.processedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       householdId = Value(householdId),
+       platformEventId = Value(platformEventId),
+       packageName = Value(packageName),
+       postedAt = Value(postedAt),
+       capturedAt = Value(capturedAt);
+  static Insertable<RawNotificationEventRow> custom({
+    Expression<String>? id,
+    Expression<String>? householdId,
+    Expression<String>? platformEventId,
+    Expression<String>? packageName,
+    Expression<String>? appLabel,
+    Expression<String>? title,
+    Expression<String>? bodyText,
+    Expression<String>? bigText,
+    Expression<int>? notificationId,
+    Expression<String>? tag,
+    Expression<DateTime>? postedAt,
+    Expression<DateTime>? capturedAt,
+    Expression<String>? status,
+    Expression<String>? rawPayloadJson,
+    Expression<String>? draftTransactionId,
+    Expression<String>? errorMessage,
+    Expression<DateTime>? processedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (householdId != null) 'household_id': householdId,
+      if (platformEventId != null) 'platform_event_id': platformEventId,
+      if (packageName != null) 'package_name': packageName,
+      if (appLabel != null) 'app_label': appLabel,
+      if (title != null) 'title': title,
+      if (bodyText != null) 'body_text': bodyText,
+      if (bigText != null) 'big_text': bigText,
+      if (notificationId != null) 'notification_id': notificationId,
+      if (tag != null) 'tag': tag,
+      if (postedAt != null) 'posted_at': postedAt,
+      if (capturedAt != null) 'captured_at': capturedAt,
+      if (status != null) 'status': status,
+      if (rawPayloadJson != null) 'raw_payload_json': rawPayloadJson,
+      if (draftTransactionId != null)
+        'draft_transaction_id': draftTransactionId,
+      if (errorMessage != null) 'error_message': errorMessage,
+      if (processedAt != null) 'processed_at': processedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  RawNotificationEventsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? householdId,
+    Value<String>? platformEventId,
+    Value<String>? packageName,
+    Value<String?>? appLabel,
+    Value<String?>? title,
+    Value<String?>? bodyText,
+    Value<String?>? bigText,
+    Value<int?>? notificationId,
+    Value<String?>? tag,
+    Value<DateTime>? postedAt,
+    Value<DateTime>? capturedAt,
+    Value<String>? status,
+    Value<String?>? rawPayloadJson,
+    Value<String?>? draftTransactionId,
+    Value<String?>? errorMessage,
+    Value<DateTime?>? processedAt,
+    Value<int>? rowid,
+  }) {
+    return RawNotificationEventsCompanion(
+      id: id ?? this.id,
+      householdId: householdId ?? this.householdId,
+      platformEventId: platformEventId ?? this.platformEventId,
+      packageName: packageName ?? this.packageName,
+      appLabel: appLabel ?? this.appLabel,
+      title: title ?? this.title,
+      bodyText: bodyText ?? this.bodyText,
+      bigText: bigText ?? this.bigText,
+      notificationId: notificationId ?? this.notificationId,
+      tag: tag ?? this.tag,
+      postedAt: postedAt ?? this.postedAt,
+      capturedAt: capturedAt ?? this.capturedAt,
+      status: status ?? this.status,
+      rawPayloadJson: rawPayloadJson ?? this.rawPayloadJson,
+      draftTransactionId: draftTransactionId ?? this.draftTransactionId,
+      errorMessage: errorMessage ?? this.errorMessage,
+      processedAt: processedAt ?? this.processedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (householdId.present) {
+      map['household_id'] = Variable<String>(householdId.value);
+    }
+    if (platformEventId.present) {
+      map['platform_event_id'] = Variable<String>(platformEventId.value);
+    }
+    if (packageName.present) {
+      map['package_name'] = Variable<String>(packageName.value);
+    }
+    if (appLabel.present) {
+      map['app_label'] = Variable<String>(appLabel.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (bodyText.present) {
+      map['body_text'] = Variable<String>(bodyText.value);
+    }
+    if (bigText.present) {
+      map['big_text'] = Variable<String>(bigText.value);
+    }
+    if (notificationId.present) {
+      map['notification_id'] = Variable<int>(notificationId.value);
+    }
+    if (tag.present) {
+      map['tag'] = Variable<String>(tag.value);
+    }
+    if (postedAt.present) {
+      map['posted_at'] = Variable<DateTime>(postedAt.value);
+    }
+    if (capturedAt.present) {
+      map['captured_at'] = Variable<DateTime>(capturedAt.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (rawPayloadJson.present) {
+      map['raw_payload_json'] = Variable<String>(rawPayloadJson.value);
+    }
+    if (draftTransactionId.present) {
+      map['draft_transaction_id'] = Variable<String>(draftTransactionId.value);
+    }
+    if (errorMessage.present) {
+      map['error_message'] = Variable<String>(errorMessage.value);
+    }
+    if (processedAt.present) {
+      map['processed_at'] = Variable<DateTime>(processedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('RawNotificationEventsCompanion(')
+          ..write('id: $id, ')
+          ..write('householdId: $householdId, ')
+          ..write('platformEventId: $platformEventId, ')
+          ..write('packageName: $packageName, ')
+          ..write('appLabel: $appLabel, ')
+          ..write('title: $title, ')
+          ..write('bodyText: $bodyText, ')
+          ..write('bigText: $bigText, ')
+          ..write('notificationId: $notificationId, ')
+          ..write('tag: $tag, ')
+          ..write('postedAt: $postedAt, ')
+          ..write('capturedAt: $capturedAt, ')
+          ..write('status: $status, ')
+          ..write('rawPayloadJson: $rawPayloadJson, ')
+          ..write('draftTransactionId: $draftTransactionId, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('processedAt: $processedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -11380,6 +13081,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ImportBatchesTable importBatches = $ImportBatchesTable(this);
   late final $StagedSourceRecordsTable stagedSourceRecords =
       $StagedSourceRecordsTable(this);
+  late final $DuplicateCandidatesTable duplicateCandidates =
+      $DuplicateCandidatesTable(this);
+  late final $RawNotificationEventsTable rawNotificationEvents =
+      $RawNotificationEventsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -11402,6 +13107,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     installmentPlans,
     importBatches,
     stagedSourceRecords,
+    duplicateCandidates,
+    rawNotificationEvents,
   ];
 }
 
@@ -16908,6 +18615,813 @@ typedef $$StagedSourceRecordsTableProcessedTableManager =
       StagedSourceRecordRow,
       PrefetchHooks Function()
     >;
+typedef $$DuplicateCandidatesTableCreateCompanionBuilder =
+    DuplicateCandidatesCompanion Function({
+      required String id,
+      required String householdId,
+      required String transactionId,
+      Value<String?> candidateTransactionId,
+      Value<String?> stagedSourceRecordId,
+      required double score,
+      Value<String> status,
+      required String reason,
+      required String explanation,
+      required DateTime createdAt,
+      Value<DateTime?> resolvedAt,
+      Value<int> rowid,
+    });
+typedef $$DuplicateCandidatesTableUpdateCompanionBuilder =
+    DuplicateCandidatesCompanion Function({
+      Value<String> id,
+      Value<String> householdId,
+      Value<String> transactionId,
+      Value<String?> candidateTransactionId,
+      Value<String?> stagedSourceRecordId,
+      Value<double> score,
+      Value<String> status,
+      Value<String> reason,
+      Value<String> explanation,
+      Value<DateTime> createdAt,
+      Value<DateTime?> resolvedAt,
+      Value<int> rowid,
+    });
+
+class $$DuplicateCandidatesTableFilterComposer
+    extends Composer<_$AppDatabase, $DuplicateCandidatesTable> {
+  $$DuplicateCandidatesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get candidateTransactionId => $composableBuilder(
+    column: $table.candidateTransactionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get stagedSourceRecordId => $composableBuilder(
+    column: $table.stagedSourceRecordId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get score => $composableBuilder(
+    column: $table.score,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reason => $composableBuilder(
+    column: $table.reason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get explanation => $composableBuilder(
+    column: $table.explanation,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DuplicateCandidatesTableOrderingComposer
+    extends Composer<_$AppDatabase, $DuplicateCandidatesTable> {
+  $$DuplicateCandidatesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get candidateTransactionId => $composableBuilder(
+    column: $table.candidateTransactionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get stagedSourceRecordId => $composableBuilder(
+    column: $table.stagedSourceRecordId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get score => $composableBuilder(
+    column: $table.score,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reason => $composableBuilder(
+    column: $table.reason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get explanation => $composableBuilder(
+    column: $table.explanation,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DuplicateCandidatesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DuplicateCandidatesTable> {
+  $$DuplicateCandidatesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get candidateTransactionId => $composableBuilder(
+    column: $table.candidateTransactionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get stagedSourceRecordId => $composableBuilder(
+    column: $table.stagedSourceRecordId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get score =>
+      $composableBuilder(column: $table.score, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get reason =>
+      $composableBuilder(column: $table.reason, builder: (column) => column);
+
+  GeneratedColumn<String> get explanation => $composableBuilder(
+    column: $table.explanation,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$DuplicateCandidatesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DuplicateCandidatesTable,
+          DuplicateCandidateRow,
+          $$DuplicateCandidatesTableFilterComposer,
+          $$DuplicateCandidatesTableOrderingComposer,
+          $$DuplicateCandidatesTableAnnotationComposer,
+          $$DuplicateCandidatesTableCreateCompanionBuilder,
+          $$DuplicateCandidatesTableUpdateCompanionBuilder,
+          (
+            DuplicateCandidateRow,
+            BaseReferences<
+              _$AppDatabase,
+              $DuplicateCandidatesTable,
+              DuplicateCandidateRow
+            >,
+          ),
+          DuplicateCandidateRow,
+          PrefetchHooks Function()
+        > {
+  $$DuplicateCandidatesTableTableManager(
+    _$AppDatabase db,
+    $DuplicateCandidatesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DuplicateCandidatesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DuplicateCandidatesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$DuplicateCandidatesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> householdId = const Value.absent(),
+                Value<String> transactionId = const Value.absent(),
+                Value<String?> candidateTransactionId = const Value.absent(),
+                Value<String?> stagedSourceRecordId = const Value.absent(),
+                Value<double> score = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String> reason = const Value.absent(),
+                Value<String> explanation = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> resolvedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DuplicateCandidatesCompanion(
+                id: id,
+                householdId: householdId,
+                transactionId: transactionId,
+                candidateTransactionId: candidateTransactionId,
+                stagedSourceRecordId: stagedSourceRecordId,
+                score: score,
+                status: status,
+                reason: reason,
+                explanation: explanation,
+                createdAt: createdAt,
+                resolvedAt: resolvedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String householdId,
+                required String transactionId,
+                Value<String?> candidateTransactionId = const Value.absent(),
+                Value<String?> stagedSourceRecordId = const Value.absent(),
+                required double score,
+                Value<String> status = const Value.absent(),
+                required String reason,
+                required String explanation,
+                required DateTime createdAt,
+                Value<DateTime?> resolvedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => DuplicateCandidatesCompanion.insert(
+                id: id,
+                householdId: householdId,
+                transactionId: transactionId,
+                candidateTransactionId: candidateTransactionId,
+                stagedSourceRecordId: stagedSourceRecordId,
+                score: score,
+                status: status,
+                reason: reason,
+                explanation: explanation,
+                createdAt: createdAt,
+                resolvedAt: resolvedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DuplicateCandidatesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DuplicateCandidatesTable,
+      DuplicateCandidateRow,
+      $$DuplicateCandidatesTableFilterComposer,
+      $$DuplicateCandidatesTableOrderingComposer,
+      $$DuplicateCandidatesTableAnnotationComposer,
+      $$DuplicateCandidatesTableCreateCompanionBuilder,
+      $$DuplicateCandidatesTableUpdateCompanionBuilder,
+      (
+        DuplicateCandidateRow,
+        BaseReferences<
+          _$AppDatabase,
+          $DuplicateCandidatesTable,
+          DuplicateCandidateRow
+        >,
+      ),
+      DuplicateCandidateRow,
+      PrefetchHooks Function()
+    >;
+typedef $$RawNotificationEventsTableCreateCompanionBuilder =
+    RawNotificationEventsCompanion Function({
+      required String id,
+      required String householdId,
+      required String platformEventId,
+      required String packageName,
+      Value<String?> appLabel,
+      Value<String?> title,
+      Value<String?> bodyText,
+      Value<String?> bigText,
+      Value<int?> notificationId,
+      Value<String?> tag,
+      required DateTime postedAt,
+      required DateTime capturedAt,
+      Value<String> status,
+      Value<String?> rawPayloadJson,
+      Value<String?> draftTransactionId,
+      Value<String?> errorMessage,
+      Value<DateTime?> processedAt,
+      Value<int> rowid,
+    });
+typedef $$RawNotificationEventsTableUpdateCompanionBuilder =
+    RawNotificationEventsCompanion Function({
+      Value<String> id,
+      Value<String> householdId,
+      Value<String> platformEventId,
+      Value<String> packageName,
+      Value<String?> appLabel,
+      Value<String?> title,
+      Value<String?> bodyText,
+      Value<String?> bigText,
+      Value<int?> notificationId,
+      Value<String?> tag,
+      Value<DateTime> postedAt,
+      Value<DateTime> capturedAt,
+      Value<String> status,
+      Value<String?> rawPayloadJson,
+      Value<String?> draftTransactionId,
+      Value<String?> errorMessage,
+      Value<DateTime?> processedAt,
+      Value<int> rowid,
+    });
+
+class $$RawNotificationEventsTableFilterComposer
+    extends Composer<_$AppDatabase, $RawNotificationEventsTable> {
+  $$RawNotificationEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get platformEventId => $composableBuilder(
+    column: $table.platformEventId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get packageName => $composableBuilder(
+    column: $table.packageName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get appLabel => $composableBuilder(
+    column: $table.appLabel,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bodyText => $composableBuilder(
+    column: $table.bodyText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bigText => $composableBuilder(
+    column: $table.bigText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get notificationId => $composableBuilder(
+    column: $table.notificationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tag => $composableBuilder(
+    column: $table.tag,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get postedAt => $composableBuilder(
+    column: $table.postedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rawPayloadJson => $composableBuilder(
+    column: $table.rawPayloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get draftTransactionId => $composableBuilder(
+    column: $table.draftTransactionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$RawNotificationEventsTableOrderingComposer
+    extends Composer<_$AppDatabase, $RawNotificationEventsTable> {
+  $$RawNotificationEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get platformEventId => $composableBuilder(
+    column: $table.platformEventId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get packageName => $composableBuilder(
+    column: $table.packageName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get appLabel => $composableBuilder(
+    column: $table.appLabel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bodyText => $composableBuilder(
+    column: $table.bodyText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get bigText => $composableBuilder(
+    column: $table.bigText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get notificationId => $composableBuilder(
+    column: $table.notificationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get tag => $composableBuilder(
+    column: $table.tag,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get postedAt => $composableBuilder(
+    column: $table.postedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rawPayloadJson => $composableBuilder(
+    column: $table.rawPayloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get draftTransactionId => $composableBuilder(
+    column: $table.draftTransactionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$RawNotificationEventsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $RawNotificationEventsTable> {
+  $$RawNotificationEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get platformEventId => $composableBuilder(
+    column: $table.platformEventId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get packageName => $composableBuilder(
+    column: $table.packageName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get appLabel =>
+      $composableBuilder(column: $table.appLabel, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get bodyText =>
+      $composableBuilder(column: $table.bodyText, builder: (column) => column);
+
+  GeneratedColumn<String> get bigText =>
+      $composableBuilder(column: $table.bigText, builder: (column) => column);
+
+  GeneratedColumn<int> get notificationId => $composableBuilder(
+    column: $table.notificationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get tag =>
+      $composableBuilder(column: $table.tag, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get postedAt =>
+      $composableBuilder(column: $table.postedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get rawPayloadJson => $composableBuilder(
+    column: $table.rawPayloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get draftTransactionId => $composableBuilder(
+    column: $table.draftTransactionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get processedAt => $composableBuilder(
+    column: $table.processedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$RawNotificationEventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $RawNotificationEventsTable,
+          RawNotificationEventRow,
+          $$RawNotificationEventsTableFilterComposer,
+          $$RawNotificationEventsTableOrderingComposer,
+          $$RawNotificationEventsTableAnnotationComposer,
+          $$RawNotificationEventsTableCreateCompanionBuilder,
+          $$RawNotificationEventsTableUpdateCompanionBuilder,
+          (
+            RawNotificationEventRow,
+            BaseReferences<
+              _$AppDatabase,
+              $RawNotificationEventsTable,
+              RawNotificationEventRow
+            >,
+          ),
+          RawNotificationEventRow,
+          PrefetchHooks Function()
+        > {
+  $$RawNotificationEventsTableTableManager(
+    _$AppDatabase db,
+    $RawNotificationEventsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$RawNotificationEventsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$RawNotificationEventsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$RawNotificationEventsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> householdId = const Value.absent(),
+                Value<String> platformEventId = const Value.absent(),
+                Value<String> packageName = const Value.absent(),
+                Value<String?> appLabel = const Value.absent(),
+                Value<String?> title = const Value.absent(),
+                Value<String?> bodyText = const Value.absent(),
+                Value<String?> bigText = const Value.absent(),
+                Value<int?> notificationId = const Value.absent(),
+                Value<String?> tag = const Value.absent(),
+                Value<DateTime> postedAt = const Value.absent(),
+                Value<DateTime> capturedAt = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> rawPayloadJson = const Value.absent(),
+                Value<String?> draftTransactionId = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                Value<DateTime?> processedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RawNotificationEventsCompanion(
+                id: id,
+                householdId: householdId,
+                platformEventId: platformEventId,
+                packageName: packageName,
+                appLabel: appLabel,
+                title: title,
+                bodyText: bodyText,
+                bigText: bigText,
+                notificationId: notificationId,
+                tag: tag,
+                postedAt: postedAt,
+                capturedAt: capturedAt,
+                status: status,
+                rawPayloadJson: rawPayloadJson,
+                draftTransactionId: draftTransactionId,
+                errorMessage: errorMessage,
+                processedAt: processedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String householdId,
+                required String platformEventId,
+                required String packageName,
+                Value<String?> appLabel = const Value.absent(),
+                Value<String?> title = const Value.absent(),
+                Value<String?> bodyText = const Value.absent(),
+                Value<String?> bigText = const Value.absent(),
+                Value<int?> notificationId = const Value.absent(),
+                Value<String?> tag = const Value.absent(),
+                required DateTime postedAt,
+                required DateTime capturedAt,
+                Value<String> status = const Value.absent(),
+                Value<String?> rawPayloadJson = const Value.absent(),
+                Value<String?> draftTransactionId = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                Value<DateTime?> processedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => RawNotificationEventsCompanion.insert(
+                id: id,
+                householdId: householdId,
+                platformEventId: platformEventId,
+                packageName: packageName,
+                appLabel: appLabel,
+                title: title,
+                bodyText: bodyText,
+                bigText: bigText,
+                notificationId: notificationId,
+                tag: tag,
+                postedAt: postedAt,
+                capturedAt: capturedAt,
+                status: status,
+                rawPayloadJson: rawPayloadJson,
+                draftTransactionId: draftTransactionId,
+                errorMessage: errorMessage,
+                processedAt: processedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$RawNotificationEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $RawNotificationEventsTable,
+      RawNotificationEventRow,
+      $$RawNotificationEventsTableFilterComposer,
+      $$RawNotificationEventsTableOrderingComposer,
+      $$RawNotificationEventsTableAnnotationComposer,
+      $$RawNotificationEventsTableCreateCompanionBuilder,
+      $$RawNotificationEventsTableUpdateCompanionBuilder,
+      (
+        RawNotificationEventRow,
+        BaseReferences<
+          _$AppDatabase,
+          $RawNotificationEventsTable,
+          RawNotificationEventRow
+        >,
+      ),
+      RawNotificationEventRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -16949,4 +19463,8 @@ class $AppDatabaseManager {
       $$ImportBatchesTableTableManager(_db, _db.importBatches);
   $$StagedSourceRecordsTableTableManager get stagedSourceRecords =>
       $$StagedSourceRecordsTableTableManager(_db, _db.stagedSourceRecords);
+  $$DuplicateCandidatesTableTableManager get duplicateCandidates =>
+      $$DuplicateCandidatesTableTableManager(_db, _db.duplicateCandidates);
+  $$RawNotificationEventsTableTableManager get rawNotificationEvents =>
+      $$RawNotificationEventsTableTableManager(_db, _db.rawNotificationEvents);
 }

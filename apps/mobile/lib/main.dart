@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'src/data/local/app_database.dart';
 import 'src/presentation/dashboard_page.dart';
 import 'src/presentation/family_structure_page.dart';
-import 'src/presentation/import_page.dart';
+import 'src/presentation/movements_page.dart';
 import 'src/presentation/review_page.dart';
 
 void main() {
@@ -65,7 +65,7 @@ class _ZimbaControlAppState extends State<ZimbaControlApp> {
                 setState(() => selectedIndex = 1);
               },
             ),
-            ImportPage(database: database),
+            MovementsPage(database: database),
             FamilyStructurePage(database: database),
           ],
         ),

@@ -115,6 +115,45 @@ Crie a tela "Dashboard Familiar" do ZimbaControl com saldo do mes, receitas,
 despesas, revisao pendente, gastos por pessoa, centros de custo e proximas
 parcelas. Visual premium, sem excesso de graficos, com foco em leitura rapida.
 
+Prompt recomendado para o Marco 09:
+
+```text
+Crie/refine as telas "Resumo" e "Movimentacoes" do ZimbaControl sem landing page.
+
+Contexto:
+- app pessoal de controle financeiro familiar;
+- Lovable e apenas prototipo visual;
+- app final sera Flutter offline-first;
+- o app ja tem Caixa de Revisao, Importacao CSV/OFX, Conciliacao e Captura Android.
+
+Tela Resumo:
+- painel operacional do mes;
+- receitas, despesas, saldo e itens pendentes de revisao;
+- compromissos futuros: escola, consorcio, pensao, ajuda familiar e parcelas;
+- visao por pessoa, categoria e centro de custo;
+- alertas compactos para duplicidades, baixa confianca e proximos vencimentos.
+
+Tela Movimentacoes:
+- lista densa de lancamentos;
+- busca por descricao/merchant;
+- filtros por periodo, pessoa, conta/cartao, categoria, centro de custo, status
+  de revisao e origem;
+- separar transferencia interna de receita/despesa;
+- mostrar fontes: notificacao, CSV, OFX ou manual;
+- estado vazio, carregando, erro e lista com dados realistas.
+
+Regras de UX:
+- visual sobrio, utilitario e mobile-first 360 a 440 px;
+- nenhum texto ou botao pode cortar;
+- evitar graficos decorativos e cards gigantes;
+- priorizar leitura rapida: quanto entrou, quanto saiu, para quem foi e o que
+  ainda vai vencer;
+- nada de backend, auth, MongoDB ou upload real.
+
+Objetivo:
+validar a organizacao visual do painel e das movimentacoes antes de portar para Flutter.
+```
+
 ### Caixa de Revisao
 
 Refine a Caixa de Revisao existente do ZimbaControl sem criar landing page.
@@ -227,6 +266,39 @@ Objetivo:
 validar a organizacao visual da conciliacao antes de portar para Flutter.
 ```
 
+### Captura Android
+
+Prompt opcional para o Marco 08:
+
+```text
+Crie/refine a tela "Captura Android" do ZimbaControl sem landing page.
+
+Contexto:
+- app pessoal de controle financeiro familiar;
+- Lovable e apenas prototipo visual;
+- app final sera Flutter offline-first com Android nativo;
+- a captura real sera feita por NotificationListenerService em Kotlin.
+
+Telas/fluxos necessarios:
+- estado da permissao de acesso a notificacoes: concedida, ausente ou revogada;
+- botao para abrir ajustes do Android;
+- lista de apps monitorados com allowlist explicita;
+- status do ultimo evento capturado e ultimo processamento;
+- avisos de privacidade: dados ficam locais e apps precisam ser autorizados;
+- opcao de expurgo de notificacoes brutas;
+- estado quando o recurso nao esta disponivel no preview web.
+
+Regras de UX:
+- visual sobrio, compacto e utilitario;
+- mobile-first 360 a 440 px sem texto cortado;
+- nada de backend, auth, MongoDB ou upload;
+- usar dados mockados realistas de Nubank, Mercado Pago e app bancario;
+- deixar claro que permitir notificacoes e uma acao sensivel.
+
+Objetivo:
+validar a tela de permissao/status antes de portar para Flutter.
+```
+
 ### Estrutura Familiar
 
 Crie as telas de cadastros familiares do ZimbaControl para pessoas, contas,
@@ -281,6 +353,42 @@ Crie o fluxo de backup e recuperacao local com exportar arquivo versionado,
 validar restauracao antes de substituir dados, exportar CSV para consulta
 externa e compartilhar pelo Android. Mostrar estados de sucesso, erro e
 confirmacao de risco antes de restaurar.
+
+Prompt recomendado para o Marco 10:
+
+```text
+Crie/refine a tela "Backup e Recuperacao" do ZimbaControl sem landing page.
+
+Contexto:
+- app pessoal de controle financeiro familiar;
+- Lovable e apenas prototipo visual;
+- app final sera Flutter offline-first;
+- MongoDB e login ainda nao entram;
+- objetivo: permitir reinstalar o app e recuperar dados sem nuvem.
+
+Fluxos necessarios:
+- exportar backup local versionado;
+- mostrar o que entra no backup: transacoes, fontes, beneficiarios, pessoas,
+  contas, cartoes, categorias, centros de custo, recorrencias, parcelas,
+  importacoes, regras/preferencias futuras e notificacoes processadas;
+- compartilhar arquivo pelo Android;
+- exportar CSV simples para consulta externa;
+- selecionar arquivo de backup para restaurar;
+- validar arquivo antes de substituir dados;
+- resumo de restauracao: versao, data, quantidade de registros e alertas;
+- confirmacao forte antes de restaurar;
+- estados vazio, carregando, sucesso, erro e arquivo invalido.
+
+Regras de UX:
+- visual sobrio e utilitario;
+- mobile-first 360 a 440 px sem textos cortados;
+- deixar claro que restaurar pode substituir dados locais;
+- nao criar backend, login, MongoDB ou sync;
+- evitar graficos decorativos.
+
+Objetivo:
+validar a organizacao visual do backup local antes de portar para Flutter.
+```
 
 ### Regras
 

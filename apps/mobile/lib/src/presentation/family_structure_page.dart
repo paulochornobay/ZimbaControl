@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/local/app_database.dart';
+import '../infrastructure/notification_capture_service.dart';
 import 'dashboard_page.dart';
 
 class FamilyStructurePage extends StatelessWidget {
@@ -33,7 +34,10 @@ class FamilyStructurePage extends StatelessWidget {
             _ when snapshot.hasError => const Center(
               child: Text('Nao foi possivel carregar a estrutura familiar.'),
             ),
-            _ => FamilyStructureContent(snapshot: snapshot.data!),
+            _ => FamilyStructureContent(
+              database: database,
+              snapshot: snapshot.data!,
+            ),
           },
         );
       },
@@ -42,8 +46,13 @@ class FamilyStructurePage extends StatelessWidget {
 }
 
 class FamilyStructureContent extends StatelessWidget {
-  const FamilyStructureContent({required this.snapshot, super.key});
+  const FamilyStructureContent({
+    required this.database,
+    required this.snapshot,
+    super.key,
+  });
 
+  final AppDatabase database;
   final FamilyStructureSnapshot snapshot;
 
   @override
@@ -117,6 +126,10 @@ class FamilyStructureContent extends StatelessWidget {
           ],
         ),
         _Section(
+          title: 'Captura Android',
+          children: [NotificationCapturePanel(database: database)],
+        ),
+        _Section(
           title: 'Acesso futuro',
           children: [
             for (final user in snapshot.authUsers)
@@ -146,6 +159,167 @@ class FamilyStructureContent extends StatelessWidget {
       _ => 'Despesa',
     };
   }
+}
+
+class NotificationCapturePanel extends StatefulWidget {
+  const NotificationCapturePanel({required this.database, super.key});
+
+  final AppDatabase database;
+
+  @override
+  State<NotificationCapturePanel> createState() =>
+      _NotificationCapturePanelState();
+}
+
+class _NotificationCapturePanelState extends State<NotificationCapturePanel> {
+  static const service = NotificationCaptureService();
+  late Future<_NotificationPanelState> stateFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    stateFuture = _load();
+  }
+
+  Future<_NotificationPanelState> _load() async {
+    final status = await service.loadStatus();
+    final sync = await widget.database.syncNotificationCaptureEvents(service);
+    final rawEvents = await widget.database.listRawNotificationEvents(limit: 3);
+    return _NotificationPanelState(
+      status: status,
+      sync: sync,
+      rawEvents: rawEvents,
+    );
+  }
+
+  void _refresh() {
+    setState(() {
+      stateFuture = _load();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<_NotificationPanelState>(
+      future: stateFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: LinearProgressIndicator(),
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData) {
+          return _InfoRow(
+            icon: Icons.notifications_off_outlined,
+            title: 'Status indisponivel',
+            subtitle: 'Nao foi possivel ler a captura Android.',
+          );
+        }
+
+        final data = snapshot.data!;
+        final status = data.status;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _InfoRow(
+              icon: status.permissionGranted
+                  ? Icons.notifications_active_outlined
+                  : Icons.notifications_none_outlined,
+              title: status.permissionGranted
+                  ? 'Permissao concedida'
+                  : 'Permissao ausente',
+              subtitle: status.available
+                  ? 'Os dados ficam locais. Autorize apenas apps confiaveis.'
+                  : 'Captura real disponivel apenas no Android.',
+            ),
+            const SizedBox(height: 8),
+            for (final app in _KnownNotificationApp.values)
+              SwitchListTile(
+                dense: true,
+                contentPadding: EdgeInsets.zero,
+                title: Text(app.label),
+                subtitle: Text(app.packageName),
+                value: status.allowedPackages.contains(app.packageName),
+                onChanged: !status.available
+                    ? null
+                    : (enabled) async {
+                        final packages = status.allowedPackages.toSet();
+                        if (enabled) {
+                          packages.add(app.packageName);
+                        } else {
+                          packages.remove(app.packageName);
+                        }
+                        await service.setAllowedPackages(packages.toList());
+                        _refresh();
+                      },
+              ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: status.available
+                      ? () => service.openNotificationSettings()
+                      : null,
+                  icon: const Icon(Icons.open_in_new),
+                  label: const Text('Abrir permissao'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _refresh,
+                  icon: const Icon(Icons.sync),
+                  label: const Text('Sincronizar'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              'Ultima sincronizacao: ${data.sync.recorded} eventos, '
+              '${data.sync.drafts} rascunhos.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            if (data.rawEvents.isEmpty)
+              Text(
+                'Nenhuma notificacao financeira capturada ainda.',
+                style: Theme.of(context).textTheme.bodySmall,
+              )
+            else
+              for (final event in data.rawEvents)
+                _InfoRow(
+                  icon: Icons.history,
+                  title: event.title ?? event.appLabel ?? event.packageName,
+                  subtitle: '${event.status} · ${event.bodyText ?? ''}',
+                ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _NotificationPanelState {
+  const _NotificationPanelState({
+    required this.status,
+    required this.sync,
+    required this.rawEvents,
+  });
+
+  final NotificationCaptureStatus status;
+  final NotificationCaptureSyncResult sync;
+  final List<RawNotificationEventRow> rawEvents;
+}
+
+enum _KnownNotificationApp {
+  nubank('Nubank', 'com.nu.production'),
+  mercadoPago('Mercado Pago', 'com.mercadopago.wallet');
+
+  const _KnownNotificationApp(this.label, this.packageName);
+
+  final String label;
+  final String packageName;
 }
 
 class _Section extends StatelessWidget {

@@ -4,7 +4,9 @@ import 'dart:convert';
 
 import 'package:zimba_control/src/application/dashboard_summary.dart';
 import 'package:zimba_control/src/data/local/app_database.dart';
+import 'package:zimba_control/src/infrastructure/notification_capture_service.dart';
 import 'package:zimba_control/src/presentation/dashboard_page.dart';
+import 'package:zimba_control/src/presentation/movements_page.dart';
 
 void main() {
   test('formatBrl formats integer cents as Brazilian currency text', () {
@@ -114,6 +116,67 @@ void main() {
     expect(transfer?.payerId, 'eu');
   });
 
+  test('operational dashboard summary groups month data', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    await database.seedIfEmpty();
+
+    final details = await database.watchAllTransactionDetails().first;
+    final structure = await database.getFamilyStructureSnapshot();
+    final summary = buildOperationalDashboardSummary(
+      details: details,
+      recurringSchedules: structure.recurringSchedules,
+      installmentPlans: structure.installmentPlans,
+    );
+
+    expect(summary.incomeCents, 1370000);
+    expect(summary.expenseCents, -285222);
+    expect(summary.pendingCount, 2);
+    expect(summary.transferCount, 1);
+    expect(summary.futureCommitmentCents, greaterThan(500000));
+    expect(summary.byPerson.map((item) => item.label), contains('Sofia'));
+    expect(
+      summary.byCategory.map((item) => item.label),
+      containsAll(['Renda', 'Educacao']),
+    );
+    expect(summary.bySource.map((item) => item.label), contains('Manual'));
+  });
+
+  test('movement filters search by person and source', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    await database.seedIfEmpty();
+
+    final details = await database.watchAllTransactionDetails().first;
+    final byPerson = filterMovementDetails(
+      items: details,
+      query: 'sofia',
+      kindFilter: 'all',
+      statusFilter: 'all',
+      sourceFilter: 'all',
+      currentMonthOnly: true,
+    );
+    final byNotification = filterMovementDetails(
+      items: details,
+      query: '',
+      kindFilter: 'expense',
+      statusFilter: 'pending',
+      sourceFilter: 'notification',
+      currentMonthOnly: true,
+    );
+
+    expect(
+      byPerson.map((item) => item.transaction.descriptionRaw),
+      containsAll(['Escola Sofia mensalidade', 'Pensao Sofia']),
+    );
+    expect(
+      byNotification.map((item) => item.transaction.id),
+      containsAll(['tx-mercado', 'tx-farmacia']),
+    );
+  });
+
   test('pension and school are tied to the child financial context', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
@@ -206,6 +269,172 @@ void main() {
     expect(
       second.records.map((record) => record.status),
       everyElement('duplicate'),
+    );
+  });
+
+  test(
+    'statement row can merge with an existing notification transaction',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      await database.seedIfEmpty();
+      final today = DateTime.now();
+      final todayText =
+          '${today.year.toString().padLeft(4, '0')}-'
+          '${today.month.toString().padLeft(2, '0')}-'
+          '${today.day.toString().padLeft(2, '0')}';
+      final csv = [
+        'Data;Descricao;Valor;Identificador',
+        '$todayText;Mercado Extra;-487,32;csv-mercado-extra',
+      ].join('\n');
+
+      final details = await database.importStatementFile(
+        fileName: 'nubank_julho.csv',
+        bytes: utf8.encode(csv),
+      );
+      final candidates = await database.listDuplicateCandidates();
+
+      expect(details.batch.reviewRows, 0);
+      expect(details.batch.duplicateRows, 1);
+      expect(details.records.single.status, 'merge_candidate');
+      expect(details.records.single.duplicateOfTransactionId, 'tx-mercado');
+      expect(candidates.single.transactionId, 'tx-mercado');
+      expect(candidates.single.explanation, contains('valor igual'));
+
+      final promoted = await database.promoteImportBatchToReview(
+        details.batch.id,
+      );
+      final sources = await database.listTransactionSources('tx-mercado');
+      final refreshed = await database.listStagedRecords(details.batch.id);
+
+      expect(promoted, 0);
+      expect(refreshed.single.status, 'merged');
+      expect(sources.map((source) => source.sourceKind), contains('csv'));
+    },
+  );
+
+  test(
+    'import promotion classifies invoice, installments and consortium',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      await database.seedIfEmpty();
+      final today = DateTime.now();
+      final todayText =
+          '${today.year.toString().padLeft(4, '0')}-'
+          '${today.month.toString().padLeft(2, '0')}-'
+          '${today.day.toString().padLeft(2, '0')}';
+      final csv = [
+        'Data;Descricao;Valor;Identificador',
+        '$todayText;Pagamento fatura Nubank;-1200,00;fat-1',
+        '$todayText;Loja Moveis 02/10;-89,90;parc-1',
+        '$todayText;Consorcio administradora auto;-985,00;cons-1',
+      ].join('\n');
+
+      final details = await database.importStatementFile(
+        fileName: 'mercado_pago_julho.csv',
+        bytes: utf8.encode(csv),
+      );
+      await database.promoteImportBatchToReview(details.batch.id);
+
+      final pending = await database.watchPendingReview().first;
+      final invoice = pending.firstWhere(
+        (tx) => tx.descriptionRaw == 'Pagamento fatura Nubank',
+      );
+      final installment = pending.firstWhere(
+        (tx) => tx.descriptionRaw == 'Loja Moveis 02/10',
+      );
+      final consortium = pending.firstWhere(
+        (tx) => tx.descriptionRaw == 'Consorcio administradora auto',
+      );
+      final structure = await database.getFamilyStructureSnapshot();
+      final cardPlan = structure.installmentPlans.firstWhere(
+        (plan) => plan.id == installment.installmentPlanId,
+      );
+
+      expect(invoice.kind, 'transfer');
+      expect(invoice.transferFromAccountId, 'mp');
+      expect(invoice.transferToAccountId, 'nu');
+      expect(cardPlan.planKind, 'credit_card_purchase');
+      expect(cardPlan.currentInstallment, 2);
+      expect(cardPlan.totalInstallments, 10);
+      expect(consortium.installmentPlanId, 'plan-consorcio-carro');
+      expect(consortium.categoryId, 'transporte');
+    },
+  );
+
+  test('raw notification capture creates a review draft', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    await database.seedIfEmpty();
+    final now = DateTime.now();
+    await database.recordRawNotificationEvent(
+      CapturedNotificationEvent(
+        id: 'notification-pix-1',
+        packageName: 'com.mercadopago.wallet',
+        appLabel: 'Mercado Pago',
+        title: 'Pagamento aprovado',
+        text: 'Voce pagou R\$ 42,10 no Pix',
+        bigText: 'Voce pagou R\$ 42,10 no Pix para Padaria Central',
+        notificationId: 10,
+        tag: 'pix',
+        postedAt: now,
+        capturedAt: now,
+      ),
+    );
+
+    final drafts = await database.processPendingRawNotificationEvents();
+    final pending = await database.watchPendingReview().first;
+    final rawEvents = await database.listRawNotificationEvents();
+    final draft = pending.firstWhere(
+      (tx) => tx.descriptionRaw == 'Pagamento aprovado',
+    );
+    final sources = await database.listTransactionSources(draft.id);
+
+    expect(drafts, 1);
+    expect(draft.amountCents, -4210);
+    expect(draft.accountId, 'mp');
+    expect(rawEvents.first.status, 'draft_created');
+    expect(sources.single.notificationKey, 'notification-pix-1');
+  });
+
+  test('raw notification can merge with an existing transaction', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    await database.seedIfEmpty();
+    final now = DateTime.now();
+    await database.recordRawNotificationEvent(
+      CapturedNotificationEvent(
+        id: 'notification-mercado-extra',
+        packageName: 'com.nu.production',
+        appLabel: 'Nubank',
+        title: 'Mercado Extra',
+        text: 'Compra aprovada de R\$ 487,32',
+        notificationId: 11,
+        tag: 'card',
+        postedAt: now,
+        capturedAt: now,
+      ),
+    );
+
+    final drafts = await database.processPendingRawNotificationEvents();
+    final rawEvents = await database.listRawNotificationEvents();
+    final sources = await database.listTransactionSources('tx-mercado');
+    final candidates = await database.listDuplicateCandidates();
+
+    expect(drafts, 0);
+    expect(rawEvents.first.status, 'merged');
+    expect(
+      sources.map((source) => source.notificationKey),
+      contains('notification-mercado-extra'),
+    );
+    expect(
+      candidates.map((candidate) => candidate.status),
+      contains('auto_merged'),
     );
   });
 

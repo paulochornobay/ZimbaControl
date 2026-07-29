@@ -262,6 +262,12 @@ String _detectOfxProvider(String text) {
 
 String _detectCsvProvider(String fileName, List<String> header) {
   final joined = '${fileName.toLowerCase()} ${header.join(' ')}';
+  if (fileName.toLowerCase().contains('mercado')) {
+    return 'mercado_pago';
+  }
+  if (fileName.toLowerCase().contains('nubank')) {
+    return 'nubank';
+  }
   if (joined.contains('nubank') ||
       joined.contains('identificador') ||
       joined.contains('valor') && joined.contains('descricao')) {

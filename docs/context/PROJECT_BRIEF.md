@@ -11,6 +11,10 @@ sem MongoDB e sem login. Sync, Google Sign-In e publicacao entram apenas depois
 que o nucleo local, importacao, notificacoes, conciliacao e backup estiverem
 confiaveis.
 
+Durante desenvolvimento, o app ainda inicia com dados seed de exemplo quando o
+banco esta vazio. Antes do uso real continuo, essa seed deve virar opcao
+explicita ou ser removida do fluxo automatico de abertura.
+
 ## Decisoes Fixas
 
 - O zip Lovable e a fonte visual oficial e fabrica de telas.
@@ -32,6 +36,10 @@ confiaveis.
 A experiencia principal e a caixa de revisao. Todo evento entra como rascunho
 local, recebe sugestoes explicaveis e so vira lancamento consolidado apos
 confirmacao ou regra confiavel.
+
+No estado atual, regras de alta confianca podem apenas mesclar fontes de uma
+mesma movimentacao ja existente. Classificacoes financeiras incertas continuam
+indo para a Caixa de Revisao com explicacao.
 
 Cada transacao deve separar:
 
@@ -62,6 +70,8 @@ despesas:
   despesa;
 - importacao de extratos Nubank e Mercado Pago sem duplicar notificacoes ou
   lancamentos manuais.
+- compra parcelada de cartao ligada a plano de compra, separada do consorcio
+  do carro.
 
 ## Fora de Escopo Inicial
 
