@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'src/data/local/app_database.dart';
 import 'src/presentation/dashboard_page.dart';
+import 'src/presentation/family_structure_page.dart';
 import 'src/presentation/review_page.dart';
 
 void main() {
@@ -64,7 +65,7 @@ class _ZimbaControlAppState extends State<ZimbaControlApp> {
               },
             ),
             const PlaceholderPage(title: 'Movimentacoes'),
-            const PlaceholderPage(title: 'Ajustes'),
+            FamilyStructurePage(database: database),
           ],
         ),
         bottomNavigationBar: NavigationBar(

@@ -50,6 +50,17 @@ backup local.
   plano de parcelas de compra.
 - Uma transacao pode ter multiplas fontes: notificacao, CSV, OFX e manual.
 
+Estado implementado no Marco 05:
+
+- `accounts.ownerPersonId` e `creditCards.ownerPersonId`.
+- `auth_users` com email allowlist local e vinculo opcional com pessoa.
+- `recurring_schedules` para escola, pensao, ajuda familiar e fixos mensais.
+- `installment_plans` para consorcio e futuros parcelamentos.
+- `transactions.transferFromAccountId`, `transferToAccountId`,
+  `recurringScheduleId` e `installmentPlanId`.
+- Seed familiar com escola da Sofia, pensao destinada a Sofia, ajuda familiar
+  para Marina e consorcio do carro.
+
 ## Estado do Nucleo Local
 
 O MVP local atual cobre:
@@ -61,6 +72,8 @@ O MVP local atual cobre:
 - dashboard inicial;
 - caixa de revisao real com dados hidratados, filtros persistidos, acoes reais
   e desfazer;
+- estrutura familiar local com proprietarios de contas/cartoes, usuario de
+  acesso separado, recorrencias e consorcio;
 - edicao basica de descricao, valor, tipo, categoria e centro de custo.
 
 As telas ainda evoluirao por marco. Lovable continua sendo a fonte para
@@ -174,6 +187,10 @@ na caixa de revisao.
 Transferencias entre marido e esposa tambem devem ser tratadas como movimento
 interno quando as duas contas estiverem cadastradas. Se apenas uma ponta for
 conhecida, o app deve sugerir classificacao e pedir revisao.
+
+No nucleo local atual, `kind = transfer` fica fora dos calculos de receita e
+despesa do dashboard. A transferencia preserva conta de origem, conta de
+destino, pagador e beneficiario.
 
 ## Importacao Local
 

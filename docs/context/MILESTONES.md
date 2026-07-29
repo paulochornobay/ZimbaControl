@@ -7,8 +7,8 @@
 - Marco 02 - Fundacao do Monorepo: concluido
 - Marco 03 - Nucleo Local Offline: concluido para MVP local
 - Marco 04 - Caixa de Revisao Real: concluido
-- Marco 05 - Estrutura Financeira Familiar: proximo
-- Marco 06 - Importacao CSV/OFX: planejado
+- Marco 05 - Estrutura Financeira Familiar: concluido
+- Marco 06 - Importacao CSV/OFX: proximo
 - Marco 07 - Conciliacao Financeira: planejado
 - Marco 08 - Captura Android: planejado
 - Marco 09 - Painel e Movimentacoes: planejado
@@ -133,7 +133,11 @@ Criterio de aceite:
 - Os principais casos da familia podem ser registrados sem distorcer receitas
   e despesas.
 
-Status: proximo.
+Status: concluido. O schema local agora tem proprietario em contas/cartoes,
+usuario de acesso separado, recorrencias familiares, plano de consorcio e
+campos de transferencia interna. O seed cobre escola do filho, pensao da filha,
+ajuda familiar para a esposa e consorcio do carro. Transferencias internas nao
+entram no resumo como receita/despesa.
 
 ## Marco 06 - Importacao CSV/OFX
 
@@ -151,6 +155,8 @@ Criterio de aceite:
 
 - Importar extratos reais anonimizados sem duplicar uma segunda importacao do
   mesmo arquivo.
+
+Status: proximo.
 
 ## Marco 07 - Conciliacao Financeira
 

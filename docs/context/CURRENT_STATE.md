@@ -13,6 +13,10 @@
 - Mobile tem Drift/SQLite com tabelas principais do Marco 03, seeds,
   dashboard, caixa de revisao real, edicao basica, confirmacao, ignorar,
   duplicado, conversao em transferencia, desfazer e outbox local.
+- Mobile tambem tem a estrutura familiar do Marco 05: proprietario em
+  contas/cartoes, usuario de acesso separado, recorrencias para escola, pensao
+  e ajuda familiar, plano de consorcio e transferencia interna fora do resumo
+  de receita/despesa.
 - Para teste visual no Chrome, o banco usa Drift Web com `sql.js`; Android e
   desktop nativo continuam usando SQLite nativo.
 - API tem `/health`, `/sync/push`, `/sync/pull` e stubs dos endpoints do plano.
@@ -106,23 +110,23 @@ Antes de continuar qualquer marco, leia:
   Marco 11.
 - Implementar telas Flutter completas equivalentes ao Lovable conforme cada
   marco avancar.
-- Marco 05 precisa ampliar o modelo para proprietario de contas/cartoes,
-  transferencias internas, recorrencias, pensao e consorcio.
+- Marco 06 precisa implementar importacao local CSV/OFX com staging, hash de
+  arquivo/linha, adaptadores Nubank/Mercado Pago e mapeamento manual.
 - Substituir armazenamento local simples por criptografia SQLCipher quando
   viavel no Marco 12.
 
 ## Proximo Marco
 
-Marco 05 - Estrutura Financeira Familiar.
+Marco 06 - Importacao CSV/OFX.
 
 Sequencia recomendada:
 
-1. Atualizar o schema local com proprietario em contas/cartoes e entidades de
-   recorrencia/compromisso familiar.
-2. Criar seeds para escola, pensao da filha, ajuda familiar e consorcio.
-3. Ajustar a edicao/criacao para registrar transferencia interna sem inflar
-   receitas/despesas.
-4. Testar recorrencias e classificacao dos cenarios familiares.
-5. Opcionalmente pedir ao Lovable as telas de cadastros familiares antes do
-   acabamento visual final.
-6. Atualizar estes arquivos de contexto ao concluir o marco.
+1. Criar tabelas locais `import_batches` e `staged_source_records`.
+2. Implementar hash do arquivo e hash da linha/registro.
+3. Implementar parser CSV com deteccao simples de encoding/separador/decimal.
+4. Implementar parser OFX suficiente para extratos bancarios/cartao.
+5. Criar adapters iniciais Nubank e Mercado Pago.
+6. Gerar resumo do lote: novos, invalidos, duplicados e revisao.
+7. Criar tela/fluxo local simples para escolher arquivo e ver staging.
+8. Testar com fixtures anonimizadas.
+9. Atualizar estes arquivos de contexto ao concluir o marco.

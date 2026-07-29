@@ -20,6 +20,7 @@ class People extends Table {
 class Accounts extends Table {
   TextColumn get id => text()();
   TextColumn get householdId => text()();
+  TextColumn get ownerPersonId => text().nullable()();
   TextColumn get provider => text()();
   TextColumn get name => text()();
   TextColumn get type => text()();
@@ -35,6 +36,7 @@ class Accounts extends Table {
 class CreditCards extends Table {
   TextColumn get id => text()();
   TextColumn get householdId => text()();
+  TextColumn get ownerPersonId => text().nullable()();
   TextColumn get provider => text()();
   TextColumn get name => text()();
   TextColumn get brand => text().nullable()();
@@ -97,6 +99,10 @@ class Transactions extends Table {
   TextColumn get currencyCode => text().withDefault(const Constant('BRL'))();
   TextColumn get descriptionRaw => text()();
   TextColumn get accountId => text().nullable()();
+  TextColumn get transferFromAccountId => text().nullable()();
+  TextColumn get transferToAccountId => text().nullable()();
+  TextColumn get recurringScheduleId => text().nullable()();
+  TextColumn get installmentPlanId => text().nullable()();
   TextColumn get merchantId => text().nullable()();
   TextColumn get categoryId => text().nullable()();
   TextColumn get costCenterId => text().nullable()();
@@ -188,6 +194,70 @@ class AppPreferences extends Table {
   Set<Column> get primaryKey => {key};
 }
 
+@DataClassName('AuthUserRow')
+class AuthUsers extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get email => text()();
+  TextColumn get provider => text()();
+  TextColumn get linkedPersonId => text().nullable()();
+  BoolColumn get allowed => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get lastLoginAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('RecurringScheduleRow')
+class RecurringSchedules extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get label => text()();
+  TextColumn get kind => text()();
+  IntColumn get amountCents => integer()();
+  TextColumn get currencyCode => text().withDefault(const Constant('BRL'))();
+  TextColumn get frequency => text().withDefault(const Constant('monthly'))();
+  IntColumn get dayOfMonth => integer()();
+  TextColumn get startMonth => text()();
+  TextColumn get endMonth => text().nullable()();
+  TextColumn get payerPersonId => text().nullable()();
+  TextColumn get beneficiaryPersonId => text().nullable()();
+  TextColumn get fromAccountId => text().nullable()();
+  TextColumn get toAccountId => text().nullable()();
+  TextColumn get categoryId => text().nullable()();
+  TextColumn get costCenterId => text().nullable()();
+  BoolColumn get active => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('InstallmentPlanRow')
+class InstallmentPlans extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get label => text()();
+  TextColumn get planKind => text()();
+  TextColumn get ownerPersonId => text().nullable()();
+  TextColumn get assetName => text().nullable()();
+  IntColumn get totalAmountCents => integer().nullable()();
+  IntColumn get installmentAmountCents => integer()();
+  IntColumn get currentInstallment => integer()();
+  IntColumn get totalInstallments => integer()();
+  IntColumn get dueDay => integer().nullable()();
+  TextColumn get startMonth => text()();
+  TextColumn get endMonth => text().nullable()();
+  TextColumn get categoryId => text().nullable()();
+  TextColumn get costCenterId => text().nullable()();
+  BoolColumn get active => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     People,
@@ -202,6 +272,9 @@ class AppPreferences extends Table {
     TransactionSources,
     SyncOutbox,
     AppPreferences,
+    AuthUsers,
+    RecurringSchedules,
+    InstallmentPlans,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -213,7 +286,7 @@ class AppDatabase extends _$AppDatabase {
   static const reviewFilterPreferenceKey = 'review_filter';
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -228,6 +301,26 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 3) {
         await migrator.createTable(appPreferences);
+      }
+      if (from < 4) {
+        await migrator.addColumn(accounts, accounts.ownerPersonId);
+        await migrator.addColumn(creditCards, creditCards.ownerPersonId);
+        await migrator.addColumn(
+          transactions,
+          transactions.transferFromAccountId,
+        );
+        await migrator.addColumn(
+          transactions,
+          transactions.transferToAccountId,
+        );
+        await migrator.addColumn(
+          transactions,
+          transactions.recurringScheduleId,
+        );
+        await migrator.addColumn(transactions, transactions.installmentPlanId);
+        await migrator.createTable(authUsers);
+        await migrator.createTable(recurringSchedules);
+        await migrator.createTable(installmentPlans);
       }
     },
   );
@@ -301,14 +394,95 @@ class AppDatabase extends _$AppDatabase {
     return query.get();
   }
 
+  Future<List<AccountWithOwner>> listAccountsWithOwners() async {
+    final accountRows =
+        await (select(accounts)
+              ..where((row) => row.householdId.equals(householdMain))
+              ..orderBy([(row) => OrderingTerm.asc(row.name)]))
+            .get();
+    final owners = await _peopleByIds(
+      accountRows.map((row) => row.ownerPersonId).whereType<String>().toSet(),
+    );
+
+    return [
+      for (final account in accountRows)
+        AccountWithOwner(
+          account: account,
+          owner: account.ownerPersonId == null
+              ? null
+              : owners[account.ownerPersonId],
+        ),
+    ];
+  }
+
+  Future<List<CreditCardWithOwner>> listCreditCardsWithOwners() async {
+    final cardRows =
+        await (select(creditCards)
+              ..where((row) => row.householdId.equals(householdMain))
+              ..orderBy([(row) => OrderingTerm.asc(row.name)]))
+            .get();
+    final owners = await _peopleByIds(
+      cardRows.map((row) => row.ownerPersonId).whereType<String>().toSet(),
+    );
+
+    return [
+      for (final card in cardRows)
+        CreditCardWithOwner(
+          creditCard: card,
+          owner: card.ownerPersonId == null ? null : owners[card.ownerPersonId],
+        ),
+    ];
+  }
+
+  Future<List<AuthUserRow>> listAuthUsers() {
+    final query = select(authUsers)
+      ..where((row) => row.householdId.equals(householdMain))
+      ..orderBy([(row) => OrderingTerm.asc(row.email)]);
+    return query.get();
+  }
+
+  Future<List<RecurringScheduleRow>> listRecurringSchedules() {
+    final query = select(recurringSchedules)
+      ..where((row) => row.householdId.equals(householdMain))
+      ..orderBy([(row) => OrderingTerm.asc(row.dayOfMonth)]);
+    return query.get();
+  }
+
+  Future<List<InstallmentPlanRow>> listInstallmentPlans() {
+    final query = select(installmentPlans)
+      ..where((row) => row.householdId.equals(householdMain))
+      ..orderBy([(row) => OrderingTerm.asc(row.dueDay)]);
+    return query.get();
+  }
+
+  Future<FamilyStructureSnapshot> getFamilyStructureSnapshot() async {
+    final peopleRows = await watchPeople().first;
+    final accounts = await listAccountsWithOwners();
+    final cards = await listCreditCardsWithOwners();
+    final auth = await listAuthUsers();
+    final schedules = await listRecurringSchedules();
+    final plans = await listInstallmentPlans();
+
+    return FamilyStructureSnapshot(
+      people: peopleRows,
+      accounts: accounts,
+      creditCards: cards,
+      authUsers: auth,
+      recurringSchedules: schedules,
+      installmentPlans: plans,
+    );
+  }
+
   Future<void> seedIfEmpty() async {
     final existing = await (select(transactions)..limit(1)).getSingleOrNull();
-    if (existing != null) {
-      return;
+    if (existing == null) {
+      await _seedInitialData(DateTime.now());
     }
 
-    final now = DateTime.now();
+    await ensureFamilyStructureSeed();
+  }
 
+  Future<void> _seedInitialData(DateTime now) async {
     await batch((batch) {
       batch.insertAll(people, [
         PeopleCompanion.insert(
@@ -341,6 +515,7 @@ class AppDatabase extends _$AppDatabase {
         AccountsCompanion.insert(
           id: 'mp',
           householdId: householdMain,
+          ownerPersonId: const Value('eu'),
           provider: 'mercado_pago',
           name: 'Mercado Pago',
           type: 'account',
@@ -348,6 +523,7 @@ class AppDatabase extends _$AppDatabase {
         AccountsCompanion.insert(
           id: 'nu',
           householdId: householdMain,
+          ownerPersonId: const Value('eu'),
           provider: 'nubank',
           name: 'Nubank',
           type: 'credit_card',
@@ -358,6 +534,7 @@ class AppDatabase extends _$AppDatabase {
         CreditCardsCompanion.insert(
           id: 'nu-card',
           householdId: householdMain,
+          ownerPersonId: const Value('eu'),
           provider: 'nubank',
           name: 'Nubank',
           brand: const Value('Mastercard'),
@@ -372,7 +549,7 @@ class AppDatabase extends _$AppDatabase {
         _category('saude', 'Saude', 20),
         _category('educacao', 'Educacao', 30),
         _category('transporte', 'Transporte', 40),
-        _category('renda', 'Renda', 50),
+        _category('renda', 'Renda', 50, kind: 'income'),
       ]);
 
       batch.insertAll(costCenters, [
@@ -432,6 +609,7 @@ class AppDatabase extends _$AppDatabase {
           merchantId: 'escola-sofia',
           categoryId: 'educacao',
           costCenterId: 'filhos',
+          recurringScheduleId: 'rec-escola-sofia',
           occurredAt: now.subtract(const Duration(days: 1)),
           confidence: 0.95,
         ),
@@ -500,6 +678,216 @@ class AppDatabase extends _$AppDatabase {
         ),
       ]);
     });
+  }
+
+  Future<void> ensureFamilyStructureSeed() async {
+    final now = DateTime.now();
+    final currentMonth =
+        '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}';
+
+    await into(accounts).insert(
+      AccountsCompanion.insert(
+        id: 'marina-conta',
+        householdId: householdMain,
+        ownerPersonId: const Value('marina'),
+        provider: 'manual',
+        name: 'Conta Marina',
+        type: 'account',
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+
+    await (update(accounts)..where((row) => row.id.equals('mp'))).write(
+      const AccountsCompanion(ownerPersonId: Value('eu')),
+    );
+    await (update(accounts)..where((row) => row.id.equals('nu'))).write(
+      const AccountsCompanion(ownerPersonId: Value('eu')),
+    );
+    await (update(creditCards)..where((row) => row.id.equals('nu-card'))).write(
+      const CreditCardsCompanion(ownerPersonId: Value('eu')),
+    );
+
+    await into(authUsers).insert(
+      AuthUsersCompanion.insert(
+        id: 'auth-test-owner',
+        householdId: householdMain,
+        email: 'teste@zimbacontrol.local',
+        provider: 'google_oidc_future',
+        linkedPersonId: const Value('eu'),
+        createdAt: now,
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+
+    await into(merchants).insert(
+      _merchant('consorcio-auto', 'consorcio auto', 'Consorcio Auto'),
+      mode: InsertMode.insertOrIgnore,
+    );
+    await into(merchants).insert(
+      _merchant('pensao-sofia', 'pensao sofia', 'Pensao Sofia'),
+      mode: InsertMode.insertOrIgnore,
+    );
+
+    await _insertRecurringSchedule(
+      _recurringSchedule(
+        id: 'rec-escola-sofia',
+        label: 'Escola da Sofia',
+        kind: 'expense',
+        amountCents: -129000,
+        dayOfMonth: 5,
+        startMonth: currentMonth,
+        payerPersonId: 'eu',
+        beneficiaryPersonId: 'sofia',
+        fromAccountId: 'mp',
+        categoryId: 'educacao',
+        costCenterId: 'filhos',
+        updatedAt: now,
+      ),
+    );
+    await _insertRecurringSchedule(
+      _recurringSchedule(
+        id: 'rec-pensao-sofia',
+        label: 'Pensao destinada a Sofia',
+        kind: 'income',
+        amountCents: 90000,
+        dayOfMonth: 10,
+        startMonth: currentMonth,
+        beneficiaryPersonId: 'sofia',
+        toAccountId: 'mp',
+        categoryId: 'renda',
+        costCenterId: 'filhos',
+        updatedAt: now,
+      ),
+    );
+    await _insertRecurringSchedule(
+      _recurringSchedule(
+        id: 'rec-ajuda-marina',
+        label: 'Ajuda familiar para Marina',
+        kind: 'transfer',
+        amountCents: -250000,
+        dayOfMonth: 1,
+        startMonth: currentMonth,
+        payerPersonId: 'eu',
+        beneficiaryPersonId: 'marina',
+        fromAccountId: 'mp',
+        toAccountId: 'marina-conta',
+        updatedAt: now,
+      ),
+    );
+
+    await into(installmentPlans).insert(
+      InstallmentPlansCompanion.insert(
+        id: 'plan-consorcio-carro',
+        householdId: householdMain,
+        label: 'Consorcio do carro',
+        planKind: 'vehicle_consortium',
+        ownerPersonId: const Value('eu'),
+        assetName: const Value('Carro consorciado'),
+        totalAmountCents: const Value(6000000),
+        installmentAmountCents: 98500,
+        currentInstallment: 18,
+        totalInstallments: 72,
+        dueDay: const Value(15),
+        startMonth: currentMonth,
+        categoryId: const Value('transporte'),
+        costCenterId: const Value('casa'),
+        updatedAt: now,
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+
+    await _insertTransactionIfAbsent(
+      _transaction(
+        id: 'tx-ajuda-marina',
+        kind: 'transfer',
+        reviewStatus: 'confirmed',
+        duplicateStatus: 'none',
+        amountCents: -250000,
+        description: 'Ajuda familiar para Marina',
+        accountId: 'mp',
+        transferFromAccountId: 'mp',
+        transferToAccountId: 'marina-conta',
+        recurringScheduleId: 'rec-ajuda-marina',
+        occurredAt: now.subtract(const Duration(days: 3)),
+        confidence: 1,
+      ),
+    );
+    await _insertTransactionIfAbsent(
+      _transaction(
+        id: 'tx-pensao-sofia',
+        kind: 'income',
+        reviewStatus: 'confirmed',
+        duplicateStatus: 'none',
+        amountCents: 90000,
+        description: 'Pensao Sofia',
+        accountId: 'mp',
+        merchantId: 'pensao-sofia',
+        categoryId: 'renda',
+        costCenterId: 'filhos',
+        recurringScheduleId: 'rec-pensao-sofia',
+        occurredAt: now.subtract(const Duration(days: 4)),
+        confidence: 1,
+      ),
+    );
+    await _insertTransactionIfAbsent(
+      _transaction(
+        id: 'tx-consorcio-carro',
+        kind: 'expense',
+        reviewStatus: 'confirmed',
+        duplicateStatus: 'none',
+        amountCents: -98500,
+        description: 'Consorcio do carro',
+        accountId: 'mp',
+        merchantId: 'consorcio-auto',
+        categoryId: 'transporte',
+        costCenterId: 'casa',
+        installmentPlanId: 'plan-consorcio-carro',
+        occurredAt: now.subtract(const Duration(days: 5)),
+        confidence: 1,
+      ),
+    );
+
+    await _insertBeneficiaryIfAbsent(
+      _beneficiary('tx-ajuda-marina', 'marina', true),
+    );
+    await _insertBeneficiaryIfAbsent(
+      _beneficiary('tx-pensao-sofia', 'sofia', true),
+    );
+    await _insertBeneficiaryIfAbsent(
+      _beneficiary('tx-consorcio-carro', 'eu', true),
+    );
+
+    await _insertSourceIfAbsent(
+      _source(
+        id: 'src-tx-ajuda-marina-rec',
+        transactionId: 'tx-ajuda-marina',
+        sourceKind: 'manual',
+        provider: 'recurring_schedule',
+        confidence: 1,
+        occurredAt: now.subtract(const Duration(days: 3)),
+      ),
+    );
+    await _insertSourceIfAbsent(
+      _source(
+        id: 'src-tx-pensao-sofia-rec',
+        transactionId: 'tx-pensao-sofia',
+        sourceKind: 'manual',
+        provider: 'recurring_schedule',
+        confidence: 1,
+        occurredAt: now.subtract(const Duration(days: 4)),
+      ),
+    );
+    await _insertSourceIfAbsent(
+      _source(
+        id: 'src-tx-consorcio-carro-plan',
+        transactionId: 'tx-consorcio-carro',
+        sourceKind: 'manual',
+        provider: 'installment_plan',
+        confidence: 1,
+        occurredAt: now.subtract(const Duration(days: 5)),
+      ),
+    );
   }
 
   Future<ReviewActionSnapshot?> captureReviewSnapshot(String id) async {
@@ -662,6 +1050,54 @@ class AppDatabase extends _$AppDatabase {
     await _enqueueOutbox(id, 'create');
   }
 
+  Future<String> createInternalTransfer({
+    required String fromAccountId,
+    required String toAccountId,
+    required int amountCents,
+    required String description,
+    required String payerPersonId,
+    required String beneficiaryPersonId,
+    DateTime? occurredAt,
+  }) async {
+    final now = DateTime.now();
+    final happenedAt = occurredAt ?? now;
+    final id = 'tx-transfer-${now.microsecondsSinceEpoch}';
+    final signedAmount = amountCents > 0 ? -amountCents : amountCents;
+
+    await into(transactions).insert(
+      _transaction(
+        id: id,
+        kind: 'transfer',
+        reviewStatus: 'confirmed',
+        duplicateStatus: 'none',
+        amountCents: signedAmount,
+        description: description,
+        accountId: fromAccountId,
+        transferFromAccountId: fromAccountId,
+        transferToAccountId: toAccountId,
+        occurredAt: happenedAt,
+        confidence: 1,
+        payerPersonId: payerPersonId,
+      ),
+    );
+    await into(
+      transactionBeneficiaries,
+    ).insert(_beneficiary(id, beneficiaryPersonId, true));
+    await into(transactionSources).insert(
+      _source(
+        id: 'src-$id-manual',
+        transactionId: id,
+        sourceKind: 'manual',
+        provider: 'internal_transfer',
+        confidence: 1,
+        occurredAt: happenedAt,
+      ),
+    );
+    await _enqueueOutbox(id, 'create');
+
+    return id;
+  }
+
   Future<void> _resolveReviewItem(String transactionId) async {
     await (update(reviewInbox)
           ..where((row) => row.transactionId.equals(transactionId))
@@ -685,6 +1121,41 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Future<void> _insertTransactionIfAbsent(TransactionsCompanion transaction) {
+    return into(
+      transactions,
+    ).insert(transaction, mode: InsertMode.insertOrIgnore);
+  }
+
+  Future<void> _insertBeneficiaryIfAbsent(
+    TransactionBeneficiariesCompanion beneficiary,
+  ) {
+    return into(
+      transactionBeneficiaries,
+    ).insert(beneficiary, mode: InsertMode.insertOrIgnore);
+  }
+
+  Future<void> _insertSourceIfAbsent(TransactionSourcesCompanion source) {
+    return into(
+      transactionSources,
+    ).insert(source, mode: InsertMode.insertOrIgnore);
+  }
+
+  Future<void> _insertRecurringSchedule(RecurringSchedulesCompanion schedule) {
+    return into(
+      recurringSchedules,
+    ).insert(schedule, mode: InsertMode.insertOrIgnore);
+  }
+
+  Future<Map<String, PersonRow>> _peopleByIds(Set<String> ids) async {
+    if (ids.isEmpty) {
+      return const {};
+    }
+
+    final rows = await (select(people)..where((row) => row.id.isIn(ids))).get();
+    return {for (final row in rows) row.id: row};
+  }
+
   TransactionsCompanion _transaction({
     required String id,
     required String kind,
@@ -695,9 +1166,14 @@ class AppDatabase extends _$AppDatabase {
     required DateTime occurredAt,
     required double confidence,
     String? accountId,
+    String? transferFromAccountId,
+    String? transferToAccountId,
+    String? recurringScheduleId,
+    String? installmentPlanId,
     String? merchantId,
     String? categoryId,
     String? costCenterId,
+    String payerPersonId = 'eu',
   }) {
     final month =
         '${occurredAt.year.toString().padLeft(4, '0')}-'
@@ -714,21 +1190,30 @@ class AppDatabase extends _$AppDatabase {
       amountCents: amountCents,
       descriptionRaw: description,
       accountId: Value(accountId),
+      transferFromAccountId: Value(transferFromAccountId),
+      transferToAccountId: Value(transferToAccountId),
+      recurringScheduleId: Value(recurringScheduleId),
+      installmentPlanId: Value(installmentPlanId),
       merchantId: Value(merchantId),
       categoryId: Value(categoryId),
       costCenterId: Value(costCenterId),
-      payerId: const Value('eu'),
+      payerId: Value(payerPersonId),
       sourceConfidence: Value(confidence),
       updatedAt: occurredAt,
     );
   }
 
-  CategoriesCompanion _category(String id, String name, int sortOrder) {
+  CategoriesCompanion _category(
+    String id,
+    String name,
+    int sortOrder, {
+    String kind = 'expense',
+  }) {
     return CategoriesCompanion.insert(
       id: id,
       householdId: householdMain,
       name: name,
-      kind: 'expense',
+      kind: kind,
       sortOrder: Value(sortOrder),
     );
   }
@@ -796,6 +1281,39 @@ class AppDatabase extends _$AppDatabase {
       provider: provider,
       confidence: Value(confidence),
       occurredAt: Value(occurredAt),
+    );
+  }
+
+  RecurringSchedulesCompanion _recurringSchedule({
+    required String id,
+    required String label,
+    required String kind,
+    required int amountCents,
+    required int dayOfMonth,
+    required String startMonth,
+    required DateTime updatedAt,
+    String? payerPersonId,
+    String? beneficiaryPersonId,
+    String? fromAccountId,
+    String? toAccountId,
+    String? categoryId,
+    String? costCenterId,
+  }) {
+    return RecurringSchedulesCompanion.insert(
+      id: id,
+      householdId: householdMain,
+      label: label,
+      kind: kind,
+      amountCents: amountCents,
+      dayOfMonth: dayOfMonth,
+      startMonth: startMonth,
+      payerPersonId: Value(payerPersonId),
+      beneficiaryPersonId: Value(beneficiaryPersonId),
+      fromAccountId: Value(fromAccountId),
+      toAccountId: Value(toAccountId),
+      categoryId: Value(categoryId),
+      costCenterId: Value(costCenterId),
+      updatedAt: updatedAt,
     );
   }
 
@@ -1002,4 +1520,40 @@ class ReviewActionSnapshot {
 
   final FinanceTransaction transaction;
   final List<ReviewInboxRow> openReviewItems;
+}
+
+class AccountWithOwner {
+  const AccountWithOwner({required this.account, required this.owner});
+
+  final AccountRow account;
+  final PersonRow? owner;
+
+  String get ownerLabel => owner?.displayName ?? 'Sem proprietario';
+}
+
+class CreditCardWithOwner {
+  const CreditCardWithOwner({required this.creditCard, required this.owner});
+
+  final CreditCardRow creditCard;
+  final PersonRow? owner;
+
+  String get ownerLabel => owner?.displayName ?? 'Sem proprietario';
+}
+
+class FamilyStructureSnapshot {
+  const FamilyStructureSnapshot({
+    required this.people,
+    required this.accounts,
+    required this.creditCards,
+    required this.authUsers,
+    required this.recurringSchedules,
+    required this.installmentPlans,
+  });
+
+  final List<PersonRow> people;
+  final List<AccountWithOwner> accounts;
+  final List<CreditCardWithOwner> creditCards;
+  final List<AuthUserRow> authUsers;
+  final List<RecurringScheduleRow> recurringSchedules;
+  final List<InstallmentPlanRow> installmentPlans;
 }

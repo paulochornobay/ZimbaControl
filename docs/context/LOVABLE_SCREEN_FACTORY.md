@@ -161,6 +161,38 @@ Crie o fluxo de importacao com escolher arquivo, detectar banco/provedor,
 previa do lote, resumo de validos/invalidos/novos/duplicados/conciliados,
 mapeamento manual de colunas e revisao de conflitos.
 
+Prompt recomendado para o Marco 06:
+
+```text
+Crie/refine o fluxo de Importacao CSV/OFX do ZimbaControl sem landing page.
+
+Contexto:
+- app pessoal de controle financeiro familiar;
+- Lovable e apenas prototipo visual;
+- app final sera Flutter offline-first;
+- importacao deve ser totalmente local, sem enviar arquivo para servidor.
+
+Telas/fluxos necessarios:
+- escolher arquivo CSV ou OFX;
+- detectar provedor: Nubank, Mercado Pago ou CSV desconhecido;
+- mostrar hash/resumo do lote sem expor dados sensiveis demais;
+- previa compacta dos registros reconhecidos;
+- resumo com novos, invalidos, duplicados e itens para revisao;
+- mapeamento manual de colunas quando CSV nao for reconhecido;
+- confirmacao para enviar registros validos para a Caixa de Revisao;
+- estado de reimportacao do mesmo arquivo sem duplicar registros.
+
+Regras de UX:
+- visual sobrio e utilitario;
+- mobile-first 360 a 440 px sem texto cortado;
+- nada de backend, auth, MongoDB ou upload real;
+- usar dados mockados realistas de Nubank e Mercado Pago;
+- mostrar estados vazio, carregando, erro, lote valido e lote com conflitos.
+
+Objetivo:
+validar a organizacao visual para posterior traducao para Flutter.
+```
+
 ### Estrutura Familiar
 
 Crie as telas de cadastros familiares do ZimbaControl para pessoas, contas,
