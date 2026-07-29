@@ -57,7 +57,13 @@ class _ZimbaControlAppState extends State<ZimbaControlApp> {
           children: [
             DashboardPage(database: database),
             ReviewPage(database: database),
-            const PlaceholderPage(title: 'Filtros'),
+            NewDraftPage(
+              onCreate: () async {
+                await database.createManualDraft();
+                setState(() => selectedIndex = 1);
+              },
+            ),
+            const PlaceholderPage(title: 'Movimentacoes'),
             const PlaceholderPage(title: 'Ajustes'),
           ],
         ),
@@ -69,21 +75,68 @@ class _ZimbaControlAppState extends State<ZimbaControlApp> {
           destinations: const [
             NavigationDestination(
               icon: Icon(Icons.home_outlined),
-              label: 'Inicio',
+              label: 'Resumo',
             ),
             NavigationDestination(
               icon: Icon(Icons.inbox_outlined),
               label: 'Revisao',
             ),
             NavigationDestination(
-              icon: Icon(Icons.tune_outlined),
-              label: 'Filtros',
+              icon: Icon(Icons.add_circle_outline),
+              label: 'Novo',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.receipt_long_outlined),
+              label: 'Movs.',
             ),
             NavigationDestination(
               icon: Icon(Icons.settings_outlined),
               label: 'Ajustes',
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class NewDraftPage extends StatelessWidget {
+  const NewDraftPage({required this.onCreate, super.key});
+
+  final Future<void> Function() onCreate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Novo lancamento')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.note_add_outlined, size: 48),
+              const SizedBox(height: 12),
+              Text(
+                'Criar rascunho local',
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Ele entra na caixa de revisao para edicao e confirmacao.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 18),
+              FilledButton.icon(
+                onPressed: onCreate,
+                icon: const Icon(Icons.add),
+                label: const Text('Criar rascunho'),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -178,6 +178,16 @@ class SyncOutbox extends Table {
   Set<Column> get primaryKey => {opId};
 }
 
+@DataClassName('AppPreferenceRow')
+class AppPreferences extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+}
+
 @DriftDatabase(
   tables: [
     People,
@@ -191,6 +201,7 @@ class SyncOutbox extends Table {
     TransactionBeneficiaries,
     TransactionSources,
     SyncOutbox,
+    AppPreferences,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -199,9 +210,10 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   static const householdMain = 'household-main';
+  static const reviewFilterPreferenceKey = 'review_filter';
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -213,6 +225,9 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(costCenters);
         await migrator.createTable(merchants);
         await migrator.createTable(reviewInbox);
+      }
+      if (from < 3) {
+        await migrator.createTable(appPreferences);
       }
     },
   );
@@ -230,6 +245,26 @@ class AppDatabase extends _$AppDatabase {
       ..where((row) => row.reviewStatus.equals('pending'))
       ..orderBy([(row) => OrderingTerm.desc(row.occurredAt)]);
     return query.watch();
+  }
+
+  Stream<List<ReviewTransactionDetails>> watchPendingReviewDetails() {
+    return watchPendingReview().asyncMap(_hydrateReviewTransactions);
+  }
+
+  Stream<String> watchReviewFilter() {
+    final query = select(appPreferences)
+      ..where((row) => row.key.equals(reviewFilterPreferenceKey));
+    return query.watchSingleOrNull().map((row) => row?.value ?? 'all');
+  }
+
+  Future<void> setReviewFilter(String filter) {
+    return into(appPreferences).insertOnConflictUpdate(
+      AppPreferencesCompanion.insert(
+        key: reviewFilterPreferenceKey,
+        value: filter,
+        updatedAt: DateTime.now(),
+      ),
+    );
   }
 
   Stream<List<PersonRow>> watchPeople() {
@@ -429,7 +464,89 @@ class AppDatabase extends _$AppDatabase {
         _beneficiary('tx-escola', 'sofia', true),
         _beneficiary('tx-salario', 'eu', true),
       ]);
+
+      batch.insertAll(transactionSources, [
+        _source(
+          id: 'src-tx-mercado-notif',
+          transactionId: 'tx-mercado',
+          sourceKind: 'notification',
+          provider: 'nubank',
+          confidence: 0.82,
+          occurredAt: now.subtract(const Duration(hours: 3)),
+        ),
+        _source(
+          id: 'src-tx-farmacia-notif',
+          transactionId: 'tx-farmacia',
+          sourceKind: 'notification',
+          provider: 'mercado_pago',
+          confidence: 0.76,
+          occurredAt: now.subtract(const Duration(hours: 6)),
+        ),
+        _source(
+          id: 'src-tx-escola-manual',
+          transactionId: 'tx-escola',
+          sourceKind: 'manual',
+          provider: 'zimba_control',
+          confidence: 0.95,
+          occurredAt: now.subtract(const Duration(days: 1)),
+        ),
+        _source(
+          id: 'src-tx-salario-manual',
+          transactionId: 'tx-salario',
+          sourceKind: 'manual',
+          provider: 'zimba_control',
+          confidence: 1,
+          occurredAt: now.subtract(const Duration(days: 2)),
+        ),
+      ]);
     });
+  }
+
+  Future<ReviewActionSnapshot?> captureReviewSnapshot(String id) async {
+    final transaction = await getTransaction(id);
+    if (transaction == null) {
+      return null;
+    }
+
+    final openReviewItems =
+        await (select(reviewInbox)
+              ..where((row) => row.transactionId.equals(id))
+              ..where((row) => row.resolvedAt.isNull()))
+            .get();
+
+    return ReviewActionSnapshot(
+      transaction: transaction,
+      openReviewItems: openReviewItems,
+    );
+  }
+
+  Future<void> restoreReviewSnapshot(ReviewActionSnapshot snapshot) async {
+    final tx = snapshot.transaction;
+    await (update(transactions)..where((row) => row.id.equals(tx.id))).write(
+      TransactionsCompanion(
+        kind: Value(tx.kind),
+        reviewStatus: Value(tx.reviewStatus),
+        duplicateStatus: Value(tx.duplicateStatus),
+        categoryId: Value(tx.categoryId),
+        costCenterId: Value(tx.costCenterId),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+
+    if (tx.reviewStatus == 'pending') {
+      final reopened =
+          await (update(reviewInbox)
+                ..where((row) => row.transactionId.equals(tx.id)))
+              .write(const ReviewInboxCompanion(resolvedAt: Value(null)));
+
+      if (reopened == 0) {
+        await into(
+          reviewInbox,
+        ).insert(_reviewItem(tx.id, 'restored_after_undo', DateTime.now()));
+      }
+    }
+
+    await _enqueueOutbox(tx.id, 'update');
   }
 
   Future<void> confirmTransaction(String id) async {
@@ -461,6 +578,33 @@ class AppDatabase extends _$AppDatabase {
         updatedAt: Value(DateTime.now()),
       ),
     );
+    await _enqueueOutbox(id, 'update');
+  }
+
+  Future<void> markDuplicateAndResolve(String id) async {
+    await (update(transactions)..where((row) => row.id.equals(id))).write(
+      TransactionsCompanion(
+        reviewStatus: const Value('ignored'),
+        duplicateStatus: const Value('duplicate'),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+    await _resolveReviewItem(id);
+    await _enqueueOutbox(id, 'update');
+  }
+
+  Future<void> convertToTransfer(String id) async {
+    await (update(transactions)..where((row) => row.id.equals(id))).write(
+      TransactionsCompanion(
+        kind: const Value('transfer'),
+        reviewStatus: const Value('confirmed'),
+        duplicateStatus: const Value('none'),
+        categoryId: const Value(null),
+        costCenterId: const Value(null),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+    await _resolveReviewItem(id);
     await _enqueueOutbox(id, 'update');
   }
 
@@ -502,6 +646,16 @@ class AppDatabase extends _$AppDatabase {
       ),
     );
     await into(transactionBeneficiaries).insert(_beneficiary(id, 'eu', true));
+    await into(transactionSources).insert(
+      _source(
+        id: 'src-$id-manual',
+        transactionId: id,
+        sourceKind: 'manual',
+        provider: 'zimba_control',
+        confidence: 0.4,
+        occurredAt: now,
+      ),
+    );
     await into(
       reviewInbox,
     ).insert(_reviewItem(id, 'manual_draft_needs_review', now));
@@ -626,4 +780,226 @@ class AppDatabase extends _$AppDatabase {
       isPrimary: Value(isPrimary),
     );
   }
+
+  TransactionSourcesCompanion _source({
+    required String id,
+    required String transactionId,
+    required String sourceKind,
+    required String provider,
+    required double confidence,
+    DateTime? occurredAt,
+  }) {
+    return TransactionSourcesCompanion.insert(
+      id: id,
+      transactionId: transactionId,
+      sourceKind: sourceKind,
+      provider: provider,
+      confidence: Value(confidence),
+      occurredAt: Value(occurredAt),
+    );
+  }
+
+  Future<List<ReviewTransactionDetails>> _hydrateReviewTransactions(
+    List<FinanceTransaction> transactions,
+  ) async {
+    if (transactions.isEmpty) {
+      return const [];
+    }
+
+    final transactionIds = transactions.map((tx) => tx.id).toSet();
+    final accountIds = transactions
+        .map((tx) => tx.accountId)
+        .whereType<String>()
+        .toSet();
+    final merchantIds = transactions
+        .map((tx) => tx.merchantId)
+        .whereType<String>()
+        .toSet();
+    final categoryIds = transactions
+        .map((tx) => tx.categoryId)
+        .whereType<String>()
+        .toSet();
+    final costCenterIds = transactions
+        .map((tx) => tx.costCenterId)
+        .whereType<String>()
+        .toSet();
+
+    final accountRows = accountIds.isEmpty
+        ? const <AccountRow>[]
+        : await (select(
+            accounts,
+          )..where((row) => row.id.isIn(accountIds))).get();
+    final merchantRows = merchantIds.isEmpty
+        ? const <MerchantRow>[]
+        : await (select(
+            merchants,
+          )..where((row) => row.id.isIn(merchantIds))).get();
+    final categoryRows = categoryIds.isEmpty
+        ? const <CategoryRow>[]
+        : await (select(
+            categories,
+          )..where((row) => row.id.isIn(categoryIds))).get();
+    final costCenterRows = costCenterIds.isEmpty
+        ? const <CostCenterRow>[]
+        : await (select(
+            costCenters,
+          )..where((row) => row.id.isIn(costCenterIds))).get();
+    final beneficiaryRows = await (select(
+      transactionBeneficiaries,
+    )..where((row) => row.transactionId.isIn(transactionIds))).get();
+    final sourceRows = await (select(
+      transactionSources,
+    )..where((row) => row.transactionId.isIn(transactionIds))).get();
+    final inboxRows =
+        await (select(reviewInbox)
+              ..where((row) => row.transactionId.isIn(transactionIds))
+              ..where((row) => row.resolvedAt.isNull()))
+            .get();
+
+    final personIds = beneficiaryRows.map((row) => row.personId).toSet();
+    final personRows = personIds.isEmpty
+        ? const <PersonRow>[]
+        : await (select(people)..where((row) => row.id.isIn(personIds))).get();
+
+    final accountsById = {for (final row in accountRows) row.id: row};
+    final merchantsById = {for (final row in merchantRows) row.id: row};
+    final categoriesById = {for (final row in categoryRows) row.id: row};
+    final costCentersById = {for (final row in costCenterRows) row.id: row};
+    final peopleById = {for (final row in personRows) row.id: row};
+    final beneficiariesByTransaction = <String, List<PersonRow>>{};
+    final sourcesByTransaction = <String, List<TransactionSourceRow>>{};
+    final inboxByTransaction = <String, List<ReviewInboxRow>>{};
+
+    for (final row in beneficiaryRows) {
+      final person = peopleById[row.personId];
+      if (person == null) {
+        continue;
+      }
+      beneficiariesByTransaction
+          .putIfAbsent(row.transactionId, () => [])
+          .add(person);
+    }
+
+    for (final row in sourceRows) {
+      sourcesByTransaction.putIfAbsent(row.transactionId, () => []).add(row);
+    }
+
+    for (final row in inboxRows) {
+      inboxByTransaction.putIfAbsent(row.transactionId, () => []).add(row);
+    }
+
+    return [
+      for (final tx in transactions)
+        ReviewTransactionDetails(
+          transaction: tx,
+          account: tx.accountId == null ? null : accountsById[tx.accountId],
+          merchant: tx.merchantId == null ? null : merchantsById[tx.merchantId],
+          category: tx.categoryId == null
+              ? null
+              : categoriesById[tx.categoryId],
+          costCenter: tx.costCenterId == null
+              ? null
+              : costCentersById[tx.costCenterId],
+          beneficiaries: beneficiariesByTransaction[tx.id] ?? const [],
+          sources: sourcesByTransaction[tx.id] ?? const [],
+          inboxItems: inboxByTransaction[tx.id] ?? const [],
+        ),
+    ];
+  }
+}
+
+class ReviewTransactionDetails {
+  const ReviewTransactionDetails({
+    required this.transaction,
+    required this.account,
+    required this.merchant,
+    required this.category,
+    required this.costCenter,
+    required this.beneficiaries,
+    required this.sources,
+    required this.inboxItems,
+  });
+
+  final FinanceTransaction transaction;
+  final AccountRow? account;
+  final MerchantRow? merchant;
+  final CategoryRow? category;
+  final CostCenterRow? costCenter;
+  final List<PersonRow> beneficiaries;
+  final List<TransactionSourceRow> sources;
+  final List<ReviewInboxRow> inboxItems;
+
+  String get displayMerchant =>
+      merchant?.displayName ?? transaction.descriptionRaw;
+
+  String get accountLabel => account?.name ?? 'Conta nao definida';
+
+  String get categoryLabel => category?.name ?? 'Sem categoria';
+
+  String get costCenterLabel => costCenter?.name ?? 'Sem centro';
+
+  String get sourceLabel {
+    if (sources.isEmpty) {
+      return 'Local';
+    }
+    final source = sources.first;
+    return switch (source.sourceKind) {
+      'notification' => 'Notificacao',
+      'csv' => 'CSV',
+      'ofx' => 'OFX',
+      'manual' => 'Manual',
+      _ => source.sourceKind,
+    };
+  }
+
+  String get providerLabel {
+    if (sources.isEmpty) {
+      return 'ZimbaControl';
+    }
+    return switch (sources.first.provider) {
+      'mercado_pago' => 'Mercado Pago',
+      'nubank' => 'Nubank',
+      'zimba_control' => 'ZimbaControl',
+      final value => value,
+    };
+  }
+
+  bool get hasLowConfidence => transaction.sourceConfidence < 0.8;
+
+  bool get isProbableDuplicate => transaction.duplicateStatus != 'none';
+
+  bool get suggestsTransfer {
+    final text = transaction.descriptionRaw.toLowerCase();
+    return transaction.kind == 'transfer' ||
+        text.contains('transfer') ||
+        text.contains('pix enviado') ||
+        text.contains('pagamento de fatura');
+  }
+
+  bool get hasInstallmentHint {
+    final text = transaction.descriptionRaw.toLowerCase();
+    return text.contains('parcela') || text.contains('/12');
+  }
+
+  String get reviewReason {
+    if (inboxItems.isEmpty) {
+      return 'Revisar sugestao';
+    }
+    return switch (inboxItems.first.reason) {
+      'needs_user_confirmation' => 'Confirmar sugestao',
+      'suggestion_low_confidence' => 'Baixa confianca',
+      'manual_draft_needs_review' => 'Rascunho manual',
+      final value => value.replaceAll('_', ' '),
+    };
+  }
+}
+
+class ReviewActionSnapshot {
+  const ReviewActionSnapshot({
+    required this.transaction,
+    required this.openReviewItems,
+  });
+
+  final FinanceTransaction transaction;
+  final List<ReviewInboxRow> openReviewItems;
 }

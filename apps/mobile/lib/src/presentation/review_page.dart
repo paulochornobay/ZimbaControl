@@ -4,130 +4,327 @@ import '../data/local/app_database.dart';
 import 'dashboard_page.dart';
 import 'edit_transaction_page.dart';
 
-class ReviewPage extends StatelessWidget {
+enum ReviewFilter {
+  all('all', 'Todos'),
+  notification('notification', 'Notificacao'),
+  csv('csv', 'CSV'),
+  ofx('ofx', 'OFX'),
+  manual('manual', 'Manual'),
+  duplicates('duplicates', 'Duplicados'),
+  lowConfidence('low_confidence', 'Baixa confianca'),
+  transfers('transfers', 'Transferencias');
+
+  const ReviewFilter(this.key, this.label);
+
+  final String key;
+  final String label;
+
+  static ReviewFilter fromKey(String key) {
+    return ReviewFilter.values.firstWhere(
+      (filter) => filter.key == key,
+      orElse: () => ReviewFilter.all,
+    );
+  }
+}
+
+class ReviewPage extends StatefulWidget {
   const ReviewPage({required this.database, super.key});
 
   final AppDatabase database;
 
   @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<List<FinanceTransaction>>(
-      stream: database.watchPendingReview(),
-      builder: (context, snapshot) {
-        final transactions = snapshot.data ?? const <FinanceTransaction>[];
+  State<ReviewPage> createState() => _ReviewPageState();
+}
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Text('Caixa de revisao (${transactions.length})'),
-          ),
-          body: transactions.isEmpty
-              ? const Center(child: Text('Nada pendente por enquanto.'))
-              : ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-                  itemBuilder: (context, index) {
-                    final transaction = transactions[index];
-                    return ReviewTransactionCard(
-                      transaction: transaction,
-                      onConfirm: () =>
-                          database.confirmTransaction(transaction.id),
-                      onIgnore: () =>
-                          database.ignoreTransaction(transaction.id),
-                      onDuplicate: () =>
-                          database.markProbableDuplicate(transaction.id),
-                      onEdit: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => EditTransactionPage(
-                              database: database,
-                              transactionId: transaction.id,
-                            ),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemCount: transactions.length,
+class _ReviewPageState extends State<ReviewPage> {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<String>(
+      stream: widget.database.watchReviewFilter(),
+      builder: (context, filterSnapshot) {
+        final selectedFilter = ReviewFilter.fromKey(
+          filterSnapshot.data ?? ReviewFilter.all.key,
+        );
+
+        return StreamBuilder<List<ReviewTransactionDetails>>(
+          stream: widget.database.watchPendingReviewDetails(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return ReviewScaffold(
+                count: 0,
+                child: ReviewStateMessage(
+                  icon: Icons.error_outline,
+                  title: 'Nao foi possivel carregar',
+                  body: 'A caixa de revisao encontrou um erro local.',
+                  actionLabel: 'Tentar novamente',
+                  onAction: () => setState(() {}),
                 ),
+              );
+            }
+
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData) {
+              return const ReviewScaffold(
+                count: 0,
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            final allItems =
+                snapshot.data ?? const <ReviewTransactionDetails>[];
+            final filteredItems = _applyFilter(allItems, selectedFilter);
+
+            return ReviewScaffold(
+              count: allItems.length,
+              subtitle: allItems.isEmpty
+                  ? 'Sem pendencias'
+                  : '${filteredItems.length} nesta visao',
+              child: allItems.isEmpty
+                  ? const ReviewStateMessage(
+                      icon: Icons.inbox_outlined,
+                      title: 'Caixa zerada',
+                      body:
+                          'Novas notificacoes, importacoes e rascunhos manuais aparecem aqui.',
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                      children: [
+                        ReviewFilterBar(
+                          selected: selectedFilter,
+                          onSelected: (filter) =>
+                              widget.database.setReviewFilter(filter.key),
+                        ),
+                        const SizedBox(height: 12),
+                        if (filteredItems.isEmpty)
+                          ReviewStateMessage(
+                            icon: Icons.filter_alt_off_outlined,
+                            title: 'Nada neste filtro',
+                            body:
+                                'Troque o filtro para continuar a revisao dos lancamentos pendentes.',
+                            actionLabel: 'Ver todos',
+                            onAction: () => widget.database.setReviewFilter(
+                              ReviewFilter.all.key,
+                            ),
+                          )
+                        else ...[
+                          ReviewQueueHeader(
+                            current: filteredItems.length,
+                            total: allItems.length,
+                          ),
+                          const SizedBox(height: 10),
+                          for (final item in filteredItems) ...[
+                            ReviewTransactionCard(
+                              item: item,
+                              onConfirm: () => _runAction(
+                                item,
+                                'Lancamento confirmado',
+                                () => widget.database.confirmTransaction(
+                                  item.transaction.id,
+                                ),
+                              ),
+                              onIgnore: () => _runAction(
+                                item,
+                                'Lancamento ignorado',
+                                () => widget.database.ignoreTransaction(
+                                  item.transaction.id,
+                                ),
+                              ),
+                              onDuplicate: () => _runAction(
+                                item,
+                                'Marcado como duplicado',
+                                () => widget.database.markDuplicateAndResolve(
+                                  item.transaction.id,
+                                ),
+                              ),
+                              onTransfer: () => _runAction(
+                                item,
+                                'Convertido em transferencia',
+                                () => widget.database.convertToTransfer(
+                                  item.transaction.id,
+                                ),
+                              ),
+                              onEdit: () => _openEdit(item.transaction.id),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                        ],
+                      ],
+                    ),
+            );
+          },
         );
       },
     );
   }
+
+  List<ReviewTransactionDetails> _applyFilter(
+    List<ReviewTransactionDetails> items,
+    ReviewFilter filter,
+  ) {
+    return switch (filter) {
+      ReviewFilter.all => items,
+      ReviewFilter.notification =>
+        items
+            .where(
+              (item) => item.sources.any((s) => s.sourceKind == 'notification'),
+            )
+            .toList(growable: false),
+      ReviewFilter.csv =>
+        items
+            .where((item) => item.sources.any((s) => s.sourceKind == 'csv'))
+            .toList(growable: false),
+      ReviewFilter.ofx =>
+        items
+            .where((item) => item.sources.any((s) => s.sourceKind == 'ofx'))
+            .toList(growable: false),
+      ReviewFilter.manual =>
+        items
+            .where((item) => item.sources.any((s) => s.sourceKind == 'manual'))
+            .toList(growable: false),
+      ReviewFilter.duplicates =>
+        items.where((item) => item.isProbableDuplicate).toList(growable: false),
+      ReviewFilter.lowConfidence =>
+        items.where((item) => item.hasLowConfidence).toList(growable: false),
+      ReviewFilter.transfers =>
+        items.where((item) => item.suggestsTransfer).toList(growable: false),
+    };
+  }
+
+  Future<void> _openEdit(String transactionId) {
+    return Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => EditTransactionPage(
+          database: widget.database,
+          transactionId: transactionId,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _runAction(
+    ReviewTransactionDetails item,
+    String message,
+    Future<void> Function() action,
+  ) async {
+    final snapshot = await widget.database.captureReviewSnapshot(
+      item.transaction.id,
+    );
+    if (snapshot == null) {
+      return;
+    }
+
+    await action();
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        action: SnackBarAction(
+          label: 'Desfazer',
+          onPressed: () => widget.database.restoreReviewSnapshot(snapshot),
+        ),
+      ),
+    );
+  }
 }
 
-class ReviewTransactionCard extends StatelessWidget {
-  const ReviewTransactionCard({
-    required this.transaction,
-    required this.onConfirm,
-    required this.onIgnore,
-    required this.onDuplicate,
-    required this.onEdit,
+class ReviewScaffold extends StatelessWidget {
+  const ReviewScaffold({
+    required this.count,
+    required this.child,
+    this.subtitle,
     super.key,
   });
 
-  final FinanceTransaction transaction;
-  final VoidCallback onConfirm;
-  final VoidCallback onIgnore;
-  final VoidCallback onDuplicate;
-  final VoidCallback onEdit;
+  final int count;
+  final String? subtitle;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return Scaffold(
+      appBar: AppBar(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                ReviewBadge(label: transaction.kind),
-                const SizedBox(width: 8),
-                ReviewBadge(
-                  label: '${(transaction.sourceConfidence * 100).round()}%',
-                ),
-                if (transaction.duplicateStatus != 'none') ...[
-                  const SizedBox(width: 8),
-                  ReviewBadge(label: transaction.duplicateStatus),
-                ],
-              ],
-            ),
-            const SizedBox(height: 12),
+            Text('Revisao ($count)'),
             Text(
-              transaction.descriptionRaw,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+              subtitle ?? 'Caixa financeira',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
             ),
-            const SizedBox(height: 4),
-            Text(formatBrl(transaction.amountCents)),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton.icon(
-                  onPressed: onConfirm,
-                  icon: const Icon(Icons.check),
-                  label: const Text('Confirmar'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: onEdit,
-                  icon: const Icon(Icons.edit_outlined),
-                  label: const Text('Editar'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: onDuplicate,
-                  icon: const Icon(Icons.merge_outlined),
-                  label: const Text('Duplicado'),
-                ),
-                TextButton.icon(
-                  onPressed: onIgnore,
-                  icon: const Icon(Icons.close),
-                  label: const Text('Ignorar'),
-                ),
-              ],
+          ],
+        ),
+      ),
+      body: child,
+    );
+  }
+}
+
+class ReviewFilterBar extends StatelessWidget {
+  const ReviewFilterBar({
+    required this.selected,
+    required this.onSelected,
+    super.key,
+  });
+
+  final ReviewFilter selected;
+  final ValueChanged<ReviewFilter> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemBuilder: (context, index) {
+          final filter = ReviewFilter.values[index];
+          return ChoiceChip(
+            label: Text(filter.label),
+            selected: selected == filter,
+            onSelected: (_) => onSelected(filter),
+            showCheckmark: false,
+            visualDensity: VisualDensity.compact,
+          );
+        },
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemCount: ReviewFilter.values.length,
+      ),
+    );
+  }
+}
+
+class ReviewQueueHeader extends StatelessWidget {
+  const ReviewQueueHeader({
+    required this.current,
+    required this.total,
+    super.key,
+  });
+
+  final int current;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: [
+            const Icon(Icons.playlist_add_check, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Revisao sequencial: $current itens filtrados de $total pendentes',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
           ],
         ),
@@ -136,22 +333,468 @@ class ReviewTransactionCard extends StatelessWidget {
   }
 }
 
-class ReviewBadge extends StatelessWidget {
-  const ReviewBadge({required this.label, super.key});
+class ReviewTransactionCard extends StatelessWidget {
+  const ReviewTransactionCard({
+    required this.item,
+    required this.onConfirm,
+    required this.onIgnore,
+    required this.onDuplicate,
+    required this.onTransfer,
+    required this.onEdit,
+    super.key,
+  });
 
+  final ReviewTransactionDetails item;
+  final VoidCallback onConfirm;
+  final VoidCallback onIgnore;
+  final VoidCallback onDuplicate;
+  final VoidCallback onTransfer;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final transaction = item.transaction;
+    final isIncome = transaction.amountCents > 0;
+    final scheme = Theme.of(context).colorScheme;
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: BorderSide(color: _borderColor(scheme)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_hasAlert) ReviewAlertStrip(item: item),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.displayMerchant,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            transaction.descriptionRaw,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          formatBrl(transaction.amountCents),
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: isIncome ? Colors.green.shade700 : null,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                        Text(
+                          formatShortDate(transaction.occurredAt),
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    ReviewChip(
+                      icon: Icons.account_balance_wallet_outlined,
+                      label: item.accountLabel,
+                    ),
+                    ReviewChip(
+                      icon: Icons.cloud_done_outlined,
+                      label: '${item.sourceLabel} · ${item.providerLabel}',
+                    ),
+                    ReviewChip(
+                      icon: Icons.auto_awesome_outlined,
+                      label:
+                          'Confianca ${(transaction.sourceConfidence * 100).round()}%',
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ReviewInfoTile(
+                        label: 'Categoria',
+                        value: item.categoryLabel,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ReviewInfoTile(
+                        label: 'Centro',
+                        value: item.costCenterLabel,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                BeneficiaryLine(people: item.beneficiaries),
+                const SizedBox(height: 10),
+                Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: onConfirm,
+                            icon: const Icon(Icons.check, size: 18),
+                            label: const Text('Confirmar'),
+                            style: FilledButton.styleFrom(
+                              minimumSize: const Size(0, 38),
+                              visualDensity: VisualDensity.compact,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: onEdit,
+                            icon: const Icon(Icons.edit_outlined, size: 18),
+                            label: const Text('Editar'),
+                            style: OutlinedButton.styleFrom(
+                              minimumSize: const Size(0, 38),
+                              visualDensity: VisualDensity.compact,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        ReviewIconAction(
+                          tooltip: 'Marcar duplicado',
+                          icon: Icons.content_copy_outlined,
+                          onPressed: onDuplicate,
+                        ),
+                        ReviewIconAction(
+                          tooltip: 'Converter em transferencia',
+                          icon: Icons.compare_arrows_outlined,
+                          onPressed: onTransfer,
+                        ),
+                        ReviewIconAction(
+                          tooltip: 'Ignorar',
+                          icon: Icons.visibility_off_outlined,
+                          onPressed: onIgnore,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool get _hasAlert =>
+      item.hasLowConfidence ||
+      item.isProbableDuplicate ||
+      item.suggestsTransfer ||
+      item.hasInstallmentHint;
+
+  Color _borderColor(ColorScheme scheme) {
+    if (item.isProbableDuplicate) {
+      return scheme.error.withValues(alpha: 0.45);
+    }
+    if (item.hasLowConfidence) {
+      return Colors.orange.withValues(alpha: 0.55);
+    }
+    if (item.suggestsTransfer) {
+      return scheme.primary.withValues(alpha: 0.4);
+    }
+    return scheme.outlineVariant;
+  }
+}
+
+class ReviewAlertStrip extends StatelessWidget {
+  const ReviewAlertStrip({required this.item, super.key});
+
+  final ReviewTransactionDetails item;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final alert = _alertData(scheme);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: alert.color.withValues(alpha: 0.12),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        child: Row(
+          children: [
+            Icon(alert.icon, size: 16, color: alert.color),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                alert.text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: alert.color,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  _ReviewAlert _alertData(ColorScheme scheme) {
+    if (item.isProbableDuplicate) {
+      return _ReviewAlert(
+        Icons.content_copy_outlined,
+        'Possivel duplicidade',
+        scheme.error,
+      );
+    }
+    if (item.suggestsTransfer) {
+      return _ReviewAlert(
+        Icons.compare_arrows_outlined,
+        'Parece transferencia',
+        scheme.primary,
+      );
+    }
+    if (item.hasLowConfidence) {
+      return _ReviewAlert(
+        Icons.warning_amber_outlined,
+        '${item.reviewReason} · conferir antes de confirmar',
+        Colors.orange.shade800,
+      );
+    }
+    return _ReviewAlert(
+      Icons.layers_outlined,
+      'Possivel parcela ou compromisso',
+      scheme.secondary,
+    );
+  }
+}
+
+class _ReviewAlert {
+  const _ReviewAlert(this.icon, this.text, this.color);
+
+  final IconData icon;
+  final String text;
+  final Color color;
+}
+
+class ReviewChip extends StatelessWidget {
+  const ReviewChip({required this.icon, required this.label, super.key});
+
+  final IconData icon;
   final String label;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.09),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        child: Text(label, style: Theme.of(context).textTheme.labelSmall),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelSmall,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+}
+
+class ReviewInfoTile extends StatelessWidget {
+  const ReviewInfoTile({required this.label, required this.value, super.key});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: Theme.of(context).textTheme.labelSmall),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class BeneficiaryLine extends StatelessWidget {
+  const BeneficiaryLine({required this.people, super.key});
+
+  final List<PersonRow> people;
+
+  @override
+  Widget build(BuildContext context) {
+    if (people.isEmpty) {
+      return Text(
+        'Beneficiarios: nao definidos',
+        style: Theme.of(context).textTheme.bodySmall,
+      );
+    }
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text('Beneficiarios', style: Theme.of(context).textTheme.labelSmall),
+        for (final person in people)
+          Chip(
+            label: Text(person.displayName),
+            avatar: CircleAvatar(
+              child: Text(person.displayName.characters.first),
+            ),
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            padding: EdgeInsets.zero,
+          ),
+      ],
+    );
+  }
+}
+
+class ReviewIconAction extends StatelessWidget {
+  const ReviewIconAction({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    super.key,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon, size: 20),
+      visualDensity: VisualDensity.compact,
+    );
+  }
+}
+
+class ReviewStateMessage extends StatelessWidget {
+  const ReviewStateMessage({
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.actionLabel,
+    this.onAction,
+    super.key,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 42, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              body,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            if (actionLabel != null && onAction != null) ...[
+              const SizedBox(height: 16),
+              OutlinedButton(onPressed: onAction, child: Text(actionLabel!)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String formatShortDate(DateTime date) {
+  final day = date.day.toString().padLeft(2, '0');
+  final month = date.month.toString().padLeft(2, '0');
+  return '$day/$month';
 }

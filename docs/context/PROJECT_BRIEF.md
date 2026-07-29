@@ -6,6 +6,11 @@ Construir um app familiar de financas pessoais, offline-first, para uso pessoal
 no Android. O app deve transformar notificacoes, arquivos CSV/OFX e lancamentos
 manuais em transacoes financeiras ricas, revisaveis e confiaveis.
 
+A primeira versao util deve funcionar bem em um unico Android, sem internet,
+sem MongoDB e sem login. Sync, Google Sign-In e publicacao entram apenas depois
+que o nucleo local, importacao, notificacoes, conciliacao e backup estiverem
+confiaveis.
+
 ## Decisoes Fixas
 
 - O zip Lovable e a fonte visual oficial e fabrica de telas.
@@ -14,6 +19,9 @@ manuais em transacoes financeiras ricas, revisaveis e confiaveis.
   `NotificationListenerService`.
 - O banco local sera SQLite com Drift.
 - O sync sera proprio, via backend Node.js/TypeScript e MongoDB Atlas.
+- MongoDB Atlas e `.env` nao sao necessarios antes do marco de sync.
+- Google Sign-In futuro usara OpenID Connect; Gmail API nao sera usada como
+  login.
 - Nao usar Realm Sync, Atlas Device Sync, Atlas App Services Data API,
   GraphQL API ou HTTPS Endpoints como base de sincronizacao.
 - Ferramentas gratis por padrao: Flutter, Android Studio, Node.js, GitHub,
@@ -37,6 +45,24 @@ Cada transacao deve separar:
 - competencia
 - relacoes: parcela, compra principal, estorno, fatura, duplicata provavel
 
+## Cenarios Familiares Prioritarios
+
+O modelo deve conseguir representar estes casos sem distorcer receitas e
+despesas:
+
+- contas e cartoes de mais de uma pessoa da familia;
+- dinheiro que o marido envia para a esposa como transferencia interna quando
+  ambas as contas estiverem cadastradas;
+- ajuda familiar mensal como recorrencia;
+- escola do filho como despesa recorrente com beneficiario filho;
+- pensao recebida para a filha como receita destinada a ela;
+- consorcio do carro como compromisso parcelado proprio, separado de compras
+  parceladas no cartao;
+- fatura de cartao paga por conta bancaria como transferencia, nao como nova
+  despesa;
+- importacao de extratos Nubank e Mercado Pago sem duplicar notificacoes ou
+  lancamentos manuais.
+
 ## Fora de Escopo Inicial
 
 - iOS com leitura de notificacoes de terceiros.
@@ -44,6 +70,8 @@ Cada transacao deve separar:
 - SaaS publico com multi-tenant comercial.
 - Tempo real antes de um nucleo local confiavel.
 - CRDT/OT generico para ledger financeiro.
+- XLSX no primeiro MVP de importacao.
+- Login, MongoDB e dois dispositivos antes do backup local.
 
 ## Prioridade de Qualidade
 

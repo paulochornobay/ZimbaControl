@@ -6,6 +6,10 @@ Arquitetura offline-first com fonte da verdade local. O app grava primeiro em
 SQLite/Drift, coloca operacoes na outbox e sincroniza depois com um backend
 proprio. A nuvem nao e requisito para operacao diaria basica.
 
+Ordem de entrega: Android local confiavel primeiro; MongoDB, login e dois
+dispositivos ficam para depois de importacao, notificacoes, conciliacao e
+backup local.
+
 ## Stack
 
 - UI mobile: Flutter.
@@ -15,7 +19,7 @@ proprio. A nuvem nao e requisito para operacao diaria basica.
 - Android nativo: Kotlin `NotificationListenerService`.
 - Background Android: WorkManager.
 - Backend: Node.js + TypeScript + Fastify.
-- Cloud DB: MongoDB Atlas Free/M0 no MVP pessoal.
+- Cloud DB: MongoDB Atlas Free/M0 somente no marco de sync.
 - Contratos: OpenAPI e JSON schemas em `packages/contracts`.
 - Sync quase tempo real futuro: Change Streams + WebSocket/SSE.
 
@@ -31,6 +35,21 @@ proprio. A nuvem nao e requisito para operacao diaria basica.
    duplicado.
 7. Confirmacao gera operacao em `sync_outbox`.
 
+## Principios do Modelo Familiar
+
+- `amountCents` permanece assinado: negativo para saida e positivo para
+  entrada.
+- Conta e cartao devem ter proprietario.
+- Usuario autenticado e membro familiar sao entidades distintas.
+- Transferencia interna entre contas cadastradas nao entra como receita nem
+  despesa do agregado familiar.
+- Receitas destinadas a uma pessoa, como pensao da filha, devem preservar o
+  beneficiario/destino economico.
+- Escola, ajuda familiar e outras obrigacoes fixas usam recorrencia mensal.
+- Consorcio usa plano proprio de compromisso; compra parcelada no cartao usa
+  plano de parcelas de compra.
+- Uma transacao pode ter multiplas fontes: notificacao, CSV, OFX e manual.
+
 ## Estado do Nucleo Local
 
 O MVP local atual cobre:
@@ -40,11 +59,12 @@ O MVP local atual cobre:
 - `review_inbox` aberta/resolvida;
 - outbox para operacoes locais;
 - dashboard inicial;
-- caixa de revisao funcional simples;
+- caixa de revisao real com dados hidratados, filtros persistidos, acoes reais
+  e desfazer;
 - edicao basica de descricao, valor, tipo, categoria e centro de custo.
 
-As telas ainda nao sao definitivas; Lovable continua sendo a fonte para o
-acabamento visual e fluxos completos.
+As telas ainda evoluirao por marco. Lovable continua sendo a fonte para
+acabamento visual, mas a Caixa de Revisao ja possui fluxo Flutter funcional.
 
 ## Preview Web
 
@@ -72,6 +92,10 @@ Transacao:
 - `payerId`
 - `beneficiaryIds`
 - `sourceRecords`
+- `transferFromAccountId`
+- `transferToAccountId`
+- `recurringScheduleId`
+- `installmentPlanId`
 - `reviewStatus`
 - `duplicateStatus`
 - `baseVersion`
@@ -90,6 +114,21 @@ Source record:
 - `notificationKey`
 - `rawPayload`
 - `confidence`
+
+Entidades planejadas:
+
+- `RecurringSchedule`
+- `InstallmentPlan`
+- `ImportBatch`
+- `StagedSourceRecord`
+- `DuplicateCandidate`
+- `RawNotificationEvent`
+
+Sugestoes:
+
+- toda sugestao deve carregar `confidence`, `explanation` e regra responsavel;
+- baixa confianca nunca deve consolidar lancamento silenciosamente;
+- conflitos financeiros voltam para a caixa de revisao.
 
 Sync operation:
 
@@ -131,6 +170,42 @@ Sinais:
 Pagamento de fatura de cartao nao e despesa nova. Deve virar transferencia
 entre instrumento pagador e passivo/cartao. Baixa confianca gera acao rapida
 na caixa de revisao.
+
+Transferencias entre marido e esposa tambem devem ser tratadas como movimento
+interno quando as duas contas estiverem cadastradas. Se apenas uma ponta for
+conhecida, o app deve sugerir classificacao e pedir revisao.
+
+## Importacao Local
+
+- CSV e OFX sao o primeiro alvo; XLSX fica fora do MVP inicial.
+- Arquivos importados nao devem ser enviados ao servidor.
+- Cada lote gera `ImportBatch` com hash do arquivo.
+- Cada linha/registro gera `StagedSourceRecord` com hash proprio.
+- Reimportar o mesmo arquivo deve ser idempotente.
+- Adaptadores iniciais: Nubank e Mercado Pago.
+- CSV desconhecido deve abrir mapeamento manual de colunas.
+
+## Captura Android
+
+- `NotificationListenerService` captura apenas apps explicitamente autorizados.
+- O evento bruto deve ser persistido rapidamente no SQLite.
+- Parsing por instituicao roda fora da thread principal.
+- WorkManager faz reprocessamento e recuperacao.
+- Eventos brutos podem ser expurgados apos consolidacao, conforme politica
+  configuravel.
+
+## Sync Futuro
+
+Sync so deve comecar depois do app Android local ficar confiavel e recuperavel
+por backup.
+
+- Backend Fastify + MongoDB Atlas Free/M0.
+- Google Sign-In futuro via OpenID Connect, com allowlist inicial de um email.
+- Gmail API nao e mecanismo de login.
+- Outbox idempotente por `opId`.
+- `baseVersion` protege updates concorrentes.
+- Conflitos em valor, beneficiarios, conta, cartao, categoria critica e
+  transferencia voltam para revisao.
 
 ## Privacidade
 
