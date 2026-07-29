@@ -637,6 +637,167 @@ class AppDatabase extends _$AppDatabase {
     return query.watch();
   }
 
+  Future<ZimbaBackupFile> exportBackupFile() async {
+    final exportedAt = DateTime.now();
+    final data = <String, List<Map<String, dynamic>>>{
+      'people': _toJsonRows(await select(people).get()),
+      'accounts': _toJsonRows(await select(accounts).get()),
+      'creditCards': _toJsonRows(await select(creditCards).get()),
+      'categories': _toJsonRows(await select(categories).get()),
+      'costCenters': _toJsonRows(await select(costCenters).get()),
+      'merchants': _toJsonRows(await select(merchants).get()),
+      'transactions': _toJsonRows(await select(transactions).get()),
+      'reviewInbox': _toJsonRows(await select(reviewInbox).get()),
+      'transactionBeneficiaries': _toJsonRows(
+        await select(transactionBeneficiaries).get(),
+      ),
+      'transactionSources': _toJsonRows(await select(transactionSources).get()),
+      'syncOutbox': _toJsonRows(await select(syncOutbox).get()),
+      'appPreferences': _toJsonRows(await select(appPreferences).get()),
+      'authUsers': _toJsonRows(await select(authUsers).get()),
+      'recurringSchedules': _toJsonRows(await select(recurringSchedules).get()),
+      'installmentPlans': _toJsonRows(await select(installmentPlans).get()),
+      'importBatches': _toJsonRows(await select(importBatches).get()),
+      'stagedSourceRecords': _toJsonRows(
+        await select(stagedSourceRecords).get(),
+      ),
+      'duplicateCandidates': _toJsonRows(
+        await select(duplicateCandidates).get(),
+      ),
+      'rawNotificationEvents': _toJsonRows(
+        await select(rawNotificationEvents).get(),
+      ),
+    };
+    final counts = {
+      for (final entry in data.entries) entry.key: entry.value.length,
+    };
+    final payload = {
+      'format': ZimbaBackupFile.format,
+      'version': ZimbaBackupFile.currentVersion,
+      'schemaVersion': schemaVersion,
+      'householdId': householdMain,
+      'exportedAt': exportedAt.toIso8601String(),
+      'counts': counts,
+      'data': data,
+    };
+    final bytes = utf8.encode(
+      const JsonEncoder.withIndent('  ').convert(payload),
+    );
+    return ZimbaBackupFile(
+      fileName:
+          'zimbacontrol-backup-${exportedAt.toIso8601String().substring(0, 10)}.json',
+      exportedAt: exportedAt,
+      counts: counts,
+      bytes: bytes,
+    );
+  }
+
+  Future<BackupValidationResult> validateBackupBytes(List<int> bytes) async {
+    try {
+      final decoded = _decodeBackup(bytes);
+      return BackupValidationResult(
+        valid: true,
+        message: 'Backup valido',
+        exportedAt: decoded.exportedAt,
+        schemaVersion: decoded.schemaVersion,
+        counts: decoded.counts,
+      );
+    } catch (error) {
+      return BackupValidationResult(
+        valid: false,
+        message: 'Arquivo de backup invalido ou incompativel.',
+        counts: const {},
+      );
+    }
+  }
+
+  Future<BackupValidationResult> restoreBackupBytes(List<int> bytes) async {
+    final backup = _decodeBackup(bytes);
+    await transaction(() async {
+      await delete(rawNotificationEvents).go();
+      await delete(duplicateCandidates).go();
+      await delete(stagedSourceRecords).go();
+      await delete(importBatches).go();
+      await delete(installmentPlans).go();
+      await delete(recurringSchedules).go();
+      await delete(authUsers).go();
+      await delete(appPreferences).go();
+      await delete(syncOutbox).go();
+      await delete(transactionSources).go();
+      await delete(transactionBeneficiaries).go();
+      await delete(reviewInbox).go();
+      await delete(transactions).go();
+      await delete(merchants).go();
+      await delete(costCenters).go();
+      await delete(categories).go();
+      await delete(creditCards).go();
+      await delete(accounts).go();
+      await delete(people).go();
+
+      await _insertBackupRows(people, backup.people);
+      await _insertBackupRows(accounts, backup.accounts);
+      await _insertBackupRows(creditCards, backup.creditCards);
+      await _insertBackupRows(categories, backup.categories);
+      await _insertBackupRows(costCenters, backup.costCenters);
+      await _insertBackupRows(merchants, backup.merchants);
+      await _insertBackupRows(transactions, backup.transactions);
+      await _insertBackupRows(reviewInbox, backup.reviewInbox);
+      await _insertBackupRows(
+        transactionBeneficiaries,
+        backup.transactionBeneficiaries,
+      );
+      await _insertBackupRows(transactionSources, backup.transactionSources);
+      await _insertBackupRows(syncOutbox, backup.syncOutbox);
+      await _insertBackupRows(appPreferences, backup.appPreferences);
+      await _insertBackupRows(authUsers, backup.authUsers);
+      await _insertBackupRows(recurringSchedules, backup.recurringSchedules);
+      await _insertBackupRows(installmentPlans, backup.installmentPlans);
+      await _insertBackupRows(importBatches, backup.importBatches);
+      await _insertBackupRows(stagedSourceRecords, backup.stagedSourceRecords);
+      await _insertBackupRows(duplicateCandidates, backup.duplicateCandidates);
+      await _insertBackupRows(
+        rawNotificationEvents,
+        backup.rawNotificationEvents,
+      );
+    });
+
+    return BackupValidationResult(
+      valid: true,
+      message: 'Backup restaurado',
+      exportedAt: backup.exportedAt,
+      schemaVersion: backup.schemaVersion,
+      counts: backup.counts,
+    );
+  }
+
+  Future<List<int>> exportTransactionsCsvBytes() async {
+    final rows = await watchAllTransactions().first;
+    final details = await _hydrateReviewTransactions(rows);
+    final buffer = StringBuffer()
+      ..writeln(
+        'data;competencia;tipo;descricao;valor_centavos;status;conta;categoria;centro_custo;beneficiarios;origens',
+      );
+    for (final item in details) {
+      final tx = item.transaction;
+      buffer.writeln(
+        [
+          tx.occurredAt.toIso8601String().substring(0, 10),
+          tx.competenceMonth,
+          tx.kind,
+          tx.descriptionRaw,
+          tx.amountCents.toString(),
+          tx.reviewStatus,
+          item.account?.name ?? '',
+          item.category?.name ?? '',
+          item.costCenter?.name ?? '',
+          item.beneficiaries.map((person) => person.displayName).join(', '),
+          item.sources.map((source) => source.sourceKind).join(', '),
+        ].map(_csvCell).join(';'),
+      );
+    }
+    return utf8.encode(buffer.toString());
+  }
+
   Future<NotificationCaptureSyncResult> syncNotificationCaptureEvents([
     NotificationCaptureService service = const NotificationCaptureService(),
   ]) async {
@@ -1738,6 +1899,142 @@ class AppDatabase extends _$AppDatabase {
     ).insert(schedule, mode: InsertMode.insertOrIgnore);
   }
 
+  List<Map<String, dynamic>> _toJsonRows(List<dynamic> rows) {
+    return [
+      for (final row in rows) Map<String, dynamic>.from(row.toJson() as Map),
+    ];
+  }
+
+  Future<void> _insertBackupRows<T extends Table, D extends DataClass>(
+    TableInfo<T, D> table,
+    List<D> rows,
+  ) async {
+    if (rows.isEmpty) {
+      return;
+    }
+    await batch((batch) {
+      batch.insertAll(
+        table,
+        rows.map((row) => row as Insertable<D>),
+        mode: InsertMode.insertOrReplace,
+      );
+    });
+  }
+
+  _DecodedBackup _decodeBackup(List<int> bytes) {
+    final root = jsonDecode(utf8.decode(bytes, allowMalformed: false));
+    if (root is! Map) {
+      throw const FormatException('Backup precisa ser um objeto JSON.');
+    }
+    final json = Map<String, dynamic>.from(root);
+    if (json['format'] != ZimbaBackupFile.format) {
+      throw const FormatException('Formato de backup desconhecido.');
+    }
+    if (json['version'] != ZimbaBackupFile.currentVersion) {
+      throw const FormatException('Versao de backup incompativel.');
+    }
+    final data = _jsonObject(json['data']);
+    final counts = _jsonObject(
+      json['counts'],
+    ).map((key, value) => MapEntry(key, value is int ? value : 0));
+
+    return _DecodedBackup(
+      exportedAt: DateTime.parse(json['exportedAt'] as String),
+      schemaVersion: json['schemaVersion'] as int? ?? 0,
+      counts: counts,
+      people: _decodeRows(data, 'people', PersonRow.fromJson),
+      accounts: _decodeRows(data, 'accounts', AccountRow.fromJson),
+      creditCards: _decodeRows(data, 'creditCards', CreditCardRow.fromJson),
+      categories: _decodeRows(data, 'categories', CategoryRow.fromJson),
+      costCenters: _decodeRows(data, 'costCenters', CostCenterRow.fromJson),
+      merchants: _decodeRows(data, 'merchants', MerchantRow.fromJson),
+      transactions: _decodeRows(
+        data,
+        'transactions',
+        FinanceTransaction.fromJson,
+      ),
+      reviewInbox: _decodeRows(data, 'reviewInbox', ReviewInboxRow.fromJson),
+      transactionBeneficiaries: _decodeRows(
+        data,
+        'transactionBeneficiaries',
+        TransactionBeneficiaryRow.fromJson,
+      ),
+      transactionSources: _decodeRows(
+        data,
+        'transactionSources',
+        TransactionSourceRow.fromJson,
+      ),
+      syncOutbox: _decodeRows(data, 'syncOutbox', SyncOutboxRow.fromJson),
+      appPreferences: _decodeRows(
+        data,
+        'appPreferences',
+        AppPreferenceRow.fromJson,
+      ),
+      authUsers: _decodeRows(data, 'authUsers', AuthUserRow.fromJson),
+      recurringSchedules: _decodeRows(
+        data,
+        'recurringSchedules',
+        RecurringScheduleRow.fromJson,
+      ),
+      installmentPlans: _decodeRows(
+        data,
+        'installmentPlans',
+        InstallmentPlanRow.fromJson,
+      ),
+      importBatches: _decodeRows(
+        data,
+        'importBatches',
+        ImportBatchRow.fromJson,
+      ),
+      stagedSourceRecords: _decodeRows(
+        data,
+        'stagedSourceRecords',
+        StagedSourceRecordRow.fromJson,
+      ),
+      duplicateCandidates: _decodeRows(
+        data,
+        'duplicateCandidates',
+        DuplicateCandidateRow.fromJson,
+      ),
+      rawNotificationEvents: _decodeRows(
+        data,
+        'rawNotificationEvents',
+        RawNotificationEventRow.fromJson,
+      ),
+    );
+  }
+
+  Map<String, dynamic> _jsonObject(Object? value) {
+    if (value is! Map) {
+      throw const FormatException('Objeto JSON ausente.');
+    }
+    return Map<String, dynamic>.from(value);
+  }
+
+  List<T> _decodeRows<T>(
+    Map<String, dynamic> data,
+    String key,
+    T Function(Map<String, dynamic> json) fromJson,
+  ) {
+    final raw = data[key];
+    if (raw is! List) {
+      return const [];
+    }
+    return [
+      for (final item in raw) fromJson(Map<String, dynamic>.from(item as Map)),
+    ];
+  }
+
+  String _csvCell(String value) {
+    final escaped = value.replaceAll('"', '""');
+    if (escaped.contains(';') ||
+        escaped.contains('"') ||
+        escaped.contains('\n')) {
+      return '"$escaped"';
+    }
+    return escaped;
+  }
+
   Future<String?> _findDuplicateSource({
     required String fileHash,
     required String rowHash,
@@ -2759,6 +3056,97 @@ class NotificationCaptureSyncResult {
 
   final int recorded;
   final int drafts;
+}
+
+class ZimbaBackupFile {
+  const ZimbaBackupFile({
+    required this.fileName,
+    required this.exportedAt,
+    required this.counts,
+    required this.bytes,
+  });
+
+  static const format = 'br.com.zimbacontrol.backup';
+  static const currentVersion = 1;
+
+  final String fileName;
+  final DateTime exportedAt;
+  final Map<String, int> counts;
+  final List<int> bytes;
+
+  int get transactionCount => counts['transactions'] ?? 0;
+
+  int get totalRows => counts.values.fold<int>(0, (sum, count) => sum + count);
+}
+
+class BackupValidationResult {
+  const BackupValidationResult({
+    required this.valid,
+    required this.message,
+    required this.counts,
+    this.exportedAt,
+    this.schemaVersion,
+  });
+
+  final bool valid;
+  final String message;
+  final Map<String, int> counts;
+  final DateTime? exportedAt;
+  final int? schemaVersion;
+
+  int get transactionCount => counts['transactions'] ?? 0;
+
+  int get totalRows => counts.values.fold<int>(0, (sum, count) => sum + count);
+}
+
+class _DecodedBackup {
+  const _DecodedBackup({
+    required this.exportedAt,
+    required this.schemaVersion,
+    required this.counts,
+    required this.people,
+    required this.accounts,
+    required this.creditCards,
+    required this.categories,
+    required this.costCenters,
+    required this.merchants,
+    required this.transactions,
+    required this.reviewInbox,
+    required this.transactionBeneficiaries,
+    required this.transactionSources,
+    required this.syncOutbox,
+    required this.appPreferences,
+    required this.authUsers,
+    required this.recurringSchedules,
+    required this.installmentPlans,
+    required this.importBatches,
+    required this.stagedSourceRecords,
+    required this.duplicateCandidates,
+    required this.rawNotificationEvents,
+  });
+
+  final DateTime exportedAt;
+  final int schemaVersion;
+  final Map<String, int> counts;
+  final List<PersonRow> people;
+  final List<AccountRow> accounts;
+  final List<CreditCardRow> creditCards;
+  final List<CategoryRow> categories;
+  final List<CostCenterRow> costCenters;
+  final List<MerchantRow> merchants;
+  final List<FinanceTransaction> transactions;
+  final List<ReviewInboxRow> reviewInbox;
+  final List<TransactionBeneficiaryRow> transactionBeneficiaries;
+  final List<TransactionSourceRow> transactionSources;
+  final List<SyncOutboxRow> syncOutbox;
+  final List<AppPreferenceRow> appPreferences;
+  final List<AuthUserRow> authUsers;
+  final List<RecurringScheduleRow> recurringSchedules;
+  final List<InstallmentPlanRow> installmentPlans;
+  final List<ImportBatchRow> importBatches;
+  final List<StagedSourceRecordRow> stagedSourceRecords;
+  final List<DuplicateCandidateRow> duplicateCandidates;
+  final List<RawNotificationEventRow> rawNotificationEvents;
 }
 
 class _ReconciliationMatch {

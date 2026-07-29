@@ -15,6 +15,10 @@ Durante desenvolvimento, o app ainda inicia com dados seed de exemplo quando o
 banco esta vazio. Antes do uso real continuo, essa seed deve virar opcao
 explicita ou ser removida do fluxo automatico de abertura.
 
+O app ja possui caminho local de recuperacao: backup JSON versionado e
+restauracao sem MongoDB. Sync em nuvem deve continuar opcional e posterior ao
+uso local confiavel.
+
 ## Decisoes Fixas
 
 - O zip Lovable e a fonte visual oficial e fabrica de telas.

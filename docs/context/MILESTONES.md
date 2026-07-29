@@ -12,8 +12,8 @@
 - Marco 07 - Conciliacao Financeira: concluido
 - Marco 08 - Captura Android: concluido
 - Marco 09 - Painel e Movimentacoes: concluido
-- Marco 10 - Backup e Recuperacao: proximo
-- Marco 11 - Sync e Acesso Opcional: planejado
+- Marco 10 - Backup e Recuperacao: concluido
+- Marco 11 - Sync e Acesso Opcional: proximo
 - Marco 12 - Seguranca e Publicacao: planejado
 
 ## Direcao Atual
@@ -247,7 +247,11 @@ Criterio de aceite:
 
 - Reinstalar o aplicativo e recuperar os dados sem MongoDB.
 
-Status: proximo.
+Status: concluido. O app exporta backup JSON versionado, valida arquivo antes
+de restaurar, restaura os dados locais em transacao, exporta CSV de
+movimentacoes para consulta externa, salva arquivo pelo seletor nativo e
+compartilha backup via `share_plus`. A tela Ajustes mostra o fluxo com
+confirmacao explicita antes de substituir os dados locais.
 
 ## Marco 11 - Sync e Acesso Opcional
 
@@ -264,6 +268,8 @@ Criterio de aceite:
 
 - Dois dispositivos sincronizam sem duplicar lancamentos ou sobrescrever
   conflitos silenciosamente.
+
+Status: proximo.
 
 ## Marco 12 - Seguranca e Publicacao
 

@@ -84,6 +84,7 @@ O MVP local atual cobre:
   parser inicial e rascunhos na Caixa de Revisao;
 - resumo operacional e movimentacoes com filtros por mes, tipo, status, origem
   e busca textual;
+- backup local versionado, validacao/restauracao e CSV para consulta externa;
 - edicao basica de descricao, valor, tipo, categoria e centro de custo.
 
 As telas ainda evoluirao por marco. Lovable continua sendo a fonte para
@@ -282,6 +283,24 @@ Estado implementado no Marco 09:
   busca em descricao, merchant, pessoa, categoria, centro de custo e provider.
 - Importacao CSV/OFX foi mantida como acao dentro de Movimentacoes, sem virar
   item principal separado na navegacao.
+
+## Backup Local
+
+Estado implementado no Marco 10:
+
+- O backup usa JSON versionado com `format`, `version`, `schemaVersion`,
+  `householdId`, `exportedAt`, `counts` e `data`.
+- Entram no backup: pessoas, contas, cartoes, categorias, centros de custo,
+  merchants, transacoes, inbox de revisao, beneficiarios, fontes, outbox,
+  preferencias, usuarios allowlist, recorrencias, planos de parcelas, lotes de
+  importacao, registros staged, candidatos de duplicidade e notificacoes brutas
+  ja sincronizadas para Drift.
+- Validacao confere formato e versao antes de permitir restauracao.
+- Restauracao apaga/substitui os dados locais dentro de uma transacao Drift.
+- A tela Ajustes exige confirmacao explicita antes de restaurar.
+- CSV de movimentacoes e exportado como consulta externa, nao como formato de
+  restauracao.
+- Salvamento usa `file_picker`; compartilhamento Android usa `share_plus`.
 
 ## Sync Futuro
 

@@ -1,4 +1,8 @@
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../data/local/app_database.dart';
 import '../infrastructure/notification_capture_service.dart';
@@ -128,6 +132,10 @@ class FamilyStructureContent extends StatelessWidget {
         _Section(
           title: 'Captura Android',
           children: [NotificationCapturePanel(database: database)],
+        ),
+        _Section(
+          title: 'Backup e recuperacao',
+          children: [BackupPanel(database: database)],
         ),
         _Section(
           title: 'Acesso futuro',
@@ -320,6 +328,185 @@ enum _KnownNotificationApp {
 
   final String label;
   final String packageName;
+}
+
+class BackupPanel extends StatefulWidget {
+  const BackupPanel({required this.database, super.key});
+
+  final AppDatabase database;
+
+  @override
+  State<BackupPanel> createState() => _BackupPanelState();
+}
+
+class _BackupPanelState extends State<BackupPanel> {
+  var loading = false;
+  String? message;
+
+  Future<void> _run(Future<String?> Function() action) async {
+    setState(() {
+      loading = true;
+      message = null;
+    });
+    try {
+      final result = await action();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        loading = false;
+        message = result;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        loading = false;
+        message = 'Nao foi possivel concluir a operacao de backup.';
+      });
+    }
+  }
+
+  Future<String?> _saveBackup() async {
+    final backup = await widget.database.exportBackupFile();
+    final path = await FilePicker.saveFile(
+      dialogTitle: 'Salvar backup do ZimbaControl',
+      fileName: backup.fileName,
+      type: FileType.custom,
+      allowedExtensions: const ['json'],
+      bytes: Uint8List.fromList(backup.bytes),
+    );
+    if (path == null) {
+      return 'Backup cancelado.';
+    }
+    return 'Backup salvo com ${backup.transactionCount} transacoes.';
+  }
+
+  Future<String?> _shareBackup() async {
+    final backup = await widget.database.exportBackupFile();
+    await SharePlus.instance.share(
+      ShareParams(
+        subject: 'Backup ZimbaControl',
+        text: 'Backup local do ZimbaControl.',
+        files: [
+          XFile.fromData(
+            Uint8List.fromList(backup.bytes),
+            name: backup.fileName,
+            mimeType: 'application/json',
+          ),
+        ],
+      ),
+    );
+    return 'Backup enviado para compartilhamento.';
+  }
+
+  Future<String?> _saveCsv() async {
+    final bytes = await widget.database.exportTransactionsCsvBytes();
+    final path = await FilePicker.saveFile(
+      dialogTitle: 'Exportar movimentacoes CSV',
+      fileName: 'zimbacontrol-movimentacoes.csv',
+      type: FileType.custom,
+      allowedExtensions: const ['csv'],
+      bytes: Uint8List.fromList(bytes),
+    );
+    if (path == null) {
+      return 'Exportacao CSV cancelada.';
+    }
+    return 'CSV exportado para consulta externa.';
+  }
+
+  Future<String?> _restoreBackup() async {
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['json'],
+      withData: true,
+    );
+    final file = result?.files.single;
+    final bytes = file?.bytes;
+    if (file == null || bytes == null) {
+      return 'Restauracao cancelada.';
+    }
+
+    final validation = await widget.database.validateBackupBytes(bytes);
+    if (!validation.valid || !mounted) {
+      return validation.message;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Restaurar backup?'),
+        content: Text(
+          'Arquivo valido com ${validation.transactionCount} transacoes e '
+          '${validation.totalRows} registros. A restauracao substitui os dados locais atuais.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Restaurar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return 'Restauracao cancelada.';
+    }
+
+    final restored = await widget.database.restoreBackupBytes(bytes);
+    return 'Backup restaurado com ${restored.transactionCount} transacoes.';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _InfoRow(
+          icon: Icons.security_outlined,
+          title: 'Backup local versionado',
+          subtitle: 'Sem MongoDB. Guarde o arquivo em local confiavel.',
+        ),
+        const SizedBox(height: 8),
+        if (loading) const LinearProgressIndicator(),
+        if (message != null) ...[
+          const SizedBox(height: 8),
+          Text(message!, style: Theme.of(context).textTheme.bodySmall),
+        ],
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            FilledButton.icon(
+              onPressed: loading ? null : () => _run(_saveBackup),
+              icon: const Icon(Icons.download_outlined),
+              label: const Text('Salvar backup'),
+            ),
+            OutlinedButton.icon(
+              onPressed: loading ? null : () => _run(_shareBackup),
+              icon: const Icon(Icons.ios_share_outlined),
+              label: const Text('Compartilhar'),
+            ),
+            OutlinedButton.icon(
+              onPressed: loading ? null : () => _run(_saveCsv),
+              icon: const Icon(Icons.table_view_outlined),
+              label: const Text('CSV'),
+            ),
+            OutlinedButton.icon(
+              onPressed: loading ? null : () => _run(_restoreBackup),
+              icon: const Icon(Icons.restore_outlined),
+              label: const Text('Restaurar'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
 }
 
 class _Section extends StatelessWidget {

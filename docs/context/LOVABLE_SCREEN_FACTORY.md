@@ -400,3 +400,39 @@ padrao de match, sugestao aplicada, contador de uso e explicacao de confianca.
 Crie uma tela de status de sync e privacidade mostrando offline/online,
 operacoes pendentes, ultimo sync, dispositivos, expurgo de payload bruto e
 configuracao de captura de notificacoes.
+
+Prompt recomendado para o Marco 11:
+
+```text
+Crie/refine a tela "Sync e Acesso" do ZimbaControl sem landing page.
+
+Contexto:
+- app pessoal de controle financeiro familiar;
+- Lovable e apenas prototipo visual;
+- app final sera Flutter offline-first;
+- o app local ja tem importacao, notificacoes, conciliacao, painel e backup;
+- sync sera opcional, com backend proprio e MongoDB Atlas gratuito;
+- login futuro sera Google Sign-In via OpenID Connect, nao Gmail API.
+
+Fluxos necessarios:
+- estado offline/local;
+- conectar conta Google com allowlist de um email de teste;
+- diferenciar usuario de login de membros da familia;
+- mostrar operacoes pendentes na outbox;
+- ultimo push, ultimo pull e proximo retry;
+- conflitos financeiros indo para revisao;
+- dispositivos conectados;
+- aviso de que payload bruto de notificacoes nao sobe por padrao;
+- botao de sincronizar agora;
+- estados sem conta, conectando, conectado, erro, conflito e offline.
+
+Regras de UX:
+- visual sobrio e utilitario;
+- mobile-first 360 a 440 px sem textos cortados;
+- nao prometer producao publica;
+- deixar claro que sync e opcional e backup local continua existindo;
+- evitar graficos decorativos.
+
+Objetivo:
+validar organizacao visual de sync/acesso antes de implementar no Flutter e API.
+```

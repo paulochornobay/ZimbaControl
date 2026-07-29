@@ -177,6 +177,51 @@ void main() {
     );
   });
 
+  test('backup export validates and restores into an empty database', () async {
+    final source = AppDatabase.forTesting(NativeDatabase.memory());
+    await source.seedIfEmpty();
+    await source.createManualDraft();
+    final backup = await source.exportBackupFile();
+    await source.close();
+
+    final target = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(target.close);
+
+    final validation = await target.validateBackupBytes(backup.bytes);
+    final restored = await target.restoreBackupBytes(backup.bytes);
+    final restoredTransactions = await target.watchAllTransactions().first;
+    final restoredPeople = await target.watchPeople().first;
+
+    expect(validation.valid, isTrue);
+    expect(validation.transactionCount, 8);
+    expect(restored.transactionCount, 8);
+    expect(restoredTransactions, hasLength(8));
+    expect(
+      restoredPeople.map((person) => person.displayName),
+      contains('Sofia'),
+    );
+  });
+
+  test(
+    'backup validation rejects unknown files and CSV export is readable',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      await database.seedIfEmpty();
+
+      final invalid = await database.validateBackupBytes(
+        utf8.encode('{"x":1}'),
+      );
+      final csv = utf8.decode(await database.exportTransactionsCsvBytes());
+
+      expect(invalid.valid, isFalse);
+      expect(csv, contains('data;competencia;tipo;descricao'));
+      expect(csv, contains('Mercado Extra'));
+      expect(csv, contains('Pensao Sofia'));
+    },
+  );
+
   test('pension and school are tied to the child financial context', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);

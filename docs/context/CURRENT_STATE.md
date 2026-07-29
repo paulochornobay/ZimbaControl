@@ -32,6 +32,10 @@
   quebras por pessoa/categoria/centro/origem, compromissos futuros, projecao
   simples, ultimas movimentacoes e tela Movimentacoes com busca/filtros. A
   importacao CSV/OFX agora fica como acao dentro de Movimentacoes.
+- Mobile tem backup e recuperacao do Marco 10: exportacao JSON versionada,
+  validacao antes de restaurar, restauracao transacional, exportacao CSV de
+  movimentacoes, salvamento por seletor nativo e compartilhamento Android via
+  `share_plus`.
 - O app ainda chama `seedIfEmpty()` ao iniciar. Em uma instalacao limpa, isso
   cria dados de exemplo/desenvolvimento para testar dashboard, revisao,
   familia, consorcio e importacao. Para uso real, limpar dados do app no
@@ -145,16 +149,16 @@ Antes de continuar qualquer marco, leia:
 
 ## Proximo Marco
 
-Marco 10 - Backup e Recuperacao.
+Marco 11 - Sync e Acesso Opcional.
 
 Sequencia recomendada:
 
-1. Definir formato versionado de backup local.
-2. Exportar transacoes, fontes, beneficiarios, recorrencias, parcelas,
-   cadastros, importacoes e preferencias.
-3. Criar validacao de restauracao antes de substituir dados.
-4. Implementar restauracao local com confirmacao de risco.
-5. Exportar CSV simples para consulta externa.
-6. Compartilhar arquivo pelo recurso nativo do Android.
-7. Testar reinstalacao/limpeza de dados e recuperacao sem MongoDB.
-8. Atualizar estes arquivos de contexto ao concluir o marco.
+1. Confirmar se vale iniciar MongoDB Atlas agora ou manter mais um ciclo local.
+2. Criar configuracao `.env.example` para API sem segredos reais.
+3. Implementar persistencia real da API com MongoDB Atlas Free/M0.
+4. Implementar push/pull idempotente com outbox e `opId`.
+5. Criar pull incremental com eventos sequenciais.
+6. Adicionar conflitos financeiros para revisao, sem last-writer-wins critico.
+7. Implementar Google Sign-In via OpenID Connect com allowlist de email.
+8. Testar dois dispositivos/simuladores sincronizando sem duplicar operacoes.
+9. Atualizar estes arquivos de contexto ao concluir o marco.
