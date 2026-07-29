@@ -193,6 +193,40 @@ Objetivo:
 validar a organizacao visual para posterior traducao para Flutter.
 ```
 
+### Conciliacao Financeira
+
+Prompt recomendado para o Marco 07:
+
+```text
+Crie/refine a tela de Conciliacao Financeira do ZimbaControl sem landing page.
+
+Contexto:
+- app pessoal de controle financeiro familiar;
+- Lovable e apenas prototipo visual;
+- app final sera Flutter offline-first;
+- ja existem importacao CSV/OFX e Caixa de Revisao.
+
+Telas/fluxos necessarios:
+- lista de candidatos de duplicidade entre notificacao, CSV, OFX e manual;
+- comparacao lado a lado de duas ou mais fontes da mesma compra;
+- botao para mesclar fontes mantendo historico de origem;
+- caso de pagamento de fatura virando transferencia para cartao;
+- caso de parcela de cartao ligada a plano de compra;
+- caso de consorcio do carro ligado ao plano de consorcio;
+- explicacao da sugestao com confianca e regra responsavel;
+- acao para mandar caso incerto para revisao manual.
+
+Regras de UX:
+- visual sobrio e compacto;
+- mobile-first 360 a 440 px sem texto cortado;
+- evitar graficos decorativos;
+- deixar claro quando uma acao altera o lancamento financeiro;
+- incluir estados vazio, carregando, erro, alta confianca e baixa confianca.
+
+Objetivo:
+validar a organizacao visual da conciliacao antes de portar para Flutter.
+```
+
 ### Estrutura Familiar
 
 Crie as telas de cadastros familiares do ZimbaControl para pessoas, contas,

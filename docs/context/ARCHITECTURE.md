@@ -74,6 +74,7 @@ O MVP local atual cobre:
   e desfazer;
 - estrutura familiar local com proprietarios de contas/cartoes, usuario de
   acesso separado, recorrencias e consorcio;
+- importacao CSV/OFX local com staging, hashes e promocao para revisao;
 - edicao basica de descricao, valor, tipo, categoria e centro de custo.
 
 As telas ainda evoluirao por marco. Lovable continua sendo a fonte para
@@ -194,13 +195,16 @@ destino, pagador e beneficiario.
 
 ## Importacao Local
 
-- CSV e OFX sao o primeiro alvo; XLSX fica fora do MVP inicial.
-- Arquivos importados nao devem ser enviados ao servidor.
-- Cada lote gera `ImportBatch` com hash do arquivo.
-- Cada linha/registro gera `StagedSourceRecord` com hash proprio.
-- Reimportar o mesmo arquivo deve ser idempotente.
+- CSV e OFX sao suportados no app local; XLSX fica fora do MVP inicial.
+- Arquivos importados nao sao enviados ao servidor.
+- Cada lote gera `import_batches` com hash SHA-256 do arquivo.
+- Cada linha/registro gera `staged_source_records` com hash SHA-256 proprio.
+- Reimportar o mesmo arquivo marca linhas como duplicadas.
 - Adaptadores iniciais: Nubank e Mercado Pago.
-- CSV desconhecido deve abrir mapeamento manual de colunas.
+- CSV desconhecido tem API de mapeamento manual de colunas no parser.
+- Registros validos sao promovidos como transacoes pendentes na Caixa de
+  Revisao, preservando `fileHash`, `rowHash`, `externalId`, provider e payload
+  bruto do registro.
 
 ## Captura Android
 

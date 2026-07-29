@@ -9387,6 +9387,1973 @@ class InstallmentPlansCompanion extends UpdateCompanion<InstallmentPlanRow> {
   }
 }
 
+class $ImportBatchesTable extends ImportBatches
+    with TableInfo<$ImportBatchesTable, ImportBatchRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $ImportBatchesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _householdIdMeta = const VerificationMeta(
+    'householdId',
+  );
+  @override
+  late final GeneratedColumn<String> householdId = GeneratedColumn<String>(
+    'household_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fileNameMeta = const VerificationMeta(
+    'fileName',
+  );
+  @override
+  late final GeneratedColumn<String> fileName = GeneratedColumn<String>(
+    'file_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fileHashMeta = const VerificationMeta(
+    'fileHash',
+  );
+  @override
+  late final GeneratedColumn<String> fileHash = GeneratedColumn<String>(
+    'file_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _fileFormatMeta = const VerificationMeta(
+    'fileFormat',
+  );
+  @override
+  late final GeneratedColumn<String> fileFormat = GeneratedColumn<String>(
+    'file_format',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _providerMeta = const VerificationMeta(
+    'provider',
+  );
+  @override
+  late final GeneratedColumn<String> provider = GeneratedColumn<String>(
+    'provider',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _importedAtMeta = const VerificationMeta(
+    'importedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> importedAt = GeneratedColumn<DateTime>(
+    'imported_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _totalRowsMeta = const VerificationMeta(
+    'totalRows',
+  );
+  @override
+  late final GeneratedColumn<int> totalRows = GeneratedColumn<int>(
+    'total_rows',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _validRowsMeta = const VerificationMeta(
+    'validRows',
+  );
+  @override
+  late final GeneratedColumn<int> validRows = GeneratedColumn<int>(
+    'valid_rows',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _invalidRowsMeta = const VerificationMeta(
+    'invalidRows',
+  );
+  @override
+  late final GeneratedColumn<int> invalidRows = GeneratedColumn<int>(
+    'invalid_rows',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _duplicateRowsMeta = const VerificationMeta(
+    'duplicateRows',
+  );
+  @override
+  late final GeneratedColumn<int> duplicateRows = GeneratedColumn<int>(
+    'duplicate_rows',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _reviewRowsMeta = const VerificationMeta(
+    'reviewRows',
+  );
+  @override
+  late final GeneratedColumn<int> reviewRows = GeneratedColumn<int>(
+    'review_rows',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('staged'),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    householdId,
+    fileName,
+    fileHash,
+    fileFormat,
+    provider,
+    importedAt,
+    totalRows,
+    validRows,
+    invalidRows,
+    duplicateRows,
+    reviewRows,
+    status,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'import_batches';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<ImportBatchRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('household_id')) {
+      context.handle(
+        _householdIdMeta,
+        householdId.isAcceptableOrUnknown(
+          data['household_id']!,
+          _householdIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_householdIdMeta);
+    }
+    if (data.containsKey('file_name')) {
+      context.handle(
+        _fileNameMeta,
+        fileName.isAcceptableOrUnknown(data['file_name']!, _fileNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fileNameMeta);
+    }
+    if (data.containsKey('file_hash')) {
+      context.handle(
+        _fileHashMeta,
+        fileHash.isAcceptableOrUnknown(data['file_hash']!, _fileHashMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fileHashMeta);
+    }
+    if (data.containsKey('file_format')) {
+      context.handle(
+        _fileFormatMeta,
+        fileFormat.isAcceptableOrUnknown(data['file_format']!, _fileFormatMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_fileFormatMeta);
+    }
+    if (data.containsKey('provider')) {
+      context.handle(
+        _providerMeta,
+        provider.isAcceptableOrUnknown(data['provider']!, _providerMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_providerMeta);
+    }
+    if (data.containsKey('imported_at')) {
+      context.handle(
+        _importedAtMeta,
+        importedAt.isAcceptableOrUnknown(data['imported_at']!, _importedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_importedAtMeta);
+    }
+    if (data.containsKey('total_rows')) {
+      context.handle(
+        _totalRowsMeta,
+        totalRows.isAcceptableOrUnknown(data['total_rows']!, _totalRowsMeta),
+      );
+    }
+    if (data.containsKey('valid_rows')) {
+      context.handle(
+        _validRowsMeta,
+        validRows.isAcceptableOrUnknown(data['valid_rows']!, _validRowsMeta),
+      );
+    }
+    if (data.containsKey('invalid_rows')) {
+      context.handle(
+        _invalidRowsMeta,
+        invalidRows.isAcceptableOrUnknown(
+          data['invalid_rows']!,
+          _invalidRowsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('duplicate_rows')) {
+      context.handle(
+        _duplicateRowsMeta,
+        duplicateRows.isAcceptableOrUnknown(
+          data['duplicate_rows']!,
+          _duplicateRowsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('review_rows')) {
+      context.handle(
+        _reviewRowsMeta,
+        reviewRows.isAcceptableOrUnknown(data['review_rows']!, _reviewRowsMeta),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  ImportBatchRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return ImportBatchRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      householdId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}household_id'],
+      )!,
+      fileName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_name'],
+      )!,
+      fileHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_hash'],
+      )!,
+      fileFormat: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}file_format'],
+      )!,
+      provider: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}provider'],
+      )!,
+      importedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}imported_at'],
+      )!,
+      totalRows: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}total_rows'],
+      )!,
+      validRows: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}valid_rows'],
+      )!,
+      invalidRows: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}invalid_rows'],
+      )!,
+      duplicateRows: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}duplicate_rows'],
+      )!,
+      reviewRows: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}review_rows'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+    );
+  }
+
+  @override
+  $ImportBatchesTable createAlias(String alias) {
+    return $ImportBatchesTable(attachedDatabase, alias);
+  }
+}
+
+class ImportBatchRow extends DataClass implements Insertable<ImportBatchRow> {
+  final String id;
+  final String householdId;
+  final String fileName;
+  final String fileHash;
+  final String fileFormat;
+  final String provider;
+  final DateTime importedAt;
+  final int totalRows;
+  final int validRows;
+  final int invalidRows;
+  final int duplicateRows;
+  final int reviewRows;
+  final String status;
+  const ImportBatchRow({
+    required this.id,
+    required this.householdId,
+    required this.fileName,
+    required this.fileHash,
+    required this.fileFormat,
+    required this.provider,
+    required this.importedAt,
+    required this.totalRows,
+    required this.validRows,
+    required this.invalidRows,
+    required this.duplicateRows,
+    required this.reviewRows,
+    required this.status,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['household_id'] = Variable<String>(householdId);
+    map['file_name'] = Variable<String>(fileName);
+    map['file_hash'] = Variable<String>(fileHash);
+    map['file_format'] = Variable<String>(fileFormat);
+    map['provider'] = Variable<String>(provider);
+    map['imported_at'] = Variable<DateTime>(importedAt);
+    map['total_rows'] = Variable<int>(totalRows);
+    map['valid_rows'] = Variable<int>(validRows);
+    map['invalid_rows'] = Variable<int>(invalidRows);
+    map['duplicate_rows'] = Variable<int>(duplicateRows);
+    map['review_rows'] = Variable<int>(reviewRows);
+    map['status'] = Variable<String>(status);
+    return map;
+  }
+
+  ImportBatchesCompanion toCompanion(bool nullToAbsent) {
+    return ImportBatchesCompanion(
+      id: Value(id),
+      householdId: Value(householdId),
+      fileName: Value(fileName),
+      fileHash: Value(fileHash),
+      fileFormat: Value(fileFormat),
+      provider: Value(provider),
+      importedAt: Value(importedAt),
+      totalRows: Value(totalRows),
+      validRows: Value(validRows),
+      invalidRows: Value(invalidRows),
+      duplicateRows: Value(duplicateRows),
+      reviewRows: Value(reviewRows),
+      status: Value(status),
+    );
+  }
+
+  factory ImportBatchRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return ImportBatchRow(
+      id: serializer.fromJson<String>(json['id']),
+      householdId: serializer.fromJson<String>(json['householdId']),
+      fileName: serializer.fromJson<String>(json['fileName']),
+      fileHash: serializer.fromJson<String>(json['fileHash']),
+      fileFormat: serializer.fromJson<String>(json['fileFormat']),
+      provider: serializer.fromJson<String>(json['provider']),
+      importedAt: serializer.fromJson<DateTime>(json['importedAt']),
+      totalRows: serializer.fromJson<int>(json['totalRows']),
+      validRows: serializer.fromJson<int>(json['validRows']),
+      invalidRows: serializer.fromJson<int>(json['invalidRows']),
+      duplicateRows: serializer.fromJson<int>(json['duplicateRows']),
+      reviewRows: serializer.fromJson<int>(json['reviewRows']),
+      status: serializer.fromJson<String>(json['status']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'householdId': serializer.toJson<String>(householdId),
+      'fileName': serializer.toJson<String>(fileName),
+      'fileHash': serializer.toJson<String>(fileHash),
+      'fileFormat': serializer.toJson<String>(fileFormat),
+      'provider': serializer.toJson<String>(provider),
+      'importedAt': serializer.toJson<DateTime>(importedAt),
+      'totalRows': serializer.toJson<int>(totalRows),
+      'validRows': serializer.toJson<int>(validRows),
+      'invalidRows': serializer.toJson<int>(invalidRows),
+      'duplicateRows': serializer.toJson<int>(duplicateRows),
+      'reviewRows': serializer.toJson<int>(reviewRows),
+      'status': serializer.toJson<String>(status),
+    };
+  }
+
+  ImportBatchRow copyWith({
+    String? id,
+    String? householdId,
+    String? fileName,
+    String? fileHash,
+    String? fileFormat,
+    String? provider,
+    DateTime? importedAt,
+    int? totalRows,
+    int? validRows,
+    int? invalidRows,
+    int? duplicateRows,
+    int? reviewRows,
+    String? status,
+  }) => ImportBatchRow(
+    id: id ?? this.id,
+    householdId: householdId ?? this.householdId,
+    fileName: fileName ?? this.fileName,
+    fileHash: fileHash ?? this.fileHash,
+    fileFormat: fileFormat ?? this.fileFormat,
+    provider: provider ?? this.provider,
+    importedAt: importedAt ?? this.importedAt,
+    totalRows: totalRows ?? this.totalRows,
+    validRows: validRows ?? this.validRows,
+    invalidRows: invalidRows ?? this.invalidRows,
+    duplicateRows: duplicateRows ?? this.duplicateRows,
+    reviewRows: reviewRows ?? this.reviewRows,
+    status: status ?? this.status,
+  );
+  ImportBatchRow copyWithCompanion(ImportBatchesCompanion data) {
+    return ImportBatchRow(
+      id: data.id.present ? data.id.value : this.id,
+      householdId: data.householdId.present
+          ? data.householdId.value
+          : this.householdId,
+      fileName: data.fileName.present ? data.fileName.value : this.fileName,
+      fileHash: data.fileHash.present ? data.fileHash.value : this.fileHash,
+      fileFormat: data.fileFormat.present
+          ? data.fileFormat.value
+          : this.fileFormat,
+      provider: data.provider.present ? data.provider.value : this.provider,
+      importedAt: data.importedAt.present
+          ? data.importedAt.value
+          : this.importedAt,
+      totalRows: data.totalRows.present ? data.totalRows.value : this.totalRows,
+      validRows: data.validRows.present ? data.validRows.value : this.validRows,
+      invalidRows: data.invalidRows.present
+          ? data.invalidRows.value
+          : this.invalidRows,
+      duplicateRows: data.duplicateRows.present
+          ? data.duplicateRows.value
+          : this.duplicateRows,
+      reviewRows: data.reviewRows.present
+          ? data.reviewRows.value
+          : this.reviewRows,
+      status: data.status.present ? data.status.value : this.status,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ImportBatchRow(')
+          ..write('id: $id, ')
+          ..write('householdId: $householdId, ')
+          ..write('fileName: $fileName, ')
+          ..write('fileHash: $fileHash, ')
+          ..write('fileFormat: $fileFormat, ')
+          ..write('provider: $provider, ')
+          ..write('importedAt: $importedAt, ')
+          ..write('totalRows: $totalRows, ')
+          ..write('validRows: $validRows, ')
+          ..write('invalidRows: $invalidRows, ')
+          ..write('duplicateRows: $duplicateRows, ')
+          ..write('reviewRows: $reviewRows, ')
+          ..write('status: $status')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    householdId,
+    fileName,
+    fileHash,
+    fileFormat,
+    provider,
+    importedAt,
+    totalRows,
+    validRows,
+    invalidRows,
+    duplicateRows,
+    reviewRows,
+    status,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is ImportBatchRow &&
+          other.id == this.id &&
+          other.householdId == this.householdId &&
+          other.fileName == this.fileName &&
+          other.fileHash == this.fileHash &&
+          other.fileFormat == this.fileFormat &&
+          other.provider == this.provider &&
+          other.importedAt == this.importedAt &&
+          other.totalRows == this.totalRows &&
+          other.validRows == this.validRows &&
+          other.invalidRows == this.invalidRows &&
+          other.duplicateRows == this.duplicateRows &&
+          other.reviewRows == this.reviewRows &&
+          other.status == this.status);
+}
+
+class ImportBatchesCompanion extends UpdateCompanion<ImportBatchRow> {
+  final Value<String> id;
+  final Value<String> householdId;
+  final Value<String> fileName;
+  final Value<String> fileHash;
+  final Value<String> fileFormat;
+  final Value<String> provider;
+  final Value<DateTime> importedAt;
+  final Value<int> totalRows;
+  final Value<int> validRows;
+  final Value<int> invalidRows;
+  final Value<int> duplicateRows;
+  final Value<int> reviewRows;
+  final Value<String> status;
+  final Value<int> rowid;
+  const ImportBatchesCompanion({
+    this.id = const Value.absent(),
+    this.householdId = const Value.absent(),
+    this.fileName = const Value.absent(),
+    this.fileHash = const Value.absent(),
+    this.fileFormat = const Value.absent(),
+    this.provider = const Value.absent(),
+    this.importedAt = const Value.absent(),
+    this.totalRows = const Value.absent(),
+    this.validRows = const Value.absent(),
+    this.invalidRows = const Value.absent(),
+    this.duplicateRows = const Value.absent(),
+    this.reviewRows = const Value.absent(),
+    this.status = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  ImportBatchesCompanion.insert({
+    required String id,
+    required String householdId,
+    required String fileName,
+    required String fileHash,
+    required String fileFormat,
+    required String provider,
+    required DateTime importedAt,
+    this.totalRows = const Value.absent(),
+    this.validRows = const Value.absent(),
+    this.invalidRows = const Value.absent(),
+    this.duplicateRows = const Value.absent(),
+    this.reviewRows = const Value.absent(),
+    this.status = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       householdId = Value(householdId),
+       fileName = Value(fileName),
+       fileHash = Value(fileHash),
+       fileFormat = Value(fileFormat),
+       provider = Value(provider),
+       importedAt = Value(importedAt);
+  static Insertable<ImportBatchRow> custom({
+    Expression<String>? id,
+    Expression<String>? householdId,
+    Expression<String>? fileName,
+    Expression<String>? fileHash,
+    Expression<String>? fileFormat,
+    Expression<String>? provider,
+    Expression<DateTime>? importedAt,
+    Expression<int>? totalRows,
+    Expression<int>? validRows,
+    Expression<int>? invalidRows,
+    Expression<int>? duplicateRows,
+    Expression<int>? reviewRows,
+    Expression<String>? status,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (householdId != null) 'household_id': householdId,
+      if (fileName != null) 'file_name': fileName,
+      if (fileHash != null) 'file_hash': fileHash,
+      if (fileFormat != null) 'file_format': fileFormat,
+      if (provider != null) 'provider': provider,
+      if (importedAt != null) 'imported_at': importedAt,
+      if (totalRows != null) 'total_rows': totalRows,
+      if (validRows != null) 'valid_rows': validRows,
+      if (invalidRows != null) 'invalid_rows': invalidRows,
+      if (duplicateRows != null) 'duplicate_rows': duplicateRows,
+      if (reviewRows != null) 'review_rows': reviewRows,
+      if (status != null) 'status': status,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  ImportBatchesCompanion copyWith({
+    Value<String>? id,
+    Value<String>? householdId,
+    Value<String>? fileName,
+    Value<String>? fileHash,
+    Value<String>? fileFormat,
+    Value<String>? provider,
+    Value<DateTime>? importedAt,
+    Value<int>? totalRows,
+    Value<int>? validRows,
+    Value<int>? invalidRows,
+    Value<int>? duplicateRows,
+    Value<int>? reviewRows,
+    Value<String>? status,
+    Value<int>? rowid,
+  }) {
+    return ImportBatchesCompanion(
+      id: id ?? this.id,
+      householdId: householdId ?? this.householdId,
+      fileName: fileName ?? this.fileName,
+      fileHash: fileHash ?? this.fileHash,
+      fileFormat: fileFormat ?? this.fileFormat,
+      provider: provider ?? this.provider,
+      importedAt: importedAt ?? this.importedAt,
+      totalRows: totalRows ?? this.totalRows,
+      validRows: validRows ?? this.validRows,
+      invalidRows: invalidRows ?? this.invalidRows,
+      duplicateRows: duplicateRows ?? this.duplicateRows,
+      reviewRows: reviewRows ?? this.reviewRows,
+      status: status ?? this.status,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (householdId.present) {
+      map['household_id'] = Variable<String>(householdId.value);
+    }
+    if (fileName.present) {
+      map['file_name'] = Variable<String>(fileName.value);
+    }
+    if (fileHash.present) {
+      map['file_hash'] = Variable<String>(fileHash.value);
+    }
+    if (fileFormat.present) {
+      map['file_format'] = Variable<String>(fileFormat.value);
+    }
+    if (provider.present) {
+      map['provider'] = Variable<String>(provider.value);
+    }
+    if (importedAt.present) {
+      map['imported_at'] = Variable<DateTime>(importedAt.value);
+    }
+    if (totalRows.present) {
+      map['total_rows'] = Variable<int>(totalRows.value);
+    }
+    if (validRows.present) {
+      map['valid_rows'] = Variable<int>(validRows.value);
+    }
+    if (invalidRows.present) {
+      map['invalid_rows'] = Variable<int>(invalidRows.value);
+    }
+    if (duplicateRows.present) {
+      map['duplicate_rows'] = Variable<int>(duplicateRows.value);
+    }
+    if (reviewRows.present) {
+      map['review_rows'] = Variable<int>(reviewRows.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('ImportBatchesCompanion(')
+          ..write('id: $id, ')
+          ..write('householdId: $householdId, ')
+          ..write('fileName: $fileName, ')
+          ..write('fileHash: $fileHash, ')
+          ..write('fileFormat: $fileFormat, ')
+          ..write('provider: $provider, ')
+          ..write('importedAt: $importedAt, ')
+          ..write('totalRows: $totalRows, ')
+          ..write('validRows: $validRows, ')
+          ..write('invalidRows: $invalidRows, ')
+          ..write('duplicateRows: $duplicateRows, ')
+          ..write('reviewRows: $reviewRows, ')
+          ..write('status: $status, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $StagedSourceRecordsTable extends StagedSourceRecords
+    with TableInfo<$StagedSourceRecordsTable, StagedSourceRecordRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StagedSourceRecordsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _batchIdMeta = const VerificationMeta(
+    'batchId',
+  );
+  @override
+  late final GeneratedColumn<String> batchId = GeneratedColumn<String>(
+    'batch_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _householdIdMeta = const VerificationMeta(
+    'householdId',
+  );
+  @override
+  late final GeneratedColumn<String> householdId = GeneratedColumn<String>(
+    'household_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceKindMeta = const VerificationMeta(
+    'sourceKind',
+  );
+  @override
+  late final GeneratedColumn<String> sourceKind = GeneratedColumn<String>(
+    'source_kind',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _providerMeta = const VerificationMeta(
+    'provider',
+  );
+  @override
+  late final GeneratedColumn<String> provider = GeneratedColumn<String>(
+    'provider',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _rowIndexMeta = const VerificationMeta(
+    'rowIndex',
+  );
+  @override
+  late final GeneratedColumn<int> rowIndex = GeneratedColumn<int>(
+    'row_index',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _rowHashMeta = const VerificationMeta(
+    'rowHash',
+  );
+  @override
+  late final GeneratedColumn<String> rowHash = GeneratedColumn<String>(
+    'row_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _externalIdMeta = const VerificationMeta(
+    'externalId',
+  );
+  @override
+  late final GeneratedColumn<String> externalId = GeneratedColumn<String>(
+    'external_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _occurredAtMeta = const VerificationMeta(
+    'occurredAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> occurredAt = GeneratedColumn<DateTime>(
+    'occurred_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _postedAtMeta = const VerificationMeta(
+    'postedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> postedAt = GeneratedColumn<DateTime>(
+    'posted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _descriptionRawMeta = const VerificationMeta(
+    'descriptionRaw',
+  );
+  @override
+  late final GeneratedColumn<String> descriptionRaw = GeneratedColumn<String>(
+    'description_raw',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _amountCentsMeta = const VerificationMeta(
+    'amountCents',
+  );
+  @override
+  late final GeneratedColumn<int> amountCents = GeneratedColumn<int>(
+    'amount_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _currencyCodeMeta = const VerificationMeta(
+    'currencyCode',
+  );
+  @override
+  late final GeneratedColumn<String> currencyCode = GeneratedColumn<String>(
+    'currency_code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('BRL'),
+  );
+  static const VerificationMeta _accountHintMeta = const VerificationMeta(
+    'accountHint',
+  );
+  @override
+  late final GeneratedColumn<String> accountHint = GeneratedColumn<String>(
+    'account_hint',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _duplicateOfTransactionIdMeta =
+      const VerificationMeta('duplicateOfTransactionId');
+  @override
+  late final GeneratedColumn<String> duplicateOfTransactionId =
+      GeneratedColumn<String>(
+        'duplicate_of_transaction_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _errorMessageMeta = const VerificationMeta(
+    'errorMessage',
+  );
+  @override
+  late final GeneratedColumn<String> errorMessage = GeneratedColumn<String>(
+    'error_message',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _rawPayloadJsonMeta = const VerificationMeta(
+    'rawPayloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> rawPayloadJson = GeneratedColumn<String>(
+    'raw_payload_json',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _confidenceMeta = const VerificationMeta(
+    'confidence',
+  );
+  @override
+  late final GeneratedColumn<double> confidence = GeneratedColumn<double>(
+    'confidence',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _promotedAtMeta = const VerificationMeta(
+    'promotedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> promotedAt = GeneratedColumn<DateTime>(
+    'promoted_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    batchId,
+    householdId,
+    sourceKind,
+    provider,
+    rowIndex,
+    rowHash,
+    externalId,
+    occurredAt,
+    postedAt,
+    descriptionRaw,
+    amountCents,
+    currencyCode,
+    accountHint,
+    status,
+    duplicateOfTransactionId,
+    errorMessage,
+    rawPayloadJson,
+    confidence,
+    createdAt,
+    promotedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'staged_source_records';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StagedSourceRecordRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('batch_id')) {
+      context.handle(
+        _batchIdMeta,
+        batchId.isAcceptableOrUnknown(data['batch_id']!, _batchIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_batchIdMeta);
+    }
+    if (data.containsKey('household_id')) {
+      context.handle(
+        _householdIdMeta,
+        householdId.isAcceptableOrUnknown(
+          data['household_id']!,
+          _householdIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_householdIdMeta);
+    }
+    if (data.containsKey('source_kind')) {
+      context.handle(
+        _sourceKindMeta,
+        sourceKind.isAcceptableOrUnknown(data['source_kind']!, _sourceKindMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceKindMeta);
+    }
+    if (data.containsKey('provider')) {
+      context.handle(
+        _providerMeta,
+        provider.isAcceptableOrUnknown(data['provider']!, _providerMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_providerMeta);
+    }
+    if (data.containsKey('row_index')) {
+      context.handle(
+        _rowIndexMeta,
+        rowIndex.isAcceptableOrUnknown(data['row_index']!, _rowIndexMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_rowIndexMeta);
+    }
+    if (data.containsKey('row_hash')) {
+      context.handle(
+        _rowHashMeta,
+        rowHash.isAcceptableOrUnknown(data['row_hash']!, _rowHashMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_rowHashMeta);
+    }
+    if (data.containsKey('external_id')) {
+      context.handle(
+        _externalIdMeta,
+        externalId.isAcceptableOrUnknown(data['external_id']!, _externalIdMeta),
+      );
+    }
+    if (data.containsKey('occurred_at')) {
+      context.handle(
+        _occurredAtMeta,
+        occurredAt.isAcceptableOrUnknown(data['occurred_at']!, _occurredAtMeta),
+      );
+    }
+    if (data.containsKey('posted_at')) {
+      context.handle(
+        _postedAtMeta,
+        postedAt.isAcceptableOrUnknown(data['posted_at']!, _postedAtMeta),
+      );
+    }
+    if (data.containsKey('description_raw')) {
+      context.handle(
+        _descriptionRawMeta,
+        descriptionRaw.isAcceptableOrUnknown(
+          data['description_raw']!,
+          _descriptionRawMeta,
+        ),
+      );
+    }
+    if (data.containsKey('amount_cents')) {
+      context.handle(
+        _amountCentsMeta,
+        amountCents.isAcceptableOrUnknown(
+          data['amount_cents']!,
+          _amountCentsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('currency_code')) {
+      context.handle(
+        _currencyCodeMeta,
+        currencyCode.isAcceptableOrUnknown(
+          data['currency_code']!,
+          _currencyCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('account_hint')) {
+      context.handle(
+        _accountHintMeta,
+        accountHint.isAcceptableOrUnknown(
+          data['account_hint']!,
+          _accountHintMeta,
+        ),
+      );
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('duplicate_of_transaction_id')) {
+      context.handle(
+        _duplicateOfTransactionIdMeta,
+        duplicateOfTransactionId.isAcceptableOrUnknown(
+          data['duplicate_of_transaction_id']!,
+          _duplicateOfTransactionIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('error_message')) {
+      context.handle(
+        _errorMessageMeta,
+        errorMessage.isAcceptableOrUnknown(
+          data['error_message']!,
+          _errorMessageMeta,
+        ),
+      );
+    }
+    if (data.containsKey('raw_payload_json')) {
+      context.handle(
+        _rawPayloadJsonMeta,
+        rawPayloadJson.isAcceptableOrUnknown(
+          data['raw_payload_json']!,
+          _rawPayloadJsonMeta,
+        ),
+      );
+    }
+    if (data.containsKey('confidence')) {
+      context.handle(
+        _confidenceMeta,
+        confidence.isAcceptableOrUnknown(data['confidence']!, _confidenceMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('promoted_at')) {
+      context.handle(
+        _promotedAtMeta,
+        promotedAt.isAcceptableOrUnknown(data['promoted_at']!, _promotedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  StagedSourceRecordRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StagedSourceRecordRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      batchId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}batch_id'],
+      )!,
+      householdId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}household_id'],
+      )!,
+      sourceKind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}source_kind'],
+      )!,
+      provider: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}provider'],
+      )!,
+      rowIndex: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}row_index'],
+      )!,
+      rowHash: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}row_hash'],
+      )!,
+      externalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}external_id'],
+      ),
+      occurredAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}occurred_at'],
+      ),
+      postedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}posted_at'],
+      ),
+      descriptionRaw: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description_raw'],
+      ),
+      amountCents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}amount_cents'],
+      ),
+      currencyCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}currency_code'],
+      )!,
+      accountHint: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_hint'],
+      ),
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      duplicateOfTransactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}duplicate_of_transaction_id'],
+      ),
+      errorMessage: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_message'],
+      ),
+      rawPayloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}raw_payload_json'],
+      ),
+      confidence: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}confidence'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      promotedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}promoted_at'],
+      ),
+    );
+  }
+
+  @override
+  $StagedSourceRecordsTable createAlias(String alias) {
+    return $StagedSourceRecordsTable(attachedDatabase, alias);
+  }
+}
+
+class StagedSourceRecordRow extends DataClass
+    implements Insertable<StagedSourceRecordRow> {
+  final String id;
+  final String batchId;
+  final String householdId;
+  final String sourceKind;
+  final String provider;
+  final int rowIndex;
+  final String rowHash;
+  final String? externalId;
+  final DateTime? occurredAt;
+  final DateTime? postedAt;
+  final String? descriptionRaw;
+  final int? amountCents;
+  final String currencyCode;
+  final String? accountHint;
+  final String status;
+  final String? duplicateOfTransactionId;
+  final String? errorMessage;
+  final String? rawPayloadJson;
+  final double confidence;
+  final DateTime createdAt;
+  final DateTime? promotedAt;
+  const StagedSourceRecordRow({
+    required this.id,
+    required this.batchId,
+    required this.householdId,
+    required this.sourceKind,
+    required this.provider,
+    required this.rowIndex,
+    required this.rowHash,
+    this.externalId,
+    this.occurredAt,
+    this.postedAt,
+    this.descriptionRaw,
+    this.amountCents,
+    required this.currencyCode,
+    this.accountHint,
+    required this.status,
+    this.duplicateOfTransactionId,
+    this.errorMessage,
+    this.rawPayloadJson,
+    required this.confidence,
+    required this.createdAt,
+    this.promotedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['batch_id'] = Variable<String>(batchId);
+    map['household_id'] = Variable<String>(householdId);
+    map['source_kind'] = Variable<String>(sourceKind);
+    map['provider'] = Variable<String>(provider);
+    map['row_index'] = Variable<int>(rowIndex);
+    map['row_hash'] = Variable<String>(rowHash);
+    if (!nullToAbsent || externalId != null) {
+      map['external_id'] = Variable<String>(externalId);
+    }
+    if (!nullToAbsent || occurredAt != null) {
+      map['occurred_at'] = Variable<DateTime>(occurredAt);
+    }
+    if (!nullToAbsent || postedAt != null) {
+      map['posted_at'] = Variable<DateTime>(postedAt);
+    }
+    if (!nullToAbsent || descriptionRaw != null) {
+      map['description_raw'] = Variable<String>(descriptionRaw);
+    }
+    if (!nullToAbsent || amountCents != null) {
+      map['amount_cents'] = Variable<int>(amountCents);
+    }
+    map['currency_code'] = Variable<String>(currencyCode);
+    if (!nullToAbsent || accountHint != null) {
+      map['account_hint'] = Variable<String>(accountHint);
+    }
+    map['status'] = Variable<String>(status);
+    if (!nullToAbsent || duplicateOfTransactionId != null) {
+      map['duplicate_of_transaction_id'] = Variable<String>(
+        duplicateOfTransactionId,
+      );
+    }
+    if (!nullToAbsent || errorMessage != null) {
+      map['error_message'] = Variable<String>(errorMessage);
+    }
+    if (!nullToAbsent || rawPayloadJson != null) {
+      map['raw_payload_json'] = Variable<String>(rawPayloadJson);
+    }
+    map['confidence'] = Variable<double>(confidence);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || promotedAt != null) {
+      map['promoted_at'] = Variable<DateTime>(promotedAt);
+    }
+    return map;
+  }
+
+  StagedSourceRecordsCompanion toCompanion(bool nullToAbsent) {
+    return StagedSourceRecordsCompanion(
+      id: Value(id),
+      batchId: Value(batchId),
+      householdId: Value(householdId),
+      sourceKind: Value(sourceKind),
+      provider: Value(provider),
+      rowIndex: Value(rowIndex),
+      rowHash: Value(rowHash),
+      externalId: externalId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(externalId),
+      occurredAt: occurredAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(occurredAt),
+      postedAt: postedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(postedAt),
+      descriptionRaw: descriptionRaw == null && nullToAbsent
+          ? const Value.absent()
+          : Value(descriptionRaw),
+      amountCents: amountCents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(amountCents),
+      currencyCode: Value(currencyCode),
+      accountHint: accountHint == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accountHint),
+      status: Value(status),
+      duplicateOfTransactionId: duplicateOfTransactionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(duplicateOfTransactionId),
+      errorMessage: errorMessage == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorMessage),
+      rawPayloadJson: rawPayloadJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rawPayloadJson),
+      confidence: Value(confidence),
+      createdAt: Value(createdAt),
+      promotedAt: promotedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(promotedAt),
+    );
+  }
+
+  factory StagedSourceRecordRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StagedSourceRecordRow(
+      id: serializer.fromJson<String>(json['id']),
+      batchId: serializer.fromJson<String>(json['batchId']),
+      householdId: serializer.fromJson<String>(json['householdId']),
+      sourceKind: serializer.fromJson<String>(json['sourceKind']),
+      provider: serializer.fromJson<String>(json['provider']),
+      rowIndex: serializer.fromJson<int>(json['rowIndex']),
+      rowHash: serializer.fromJson<String>(json['rowHash']),
+      externalId: serializer.fromJson<String?>(json['externalId']),
+      occurredAt: serializer.fromJson<DateTime?>(json['occurredAt']),
+      postedAt: serializer.fromJson<DateTime?>(json['postedAt']),
+      descriptionRaw: serializer.fromJson<String?>(json['descriptionRaw']),
+      amountCents: serializer.fromJson<int?>(json['amountCents']),
+      currencyCode: serializer.fromJson<String>(json['currencyCode']),
+      accountHint: serializer.fromJson<String?>(json['accountHint']),
+      status: serializer.fromJson<String>(json['status']),
+      duplicateOfTransactionId: serializer.fromJson<String?>(
+        json['duplicateOfTransactionId'],
+      ),
+      errorMessage: serializer.fromJson<String?>(json['errorMessage']),
+      rawPayloadJson: serializer.fromJson<String?>(json['rawPayloadJson']),
+      confidence: serializer.fromJson<double>(json['confidence']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      promotedAt: serializer.fromJson<DateTime?>(json['promotedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'batchId': serializer.toJson<String>(batchId),
+      'householdId': serializer.toJson<String>(householdId),
+      'sourceKind': serializer.toJson<String>(sourceKind),
+      'provider': serializer.toJson<String>(provider),
+      'rowIndex': serializer.toJson<int>(rowIndex),
+      'rowHash': serializer.toJson<String>(rowHash),
+      'externalId': serializer.toJson<String?>(externalId),
+      'occurredAt': serializer.toJson<DateTime?>(occurredAt),
+      'postedAt': serializer.toJson<DateTime?>(postedAt),
+      'descriptionRaw': serializer.toJson<String?>(descriptionRaw),
+      'amountCents': serializer.toJson<int?>(amountCents),
+      'currencyCode': serializer.toJson<String>(currencyCode),
+      'accountHint': serializer.toJson<String?>(accountHint),
+      'status': serializer.toJson<String>(status),
+      'duplicateOfTransactionId': serializer.toJson<String?>(
+        duplicateOfTransactionId,
+      ),
+      'errorMessage': serializer.toJson<String?>(errorMessage),
+      'rawPayloadJson': serializer.toJson<String?>(rawPayloadJson),
+      'confidence': serializer.toJson<double>(confidence),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'promotedAt': serializer.toJson<DateTime?>(promotedAt),
+    };
+  }
+
+  StagedSourceRecordRow copyWith({
+    String? id,
+    String? batchId,
+    String? householdId,
+    String? sourceKind,
+    String? provider,
+    int? rowIndex,
+    String? rowHash,
+    Value<String?> externalId = const Value.absent(),
+    Value<DateTime?> occurredAt = const Value.absent(),
+    Value<DateTime?> postedAt = const Value.absent(),
+    Value<String?> descriptionRaw = const Value.absent(),
+    Value<int?> amountCents = const Value.absent(),
+    String? currencyCode,
+    Value<String?> accountHint = const Value.absent(),
+    String? status,
+    Value<String?> duplicateOfTransactionId = const Value.absent(),
+    Value<String?> errorMessage = const Value.absent(),
+    Value<String?> rawPayloadJson = const Value.absent(),
+    double? confidence,
+    DateTime? createdAt,
+    Value<DateTime?> promotedAt = const Value.absent(),
+  }) => StagedSourceRecordRow(
+    id: id ?? this.id,
+    batchId: batchId ?? this.batchId,
+    householdId: householdId ?? this.householdId,
+    sourceKind: sourceKind ?? this.sourceKind,
+    provider: provider ?? this.provider,
+    rowIndex: rowIndex ?? this.rowIndex,
+    rowHash: rowHash ?? this.rowHash,
+    externalId: externalId.present ? externalId.value : this.externalId,
+    occurredAt: occurredAt.present ? occurredAt.value : this.occurredAt,
+    postedAt: postedAt.present ? postedAt.value : this.postedAt,
+    descriptionRaw: descriptionRaw.present
+        ? descriptionRaw.value
+        : this.descriptionRaw,
+    amountCents: amountCents.present ? amountCents.value : this.amountCents,
+    currencyCode: currencyCode ?? this.currencyCode,
+    accountHint: accountHint.present ? accountHint.value : this.accountHint,
+    status: status ?? this.status,
+    duplicateOfTransactionId: duplicateOfTransactionId.present
+        ? duplicateOfTransactionId.value
+        : this.duplicateOfTransactionId,
+    errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
+    rawPayloadJson: rawPayloadJson.present
+        ? rawPayloadJson.value
+        : this.rawPayloadJson,
+    confidence: confidence ?? this.confidence,
+    createdAt: createdAt ?? this.createdAt,
+    promotedAt: promotedAt.present ? promotedAt.value : this.promotedAt,
+  );
+  StagedSourceRecordRow copyWithCompanion(StagedSourceRecordsCompanion data) {
+    return StagedSourceRecordRow(
+      id: data.id.present ? data.id.value : this.id,
+      batchId: data.batchId.present ? data.batchId.value : this.batchId,
+      householdId: data.householdId.present
+          ? data.householdId.value
+          : this.householdId,
+      sourceKind: data.sourceKind.present
+          ? data.sourceKind.value
+          : this.sourceKind,
+      provider: data.provider.present ? data.provider.value : this.provider,
+      rowIndex: data.rowIndex.present ? data.rowIndex.value : this.rowIndex,
+      rowHash: data.rowHash.present ? data.rowHash.value : this.rowHash,
+      externalId: data.externalId.present
+          ? data.externalId.value
+          : this.externalId,
+      occurredAt: data.occurredAt.present
+          ? data.occurredAt.value
+          : this.occurredAt,
+      postedAt: data.postedAt.present ? data.postedAt.value : this.postedAt,
+      descriptionRaw: data.descriptionRaw.present
+          ? data.descriptionRaw.value
+          : this.descriptionRaw,
+      amountCents: data.amountCents.present
+          ? data.amountCents.value
+          : this.amountCents,
+      currencyCode: data.currencyCode.present
+          ? data.currencyCode.value
+          : this.currencyCode,
+      accountHint: data.accountHint.present
+          ? data.accountHint.value
+          : this.accountHint,
+      status: data.status.present ? data.status.value : this.status,
+      duplicateOfTransactionId: data.duplicateOfTransactionId.present
+          ? data.duplicateOfTransactionId.value
+          : this.duplicateOfTransactionId,
+      errorMessage: data.errorMessage.present
+          ? data.errorMessage.value
+          : this.errorMessage,
+      rawPayloadJson: data.rawPayloadJson.present
+          ? data.rawPayloadJson.value
+          : this.rawPayloadJson,
+      confidence: data.confidence.present
+          ? data.confidence.value
+          : this.confidence,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      promotedAt: data.promotedAt.present
+          ? data.promotedAt.value
+          : this.promotedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StagedSourceRecordRow(')
+          ..write('id: $id, ')
+          ..write('batchId: $batchId, ')
+          ..write('householdId: $householdId, ')
+          ..write('sourceKind: $sourceKind, ')
+          ..write('provider: $provider, ')
+          ..write('rowIndex: $rowIndex, ')
+          ..write('rowHash: $rowHash, ')
+          ..write('externalId: $externalId, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('postedAt: $postedAt, ')
+          ..write('descriptionRaw: $descriptionRaw, ')
+          ..write('amountCents: $amountCents, ')
+          ..write('currencyCode: $currencyCode, ')
+          ..write('accountHint: $accountHint, ')
+          ..write('status: $status, ')
+          ..write('duplicateOfTransactionId: $duplicateOfTransactionId, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('rawPayloadJson: $rawPayloadJson, ')
+          ..write('confidence: $confidence, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('promotedAt: $promotedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hashAll([
+    id,
+    batchId,
+    householdId,
+    sourceKind,
+    provider,
+    rowIndex,
+    rowHash,
+    externalId,
+    occurredAt,
+    postedAt,
+    descriptionRaw,
+    amountCents,
+    currencyCode,
+    accountHint,
+    status,
+    duplicateOfTransactionId,
+    errorMessage,
+    rawPayloadJson,
+    confidence,
+    createdAt,
+    promotedAt,
+  ]);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StagedSourceRecordRow &&
+          other.id == this.id &&
+          other.batchId == this.batchId &&
+          other.householdId == this.householdId &&
+          other.sourceKind == this.sourceKind &&
+          other.provider == this.provider &&
+          other.rowIndex == this.rowIndex &&
+          other.rowHash == this.rowHash &&
+          other.externalId == this.externalId &&
+          other.occurredAt == this.occurredAt &&
+          other.postedAt == this.postedAt &&
+          other.descriptionRaw == this.descriptionRaw &&
+          other.amountCents == this.amountCents &&
+          other.currencyCode == this.currencyCode &&
+          other.accountHint == this.accountHint &&
+          other.status == this.status &&
+          other.duplicateOfTransactionId == this.duplicateOfTransactionId &&
+          other.errorMessage == this.errorMessage &&
+          other.rawPayloadJson == this.rawPayloadJson &&
+          other.confidence == this.confidence &&
+          other.createdAt == this.createdAt &&
+          other.promotedAt == this.promotedAt);
+}
+
+class StagedSourceRecordsCompanion
+    extends UpdateCompanion<StagedSourceRecordRow> {
+  final Value<String> id;
+  final Value<String> batchId;
+  final Value<String> householdId;
+  final Value<String> sourceKind;
+  final Value<String> provider;
+  final Value<int> rowIndex;
+  final Value<String> rowHash;
+  final Value<String?> externalId;
+  final Value<DateTime?> occurredAt;
+  final Value<DateTime?> postedAt;
+  final Value<String?> descriptionRaw;
+  final Value<int?> amountCents;
+  final Value<String> currencyCode;
+  final Value<String?> accountHint;
+  final Value<String> status;
+  final Value<String?> duplicateOfTransactionId;
+  final Value<String?> errorMessage;
+  final Value<String?> rawPayloadJson;
+  final Value<double> confidence;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> promotedAt;
+  final Value<int> rowid;
+  const StagedSourceRecordsCompanion({
+    this.id = const Value.absent(),
+    this.batchId = const Value.absent(),
+    this.householdId = const Value.absent(),
+    this.sourceKind = const Value.absent(),
+    this.provider = const Value.absent(),
+    this.rowIndex = const Value.absent(),
+    this.rowHash = const Value.absent(),
+    this.externalId = const Value.absent(),
+    this.occurredAt = const Value.absent(),
+    this.postedAt = const Value.absent(),
+    this.descriptionRaw = const Value.absent(),
+    this.amountCents = const Value.absent(),
+    this.currencyCode = const Value.absent(),
+    this.accountHint = const Value.absent(),
+    this.status = const Value.absent(),
+    this.duplicateOfTransactionId = const Value.absent(),
+    this.errorMessage = const Value.absent(),
+    this.rawPayloadJson = const Value.absent(),
+    this.confidence = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.promotedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  StagedSourceRecordsCompanion.insert({
+    required String id,
+    required String batchId,
+    required String householdId,
+    required String sourceKind,
+    required String provider,
+    required int rowIndex,
+    required String rowHash,
+    this.externalId = const Value.absent(),
+    this.occurredAt = const Value.absent(),
+    this.postedAt = const Value.absent(),
+    this.descriptionRaw = const Value.absent(),
+    this.amountCents = const Value.absent(),
+    this.currencyCode = const Value.absent(),
+    this.accountHint = const Value.absent(),
+    required String status,
+    this.duplicateOfTransactionId = const Value.absent(),
+    this.errorMessage = const Value.absent(),
+    this.rawPayloadJson = const Value.absent(),
+    this.confidence = const Value.absent(),
+    required DateTime createdAt,
+    this.promotedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       batchId = Value(batchId),
+       householdId = Value(householdId),
+       sourceKind = Value(sourceKind),
+       provider = Value(provider),
+       rowIndex = Value(rowIndex),
+       rowHash = Value(rowHash),
+       status = Value(status),
+       createdAt = Value(createdAt);
+  static Insertable<StagedSourceRecordRow> custom({
+    Expression<String>? id,
+    Expression<String>? batchId,
+    Expression<String>? householdId,
+    Expression<String>? sourceKind,
+    Expression<String>? provider,
+    Expression<int>? rowIndex,
+    Expression<String>? rowHash,
+    Expression<String>? externalId,
+    Expression<DateTime>? occurredAt,
+    Expression<DateTime>? postedAt,
+    Expression<String>? descriptionRaw,
+    Expression<int>? amountCents,
+    Expression<String>? currencyCode,
+    Expression<String>? accountHint,
+    Expression<String>? status,
+    Expression<String>? duplicateOfTransactionId,
+    Expression<String>? errorMessage,
+    Expression<String>? rawPayloadJson,
+    Expression<double>? confidence,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? promotedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (batchId != null) 'batch_id': batchId,
+      if (householdId != null) 'household_id': householdId,
+      if (sourceKind != null) 'source_kind': sourceKind,
+      if (provider != null) 'provider': provider,
+      if (rowIndex != null) 'row_index': rowIndex,
+      if (rowHash != null) 'row_hash': rowHash,
+      if (externalId != null) 'external_id': externalId,
+      if (occurredAt != null) 'occurred_at': occurredAt,
+      if (postedAt != null) 'posted_at': postedAt,
+      if (descriptionRaw != null) 'description_raw': descriptionRaw,
+      if (amountCents != null) 'amount_cents': amountCents,
+      if (currencyCode != null) 'currency_code': currencyCode,
+      if (accountHint != null) 'account_hint': accountHint,
+      if (status != null) 'status': status,
+      if (duplicateOfTransactionId != null)
+        'duplicate_of_transaction_id': duplicateOfTransactionId,
+      if (errorMessage != null) 'error_message': errorMessage,
+      if (rawPayloadJson != null) 'raw_payload_json': rawPayloadJson,
+      if (confidence != null) 'confidence': confidence,
+      if (createdAt != null) 'created_at': createdAt,
+      if (promotedAt != null) 'promoted_at': promotedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  StagedSourceRecordsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? batchId,
+    Value<String>? householdId,
+    Value<String>? sourceKind,
+    Value<String>? provider,
+    Value<int>? rowIndex,
+    Value<String>? rowHash,
+    Value<String?>? externalId,
+    Value<DateTime?>? occurredAt,
+    Value<DateTime?>? postedAt,
+    Value<String?>? descriptionRaw,
+    Value<int?>? amountCents,
+    Value<String>? currencyCode,
+    Value<String?>? accountHint,
+    Value<String>? status,
+    Value<String?>? duplicateOfTransactionId,
+    Value<String?>? errorMessage,
+    Value<String?>? rawPayloadJson,
+    Value<double>? confidence,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? promotedAt,
+    Value<int>? rowid,
+  }) {
+    return StagedSourceRecordsCompanion(
+      id: id ?? this.id,
+      batchId: batchId ?? this.batchId,
+      householdId: householdId ?? this.householdId,
+      sourceKind: sourceKind ?? this.sourceKind,
+      provider: provider ?? this.provider,
+      rowIndex: rowIndex ?? this.rowIndex,
+      rowHash: rowHash ?? this.rowHash,
+      externalId: externalId ?? this.externalId,
+      occurredAt: occurredAt ?? this.occurredAt,
+      postedAt: postedAt ?? this.postedAt,
+      descriptionRaw: descriptionRaw ?? this.descriptionRaw,
+      amountCents: amountCents ?? this.amountCents,
+      currencyCode: currencyCode ?? this.currencyCode,
+      accountHint: accountHint ?? this.accountHint,
+      status: status ?? this.status,
+      duplicateOfTransactionId:
+          duplicateOfTransactionId ?? this.duplicateOfTransactionId,
+      errorMessage: errorMessage ?? this.errorMessage,
+      rawPayloadJson: rawPayloadJson ?? this.rawPayloadJson,
+      confidence: confidence ?? this.confidence,
+      createdAt: createdAt ?? this.createdAt,
+      promotedAt: promotedAt ?? this.promotedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (batchId.present) {
+      map['batch_id'] = Variable<String>(batchId.value);
+    }
+    if (householdId.present) {
+      map['household_id'] = Variable<String>(householdId.value);
+    }
+    if (sourceKind.present) {
+      map['source_kind'] = Variable<String>(sourceKind.value);
+    }
+    if (provider.present) {
+      map['provider'] = Variable<String>(provider.value);
+    }
+    if (rowIndex.present) {
+      map['row_index'] = Variable<int>(rowIndex.value);
+    }
+    if (rowHash.present) {
+      map['row_hash'] = Variable<String>(rowHash.value);
+    }
+    if (externalId.present) {
+      map['external_id'] = Variable<String>(externalId.value);
+    }
+    if (occurredAt.present) {
+      map['occurred_at'] = Variable<DateTime>(occurredAt.value);
+    }
+    if (postedAt.present) {
+      map['posted_at'] = Variable<DateTime>(postedAt.value);
+    }
+    if (descriptionRaw.present) {
+      map['description_raw'] = Variable<String>(descriptionRaw.value);
+    }
+    if (amountCents.present) {
+      map['amount_cents'] = Variable<int>(amountCents.value);
+    }
+    if (currencyCode.present) {
+      map['currency_code'] = Variable<String>(currencyCode.value);
+    }
+    if (accountHint.present) {
+      map['account_hint'] = Variable<String>(accountHint.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (duplicateOfTransactionId.present) {
+      map['duplicate_of_transaction_id'] = Variable<String>(
+        duplicateOfTransactionId.value,
+      );
+    }
+    if (errorMessage.present) {
+      map['error_message'] = Variable<String>(errorMessage.value);
+    }
+    if (rawPayloadJson.present) {
+      map['raw_payload_json'] = Variable<String>(rawPayloadJson.value);
+    }
+    if (confidence.present) {
+      map['confidence'] = Variable<double>(confidence.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (promotedAt.present) {
+      map['promoted_at'] = Variable<DateTime>(promotedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StagedSourceRecordsCompanion(')
+          ..write('id: $id, ')
+          ..write('batchId: $batchId, ')
+          ..write('householdId: $householdId, ')
+          ..write('sourceKind: $sourceKind, ')
+          ..write('provider: $provider, ')
+          ..write('rowIndex: $rowIndex, ')
+          ..write('rowHash: $rowHash, ')
+          ..write('externalId: $externalId, ')
+          ..write('occurredAt: $occurredAt, ')
+          ..write('postedAt: $postedAt, ')
+          ..write('descriptionRaw: $descriptionRaw, ')
+          ..write('amountCents: $amountCents, ')
+          ..write('currencyCode: $currencyCode, ')
+          ..write('accountHint: $accountHint, ')
+          ..write('status: $status, ')
+          ..write('duplicateOfTransactionId: $duplicateOfTransactionId, ')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('rawPayloadJson: $rawPayloadJson, ')
+          ..write('confidence: $confidence, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('promotedAt: $promotedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -9410,6 +11377,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $InstallmentPlansTable installmentPlans = $InstallmentPlansTable(
     this,
   );
+  late final $ImportBatchesTable importBatches = $ImportBatchesTable(this);
+  late final $StagedSourceRecordsTable stagedSourceRecords =
+      $StagedSourceRecordsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -9430,6 +11400,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     authUsers,
     recurringSchedules,
     installmentPlans,
+    importBatches,
+    stagedSourceRecords,
   ];
 }
 
@@ -14026,6 +15998,916 @@ typedef $$InstallmentPlansTableProcessedTableManager =
       InstallmentPlanRow,
       PrefetchHooks Function()
     >;
+typedef $$ImportBatchesTableCreateCompanionBuilder =
+    ImportBatchesCompanion Function({
+      required String id,
+      required String householdId,
+      required String fileName,
+      required String fileHash,
+      required String fileFormat,
+      required String provider,
+      required DateTime importedAt,
+      Value<int> totalRows,
+      Value<int> validRows,
+      Value<int> invalidRows,
+      Value<int> duplicateRows,
+      Value<int> reviewRows,
+      Value<String> status,
+      Value<int> rowid,
+    });
+typedef $$ImportBatchesTableUpdateCompanionBuilder =
+    ImportBatchesCompanion Function({
+      Value<String> id,
+      Value<String> householdId,
+      Value<String> fileName,
+      Value<String> fileHash,
+      Value<String> fileFormat,
+      Value<String> provider,
+      Value<DateTime> importedAt,
+      Value<int> totalRows,
+      Value<int> validRows,
+      Value<int> invalidRows,
+      Value<int> duplicateRows,
+      Value<int> reviewRows,
+      Value<String> status,
+      Value<int> rowid,
+    });
+
+class $$ImportBatchesTableFilterComposer
+    extends Composer<_$AppDatabase, $ImportBatchesTable> {
+  $$ImportBatchesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fileName => $composableBuilder(
+    column: $table.fileName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fileHash => $composableBuilder(
+    column: $table.fileHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get fileFormat => $composableBuilder(
+    column: $table.fileFormat,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get provider => $composableBuilder(
+    column: $table.provider,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get importedAt => $composableBuilder(
+    column: $table.importedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get totalRows => $composableBuilder(
+    column: $table.totalRows,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get validRows => $composableBuilder(
+    column: $table.validRows,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get invalidRows => $composableBuilder(
+    column: $table.invalidRows,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get duplicateRows => $composableBuilder(
+    column: $table.duplicateRows,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reviewRows => $composableBuilder(
+    column: $table.reviewRows,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$ImportBatchesTableOrderingComposer
+    extends Composer<_$AppDatabase, $ImportBatchesTable> {
+  $$ImportBatchesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fileName => $composableBuilder(
+    column: $table.fileName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fileHash => $composableBuilder(
+    column: $table.fileHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get fileFormat => $composableBuilder(
+    column: $table.fileFormat,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get provider => $composableBuilder(
+    column: $table.provider,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get importedAt => $composableBuilder(
+    column: $table.importedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get totalRows => $composableBuilder(
+    column: $table.totalRows,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get validRows => $composableBuilder(
+    column: $table.validRows,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get invalidRows => $composableBuilder(
+    column: $table.invalidRows,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get duplicateRows => $composableBuilder(
+    column: $table.duplicateRows,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reviewRows => $composableBuilder(
+    column: $table.reviewRows,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$ImportBatchesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $ImportBatchesTable> {
+  $$ImportBatchesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get fileName =>
+      $composableBuilder(column: $table.fileName, builder: (column) => column);
+
+  GeneratedColumn<String> get fileHash =>
+      $composableBuilder(column: $table.fileHash, builder: (column) => column);
+
+  GeneratedColumn<String> get fileFormat => $composableBuilder(
+    column: $table.fileFormat,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get provider =>
+      $composableBuilder(column: $table.provider, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get importedAt => $composableBuilder(
+    column: $table.importedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get totalRows =>
+      $composableBuilder(column: $table.totalRows, builder: (column) => column);
+
+  GeneratedColumn<int> get validRows =>
+      $composableBuilder(column: $table.validRows, builder: (column) => column);
+
+  GeneratedColumn<int> get invalidRows => $composableBuilder(
+    column: $table.invalidRows,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get duplicateRows => $composableBuilder(
+    column: $table.duplicateRows,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get reviewRows => $composableBuilder(
+    column: $table.reviewRows,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+}
+
+class $$ImportBatchesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $ImportBatchesTable,
+          ImportBatchRow,
+          $$ImportBatchesTableFilterComposer,
+          $$ImportBatchesTableOrderingComposer,
+          $$ImportBatchesTableAnnotationComposer,
+          $$ImportBatchesTableCreateCompanionBuilder,
+          $$ImportBatchesTableUpdateCompanionBuilder,
+          (
+            ImportBatchRow,
+            BaseReferences<_$AppDatabase, $ImportBatchesTable, ImportBatchRow>,
+          ),
+          ImportBatchRow,
+          PrefetchHooks Function()
+        > {
+  $$ImportBatchesTableTableManager(_$AppDatabase db, $ImportBatchesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$ImportBatchesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$ImportBatchesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$ImportBatchesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> householdId = const Value.absent(),
+                Value<String> fileName = const Value.absent(),
+                Value<String> fileHash = const Value.absent(),
+                Value<String> fileFormat = const Value.absent(),
+                Value<String> provider = const Value.absent(),
+                Value<DateTime> importedAt = const Value.absent(),
+                Value<int> totalRows = const Value.absent(),
+                Value<int> validRows = const Value.absent(),
+                Value<int> invalidRows = const Value.absent(),
+                Value<int> duplicateRows = const Value.absent(),
+                Value<int> reviewRows = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ImportBatchesCompanion(
+                id: id,
+                householdId: householdId,
+                fileName: fileName,
+                fileHash: fileHash,
+                fileFormat: fileFormat,
+                provider: provider,
+                importedAt: importedAt,
+                totalRows: totalRows,
+                validRows: validRows,
+                invalidRows: invalidRows,
+                duplicateRows: duplicateRows,
+                reviewRows: reviewRows,
+                status: status,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String householdId,
+                required String fileName,
+                required String fileHash,
+                required String fileFormat,
+                required String provider,
+                required DateTime importedAt,
+                Value<int> totalRows = const Value.absent(),
+                Value<int> validRows = const Value.absent(),
+                Value<int> invalidRows = const Value.absent(),
+                Value<int> duplicateRows = const Value.absent(),
+                Value<int> reviewRows = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => ImportBatchesCompanion.insert(
+                id: id,
+                householdId: householdId,
+                fileName: fileName,
+                fileHash: fileHash,
+                fileFormat: fileFormat,
+                provider: provider,
+                importedAt: importedAt,
+                totalRows: totalRows,
+                validRows: validRows,
+                invalidRows: invalidRows,
+                duplicateRows: duplicateRows,
+                reviewRows: reviewRows,
+                status: status,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$ImportBatchesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $ImportBatchesTable,
+      ImportBatchRow,
+      $$ImportBatchesTableFilterComposer,
+      $$ImportBatchesTableOrderingComposer,
+      $$ImportBatchesTableAnnotationComposer,
+      $$ImportBatchesTableCreateCompanionBuilder,
+      $$ImportBatchesTableUpdateCompanionBuilder,
+      (
+        ImportBatchRow,
+        BaseReferences<_$AppDatabase, $ImportBatchesTable, ImportBatchRow>,
+      ),
+      ImportBatchRow,
+      PrefetchHooks Function()
+    >;
+typedef $$StagedSourceRecordsTableCreateCompanionBuilder =
+    StagedSourceRecordsCompanion Function({
+      required String id,
+      required String batchId,
+      required String householdId,
+      required String sourceKind,
+      required String provider,
+      required int rowIndex,
+      required String rowHash,
+      Value<String?> externalId,
+      Value<DateTime?> occurredAt,
+      Value<DateTime?> postedAt,
+      Value<String?> descriptionRaw,
+      Value<int?> amountCents,
+      Value<String> currencyCode,
+      Value<String?> accountHint,
+      required String status,
+      Value<String?> duplicateOfTransactionId,
+      Value<String?> errorMessage,
+      Value<String?> rawPayloadJson,
+      Value<double> confidence,
+      required DateTime createdAt,
+      Value<DateTime?> promotedAt,
+      Value<int> rowid,
+    });
+typedef $$StagedSourceRecordsTableUpdateCompanionBuilder =
+    StagedSourceRecordsCompanion Function({
+      Value<String> id,
+      Value<String> batchId,
+      Value<String> householdId,
+      Value<String> sourceKind,
+      Value<String> provider,
+      Value<int> rowIndex,
+      Value<String> rowHash,
+      Value<String?> externalId,
+      Value<DateTime?> occurredAt,
+      Value<DateTime?> postedAt,
+      Value<String?> descriptionRaw,
+      Value<int?> amountCents,
+      Value<String> currencyCode,
+      Value<String?> accountHint,
+      Value<String> status,
+      Value<String?> duplicateOfTransactionId,
+      Value<String?> errorMessage,
+      Value<String?> rawPayloadJson,
+      Value<double> confidence,
+      Value<DateTime> createdAt,
+      Value<DateTime?> promotedAt,
+      Value<int> rowid,
+    });
+
+class $$StagedSourceRecordsTableFilterComposer
+    extends Composer<_$AppDatabase, $StagedSourceRecordsTable> {
+  $$StagedSourceRecordsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get batchId => $composableBuilder(
+    column: $table.batchId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get provider => $composableBuilder(
+    column: $table.provider,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get rowIndex => $composableBuilder(
+    column: $table.rowIndex,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rowHash => $composableBuilder(
+    column: $table.rowHash,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get externalId => $composableBuilder(
+    column: $table.externalId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get postedAt => $composableBuilder(
+    column: $table.postedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get descriptionRaw => $composableBuilder(
+    column: $table.descriptionRaw,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get amountCents => $composableBuilder(
+    column: $table.amountCents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get currencyCode => $composableBuilder(
+    column: $table.currencyCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get accountHint => $composableBuilder(
+    column: $table.accountHint,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get duplicateOfTransactionId => $composableBuilder(
+    column: $table.duplicateOfTransactionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get rawPayloadJson => $composableBuilder(
+    column: $table.rawPayloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get promotedAt => $composableBuilder(
+    column: $table.promotedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$StagedSourceRecordsTableOrderingComposer
+    extends Composer<_$AppDatabase, $StagedSourceRecordsTable> {
+  $$StagedSourceRecordsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get batchId => $composableBuilder(
+    column: $table.batchId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get provider => $composableBuilder(
+    column: $table.provider,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get rowIndex => $composableBuilder(
+    column: $table.rowIndex,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rowHash => $composableBuilder(
+    column: $table.rowHash,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get externalId => $composableBuilder(
+    column: $table.externalId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get postedAt => $composableBuilder(
+    column: $table.postedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get descriptionRaw => $composableBuilder(
+    column: $table.descriptionRaw,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get amountCents => $composableBuilder(
+    column: $table.amountCents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get currencyCode => $composableBuilder(
+    column: $table.currencyCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get accountHint => $composableBuilder(
+    column: $table.accountHint,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get duplicateOfTransactionId => $composableBuilder(
+    column: $table.duplicateOfTransactionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get rawPayloadJson => $composableBuilder(
+    column: $table.rawPayloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get promotedAt => $composableBuilder(
+    column: $table.promotedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$StagedSourceRecordsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $StagedSourceRecordsTable> {
+  $$StagedSourceRecordsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get batchId =>
+      $composableBuilder(column: $table.batchId, builder: (column) => column);
+
+  GeneratedColumn<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceKind => $composableBuilder(
+    column: $table.sourceKind,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get provider =>
+      $composableBuilder(column: $table.provider, builder: (column) => column);
+
+  GeneratedColumn<int> get rowIndex =>
+      $composableBuilder(column: $table.rowIndex, builder: (column) => column);
+
+  GeneratedColumn<String> get rowHash =>
+      $composableBuilder(column: $table.rowHash, builder: (column) => column);
+
+  GeneratedColumn<String> get externalId => $composableBuilder(
+    column: $table.externalId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get occurredAt => $composableBuilder(
+    column: $table.occurredAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get postedAt =>
+      $composableBuilder(column: $table.postedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get descriptionRaw => $composableBuilder(
+    column: $table.descriptionRaw,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get amountCents => $composableBuilder(
+    column: $table.amountCents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get currencyCode => $composableBuilder(
+    column: $table.currencyCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get accountHint => $composableBuilder(
+    column: $table.accountHint,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<String> get duplicateOfTransactionId => $composableBuilder(
+    column: $table.duplicateOfTransactionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get errorMessage => $composableBuilder(
+    column: $table.errorMessage,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get rawPayloadJson => $composableBuilder(
+    column: $table.rawPayloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get confidence => $composableBuilder(
+    column: $table.confidence,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get promotedAt => $composableBuilder(
+    column: $table.promotedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$StagedSourceRecordsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $StagedSourceRecordsTable,
+          StagedSourceRecordRow,
+          $$StagedSourceRecordsTableFilterComposer,
+          $$StagedSourceRecordsTableOrderingComposer,
+          $$StagedSourceRecordsTableAnnotationComposer,
+          $$StagedSourceRecordsTableCreateCompanionBuilder,
+          $$StagedSourceRecordsTableUpdateCompanionBuilder,
+          (
+            StagedSourceRecordRow,
+            BaseReferences<
+              _$AppDatabase,
+              $StagedSourceRecordsTable,
+              StagedSourceRecordRow
+            >,
+          ),
+          StagedSourceRecordRow,
+          PrefetchHooks Function()
+        > {
+  $$StagedSourceRecordsTableTableManager(
+    _$AppDatabase db,
+    $StagedSourceRecordsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$StagedSourceRecordsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$StagedSourceRecordsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$StagedSourceRecordsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> batchId = const Value.absent(),
+                Value<String> householdId = const Value.absent(),
+                Value<String> sourceKind = const Value.absent(),
+                Value<String> provider = const Value.absent(),
+                Value<int> rowIndex = const Value.absent(),
+                Value<String> rowHash = const Value.absent(),
+                Value<String?> externalId = const Value.absent(),
+                Value<DateTime?> occurredAt = const Value.absent(),
+                Value<DateTime?> postedAt = const Value.absent(),
+                Value<String?> descriptionRaw = const Value.absent(),
+                Value<int?> amountCents = const Value.absent(),
+                Value<String> currencyCode = const Value.absent(),
+                Value<String?> accountHint = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<String?> duplicateOfTransactionId = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                Value<String?> rawPayloadJson = const Value.absent(),
+                Value<double> confidence = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> promotedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => StagedSourceRecordsCompanion(
+                id: id,
+                batchId: batchId,
+                householdId: householdId,
+                sourceKind: sourceKind,
+                provider: provider,
+                rowIndex: rowIndex,
+                rowHash: rowHash,
+                externalId: externalId,
+                occurredAt: occurredAt,
+                postedAt: postedAt,
+                descriptionRaw: descriptionRaw,
+                amountCents: amountCents,
+                currencyCode: currencyCode,
+                accountHint: accountHint,
+                status: status,
+                duplicateOfTransactionId: duplicateOfTransactionId,
+                errorMessage: errorMessage,
+                rawPayloadJson: rawPayloadJson,
+                confidence: confidence,
+                createdAt: createdAt,
+                promotedAt: promotedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String batchId,
+                required String householdId,
+                required String sourceKind,
+                required String provider,
+                required int rowIndex,
+                required String rowHash,
+                Value<String?> externalId = const Value.absent(),
+                Value<DateTime?> occurredAt = const Value.absent(),
+                Value<DateTime?> postedAt = const Value.absent(),
+                Value<String?> descriptionRaw = const Value.absent(),
+                Value<int?> amountCents = const Value.absent(),
+                Value<String> currencyCode = const Value.absent(),
+                Value<String?> accountHint = const Value.absent(),
+                required String status,
+                Value<String?> duplicateOfTransactionId = const Value.absent(),
+                Value<String?> errorMessage = const Value.absent(),
+                Value<String?> rawPayloadJson = const Value.absent(),
+                Value<double> confidence = const Value.absent(),
+                required DateTime createdAt,
+                Value<DateTime?> promotedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => StagedSourceRecordsCompanion.insert(
+                id: id,
+                batchId: batchId,
+                householdId: householdId,
+                sourceKind: sourceKind,
+                provider: provider,
+                rowIndex: rowIndex,
+                rowHash: rowHash,
+                externalId: externalId,
+                occurredAt: occurredAt,
+                postedAt: postedAt,
+                descriptionRaw: descriptionRaw,
+                amountCents: amountCents,
+                currencyCode: currencyCode,
+                accountHint: accountHint,
+                status: status,
+                duplicateOfTransactionId: duplicateOfTransactionId,
+                errorMessage: errorMessage,
+                rawPayloadJson: rawPayloadJson,
+                confidence: confidence,
+                createdAt: createdAt,
+                promotedAt: promotedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$StagedSourceRecordsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $StagedSourceRecordsTable,
+      StagedSourceRecordRow,
+      $$StagedSourceRecordsTableFilterComposer,
+      $$StagedSourceRecordsTableOrderingComposer,
+      $$StagedSourceRecordsTableAnnotationComposer,
+      $$StagedSourceRecordsTableCreateCompanionBuilder,
+      $$StagedSourceRecordsTableUpdateCompanionBuilder,
+      (
+        StagedSourceRecordRow,
+        BaseReferences<
+          _$AppDatabase,
+          $StagedSourceRecordsTable,
+          StagedSourceRecordRow
+        >,
+      ),
+      StagedSourceRecordRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -14063,4 +16945,8 @@ class $AppDatabaseManager {
       $$RecurringSchedulesTableTableManager(_db, _db.recurringSchedules);
   $$InstallmentPlansTableTableManager get installmentPlans =>
       $$InstallmentPlansTableTableManager(_db, _db.installmentPlans);
+  $$ImportBatchesTableTableManager get importBatches =>
+      $$ImportBatchesTableTableManager(_db, _db.importBatches);
+  $$StagedSourceRecordsTableTableManager get stagedSourceRecords =>
+      $$StagedSourceRecordsTableTableManager(_db, _db.stagedSourceRecords);
 }

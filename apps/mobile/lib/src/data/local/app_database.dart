@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../application/import_parser.dart';
 import 'connection/database_connection.dart';
 
 part 'app_database.g.dart';
@@ -258,6 +259,54 @@ class InstallmentPlans extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@DataClassName('ImportBatchRow')
+class ImportBatches extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get fileName => text()();
+  TextColumn get fileHash => text()();
+  TextColumn get fileFormat => text()();
+  TextColumn get provider => text()();
+  DateTimeColumn get importedAt => dateTime()();
+  IntColumn get totalRows => integer().withDefault(const Constant(0))();
+  IntColumn get validRows => integer().withDefault(const Constant(0))();
+  IntColumn get invalidRows => integer().withDefault(const Constant(0))();
+  IntColumn get duplicateRows => integer().withDefault(const Constant(0))();
+  IntColumn get reviewRows => integer().withDefault(const Constant(0))();
+  TextColumn get status => text().withDefault(const Constant('staged'))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('StagedSourceRecordRow')
+class StagedSourceRecords extends Table {
+  TextColumn get id => text()();
+  TextColumn get batchId => text()();
+  TextColumn get householdId => text()();
+  TextColumn get sourceKind => text()();
+  TextColumn get provider => text()();
+  IntColumn get rowIndex => integer()();
+  TextColumn get rowHash => text()();
+  TextColumn get externalId => text().nullable()();
+  DateTimeColumn get occurredAt => dateTime().nullable()();
+  DateTimeColumn get postedAt => dateTime().nullable()();
+  TextColumn get descriptionRaw => text().nullable()();
+  IntColumn get amountCents => integer().nullable()();
+  TextColumn get currencyCode => text().withDefault(const Constant('BRL'))();
+  TextColumn get accountHint => text().nullable()();
+  TextColumn get status => text()();
+  TextColumn get duplicateOfTransactionId => text().nullable()();
+  TextColumn get errorMessage => text().nullable()();
+  TextColumn get rawPayloadJson => text().nullable()();
+  RealColumn get confidence => real().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get promotedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     People,
@@ -275,6 +324,8 @@ class InstallmentPlans extends Table {
     AuthUsers,
     RecurringSchedules,
     InstallmentPlans,
+    ImportBatches,
+    StagedSourceRecords,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -286,7 +337,7 @@ class AppDatabase extends _$AppDatabase {
   static const reviewFilterPreferenceKey = 'review_filter';
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -321,6 +372,10 @@ class AppDatabase extends _$AppDatabase {
         await migrator.createTable(authUsers);
         await migrator.createTable(recurringSchedules);
         await migrator.createTable(installmentPlans);
+      }
+      if (from < 5) {
+        await migrator.createTable(importBatches);
+        await migrator.createTable(stagedSourceRecords);
       }
     },
   );
@@ -453,6 +508,230 @@ class AppDatabase extends _$AppDatabase {
       ..where((row) => row.householdId.equals(householdMain))
       ..orderBy([(row) => OrderingTerm.asc(row.dueDay)]);
     return query.get();
+  }
+
+  Future<List<ImportBatchRow>> listImportBatches() {
+    final query = select(importBatches)
+      ..where((row) => row.householdId.equals(householdMain))
+      ..orderBy([(row) => OrderingTerm.desc(row.importedAt)]);
+    return query.get();
+  }
+
+  Future<List<StagedSourceRecordRow>> listStagedRecords(String batchId) {
+    final query = select(stagedSourceRecords)
+      ..where((row) => row.batchId.equals(batchId))
+      ..orderBy([(row) => OrderingTerm.asc(row.rowIndex)]);
+    return query.get();
+  }
+
+  Future<ImportBatchDetails?> getLatestImportBatchDetails() async {
+    final batch =
+        await (select(importBatches)
+              ..where((row) => row.householdId.equals(householdMain))
+              ..orderBy([(row) => OrderingTerm.desc(row.importedAt)])
+              ..limit(1))
+            .getSingleOrNull();
+    if (batch == null) {
+      return null;
+    }
+
+    return ImportBatchDetails(
+      batch: batch,
+      records: await listStagedRecords(batch.id),
+    );
+  }
+
+  Future<ImportBatchDetails> importStatementFile({
+    required String fileName,
+    required List<int> bytes,
+    CsvImportMapping? csvMapping,
+  }) async {
+    final parsed = parseStatementFile(
+      fileName: fileName,
+      bytes: bytes,
+      csvMapping: csvMapping,
+    );
+    final now = DateTime.now();
+    final batchId = 'batch-${now.microsecondsSinceEpoch}';
+    var valid = 0;
+    var invalid = 0;
+    var duplicate = 0;
+    var review = 0;
+    final staged = <StagedSourceRecordsCompanion>[];
+
+    for (final record in parsed.records) {
+      final duplicateTransactionId = await _findDuplicateSource(
+        fileHash: parsed.fileHash,
+        rowHash: record.rowHash,
+        externalId: record.externalId,
+        provider: record.provider,
+      );
+      final alreadyStaged = await _hasStagedSource(
+        fileHash: parsed.fileHash,
+        rowHash: record.rowHash,
+      );
+      final status = !record.isValid
+          ? 'invalid'
+          : duplicateTransactionId != null || alreadyStaged
+          ? 'duplicate'
+          : 'needs_review';
+
+      switch (status) {
+        case 'invalid':
+          invalid += 1;
+        case 'duplicate':
+          duplicate += 1;
+        default:
+          valid += 1;
+          review += 1;
+      }
+
+      staged.add(
+        StagedSourceRecordsCompanion.insert(
+          id: 'staged-$batchId-${record.rowIndex}',
+          batchId: batchId,
+          householdId: householdMain,
+          sourceKind: record.sourceKind,
+          provider: record.provider,
+          rowIndex: record.rowIndex,
+          rowHash: record.rowHash,
+          externalId: Value(record.externalId),
+          occurredAt: Value(record.occurredAt),
+          postedAt: Value(record.postedAt),
+          descriptionRaw: Value(record.description),
+          amountCents: Value(record.amountCents),
+          currencyCode: Value(record.currencyCode),
+          accountHint: Value(record.accountHint),
+          status: status,
+          duplicateOfTransactionId: Value(duplicateTransactionId),
+          errorMessage: Value(record.errorMessage),
+          rawPayloadJson: Value(record.rawPayload),
+          confidence: Value(record.confidence),
+          createdAt: now,
+        ),
+      );
+    }
+
+    final batchCompanion = ImportBatchesCompanion.insert(
+      id: batchId,
+      householdId: householdMain,
+      fileName: fileName,
+      fileHash: parsed.fileHash,
+      fileFormat: parsed.fileFormat,
+      provider: parsed.provider,
+      importedAt: now,
+      totalRows: Value(parsed.records.length),
+      validRows: Value(valid),
+      invalidRows: Value(invalid),
+      duplicateRows: Value(duplicate),
+      reviewRows: Value(review),
+      status: const Value('staged'),
+    );
+
+    await into(importBatches).insert(batchCompanion);
+    if (staged.isNotEmpty) {
+      await batch((batch) {
+        batch.insertAll(stagedSourceRecords, staged);
+      });
+    }
+
+    return ImportBatchDetails(
+      batch: ImportBatchRow(
+        id: batchId,
+        householdId: householdMain,
+        fileName: fileName,
+        fileHash: parsed.fileHash,
+        fileFormat: parsed.fileFormat,
+        provider: parsed.provider,
+        importedAt: now,
+        totalRows: parsed.records.length,
+        validRows: valid,
+        invalidRows: invalid,
+        duplicateRows: duplicate,
+        reviewRows: review,
+        status: 'staged',
+      ),
+      records: await listStagedRecords(batchId),
+    );
+  }
+
+  Future<int> promoteImportBatchToReview(String batchId) async {
+    final importBatch = await (select(
+      importBatches,
+    )..where((batch) => batch.id.equals(batchId))).getSingle();
+    final rows =
+        await (select(stagedSourceRecords)
+              ..where((row) => row.batchId.equals(batchId))
+              ..where((row) => row.status.equals('needs_review')))
+            .get();
+    var promoted = 0;
+
+    for (final row in rows) {
+      if (row.descriptionRaw == null ||
+          row.amountCents == null ||
+          row.occurredAt == null) {
+        continue;
+      }
+
+      final txId = 'tx-import-${row.id}';
+      final existing = await getTransaction(txId);
+      if (existing != null) {
+        continue;
+      }
+
+      await into(transactions).insert(
+        _transaction(
+          id: txId,
+          kind: row.amountCents! >= 0 ? 'income' : 'expense',
+          reviewStatus: 'pending',
+          duplicateStatus: 'none',
+          amountCents: row.amountCents!,
+          description: row.descriptionRaw!,
+          accountId: _accountForProvider(row.provider),
+          occurredAt: row.occurredAt!,
+          confidence: row.confidence,
+        ),
+      );
+      await into(
+        transactionBeneficiaries,
+      ).insert(_beneficiary(txId, 'eu', true));
+      await into(reviewInbox).insert(
+        _reviewItem(txId, 'imported_statement_needs_review', DateTime.now()),
+      );
+      await into(transactionSources).insert(
+        TransactionSourcesCompanion.insert(
+          id: 'src-$txId',
+          transactionId: txId,
+          sourceKind: row.sourceKind,
+          provider: row.provider,
+          externalId: Value(row.externalId),
+          fileHash: Value(importBatch.fileHash),
+          rowHash: Value(row.rowHash),
+          rawPayloadJson: Value(row.rawPayloadJson),
+          occurredAt: Value(row.occurredAt),
+          confidence: Value(row.confidence),
+        ),
+      );
+      await (update(
+        stagedSourceRecords,
+      )..where((item) => item.id.equals(row.id))).write(
+        StagedSourceRecordsCompanion(
+          status: const Value('promoted'),
+          promotedAt: Value(DateTime.now()),
+        ),
+      );
+      await _enqueueOutbox(txId, 'create');
+      promoted += 1;
+    }
+
+    await (update(importBatches)..where((row) => row.id.equals(batchId))).write(
+      const ImportBatchesCompanion(
+        reviewRows: Value(0),
+        status: Value('promoted'),
+      ),
+    );
+
+    return promoted;
   }
 
   Future<FamilyStructureSnapshot> getFamilyStructureSnapshot() async {
@@ -1147,6 +1426,65 @@ class AppDatabase extends _$AppDatabase {
     ).insert(schedule, mode: InsertMode.insertOrIgnore);
   }
 
+  Future<String?> _findDuplicateSource({
+    required String fileHash,
+    required String rowHash,
+    required String? externalId,
+    required String provider,
+  }) async {
+    final exact =
+        await (select(transactionSources)
+              ..where((row) => row.fileHash.equals(fileHash))
+              ..where((row) => row.rowHash.equals(rowHash))
+              ..limit(1))
+            .getSingleOrNull();
+    if (exact != null) {
+      return exact.transactionId;
+    }
+
+    if (externalId == null || externalId.isEmpty) {
+      return null;
+    }
+
+    final byExternalId =
+        await (select(transactionSources)
+              ..where((row) => row.provider.equals(provider))
+              ..where((row) => row.externalId.equals(externalId))
+              ..limit(1))
+            .getSingleOrNull();
+
+    return byExternalId?.transactionId;
+  }
+
+  Future<bool> _hasStagedSource({
+    required String fileHash,
+    required String rowHash,
+  }) async {
+    final batches = await (select(
+      importBatches,
+    )..where((row) => row.fileHash.equals(fileHash))).get();
+    if (batches.isEmpty) {
+      return false;
+    }
+
+    final batchIds = batches.map((batch) => batch.id).toSet();
+    final existing =
+        await (select(stagedSourceRecords)
+              ..where((row) => row.batchId.isIn(batchIds))
+              ..where((row) => row.rowHash.equals(rowHash))
+              ..limit(1))
+            .getSingleOrNull();
+    return existing != null;
+  }
+
+  String? _accountForProvider(String provider) {
+    return switch (provider) {
+      'nubank' => 'nu',
+      'mercado_pago' => 'mp',
+      _ => null,
+    };
+  }
+
   Future<Map<String, PersonRow>> _peopleByIds(Set<String> ids) async {
     if (ids.isEmpty) {
       return const {};
@@ -1556,4 +1894,11 @@ class FamilyStructureSnapshot {
   final List<AuthUserRow> authUsers;
   final List<RecurringScheduleRow> recurringSchedules;
   final List<InstallmentPlanRow> installmentPlans;
+}
+
+class ImportBatchDetails {
+  const ImportBatchDetails({required this.batch, required this.records});
+
+  final ImportBatchRow batch;
+  final List<StagedSourceRecordRow> records;
 }

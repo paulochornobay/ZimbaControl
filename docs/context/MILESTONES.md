@@ -8,8 +8,8 @@
 - Marco 03 - Nucleo Local Offline: concluido para MVP local
 - Marco 04 - Caixa de Revisao Real: concluido
 - Marco 05 - Estrutura Financeira Familiar: concluido
-- Marco 06 - Importacao CSV/OFX: proximo
-- Marco 07 - Conciliacao Financeira: planejado
+- Marco 06 - Importacao CSV/OFX: concluido
+- Marco 07 - Conciliacao Financeira: proximo
 - Marco 08 - Captura Android: planejado
 - Marco 09 - Painel e Movimentacoes: planejado
 - Marco 10 - Backup e Recuperacao: planejado
@@ -156,7 +156,12 @@ Criterio de aceite:
 - Importar extratos reais anonimizados sem duplicar uma segunda importacao do
   mesmo arquivo.
 
-Status: proximo.
+Status: concluido. O app mobile agora tem importacao local CSV/OFX com
+`file_picker`, parser CSV/OFX, hashes SHA-256 de arquivo e linha, tabelas
+`import_batches` e `staged_source_records`, adapters iniciais Nubank/Mercado
+Pago, API de mapeamento manual para CSV desconhecido, resumo de lote e promocao
+dos registros validos para a Caixa de Revisao. Reimportar o mesmo arquivo
+marca as linhas como duplicadas.
 
 ## Marco 07 - Conciliacao Financeira
 
@@ -173,6 +178,8 @@ Entregaveis:
 Criterio de aceite:
 
 - A mesma compra capturada por notificacao e extrato aparece apenas uma vez.
+
+Status: proximo.
 
 ## Marco 08 - Captura Android
 

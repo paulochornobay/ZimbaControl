@@ -17,6 +17,10 @@
   contas/cartoes, usuario de acesso separado, recorrencias para escola, pensao
   e ajuda familiar, plano de consorcio e transferencia interna fora do resumo
   de receita/despesa.
+- Mobile tem importacao local CSV/OFX do Marco 06: escolha de arquivo,
+  parser CSV/OFX, hashes de arquivo/linha, staging, adapters Nubank/Mercado
+  Pago, resumo de lote, promocao para Caixa de Revisao e deteccao de
+  reimportacao duplicada.
 - Para teste visual no Chrome, o banco usa Drift Web com `sql.js`; Android e
   desktop nativo continuam usando SQLite nativo.
 - API tem `/health`, `/sync/push`, `/sync/pull` e stubs dos endpoints do plano.
@@ -110,23 +114,24 @@ Antes de continuar qualquer marco, leia:
   Marco 11.
 - Implementar telas Flutter completas equivalentes ao Lovable conforme cada
   marco avancar.
-- Marco 06 precisa implementar importacao local CSV/OFX com staging, hash de
-  arquivo/linha, adaptadores Nubank/Mercado Pago e mapeamento manual.
+- Marco 07 precisa implementar conciliacao financeira entre fontes:
+  deduplicacao heuristica, merge de origem, fatura como transferencia,
+  parcelas de cartao e consorcio com explicacao.
 - Substituir armazenamento local simples por criptografia SQLCipher quando
   viavel no Marco 12.
 
 ## Proximo Marco
 
-Marco 06 - Importacao CSV/OFX.
+Marco 07 - Conciliacao Financeira.
 
 Sequencia recomendada:
 
-1. Criar tabelas locais `import_batches` e `staged_source_records`.
-2. Implementar hash do arquivo e hash da linha/registro.
-3. Implementar parser CSV com deteccao simples de encoding/separador/decimal.
-4. Implementar parser OFX suficiente para extratos bancarios/cartao.
-5. Criar adapters iniciais Nubank e Mercado Pago.
-6. Gerar resumo do lote: novos, invalidos, duplicados e revisao.
-7. Criar tela/fluxo local simples para escolher arquivo e ver staging.
-8. Testar com fixtures anonimizadas.
+1. Criar candidatos de duplicidade por valor, data, conta/cartao e merchant.
+2. Mesclar `transaction_sources` sem perder origem.
+3. Tratar pagamento de fatura como transferencia para o cartao.
+4. Ligar parcelas de cartao a `installment_plans`.
+5. Usar o plano de consorcio existente para identificar compromissos.
+6. Enviar casos incertos de baixa confianca para a Caixa de Revisao.
+7. Exibir explicacao clara da conciliacao aplicada ou sugerida.
+8. Testar notificacao + CSV/OFX + manual sem duplicar gasto.
 9. Atualizar estes arquivos de contexto ao concluir o marco.

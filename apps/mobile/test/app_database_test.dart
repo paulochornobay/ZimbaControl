@@ -1,5 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'dart:convert';
+
 import 'package:zimba_control/src/application/dashboard_summary.dart';
 import 'package:zimba_control/src/data/local/app_database.dart';
 import 'package:zimba_control/src/presentation/dashboard_page.dart';
@@ -133,6 +135,78 @@ void main() {
     expect(school?.kind, 'expense');
     expect(school?.recurringScheduleId, 'rec-escola-sofia');
     expect(schoolSchedule.beneficiaryPersonId, 'sofia');
+  });
+
+  test('CSV import stages rows and promotes valid records to review', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    await database.seedIfEmpty();
+
+    final csv = [
+      'Data;Descricao;Valor;Identificador',
+      '2026-07-22;Mercado CSV;-10,50;csv-1',
+      '2026-07-23;Receita CSV;250,00;csv-2',
+      'invalida;Sem valor;x;csv-3',
+    ].join('\n');
+
+    final details = await database.importStatementFile(
+      fileName: 'nubank_julho.csv',
+      bytes: utf8.encode(csv),
+    );
+
+    expect(details.batch.totalRows, 3);
+    expect(details.batch.reviewRows, 2);
+    expect(details.batch.invalidRows, 1);
+    expect(details.batch.duplicateRows, 0);
+    expect(
+      details.records.map((record) => record.status),
+      containsAll(['needs_review', 'invalid']),
+    );
+
+    final promoted = await database.promoteImportBatchToReview(
+      details.batch.id,
+    );
+    final pending = await database.watchPendingReview().first;
+    final promotedDetails = await database.getLatestImportBatchDetails();
+
+    expect(promoted, 2);
+    expect(promotedDetails?.batch.reviewRows, 0);
+    expect(
+      pending.map((transaction) => transaction.descriptionRaw),
+      containsAll(['Mercado CSV', 'Receita CSV']),
+    );
+  });
+
+  test('reimporting the same statement marks rows as duplicates', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    await database.seedIfEmpty();
+
+    final csv = [
+      'Data;Descricao;Valor;Identificador',
+      '2026-07-22;Mercado CSV;-10,50;csv-1',
+      '2026-07-23;Receita CSV;250,00;csv-2',
+    ].join('\n');
+
+    final first = await database.importStatementFile(
+      fileName: 'nubank_julho.csv',
+      bytes: utf8.encode(csv),
+    );
+    await database.promoteImportBatchToReview(first.batch.id);
+
+    final second = await database.importStatementFile(
+      fileName: 'nubank_julho.csv',
+      bytes: utf8.encode(csv),
+    );
+
+    expect(second.batch.reviewRows, 0);
+    expect(second.batch.duplicateRows, 2);
+    expect(
+      second.records.map((record) => record.status),
+      everyElement('duplicate'),
+    );
   });
 
   test('review actions update local transaction state and outbox', () async {
