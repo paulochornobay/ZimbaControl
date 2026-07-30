@@ -44,7 +44,7 @@ class DashboardPage extends StatelessWidget {
                 actions: [
                   IconButton(
                     tooltip: 'Criar lancamento local',
-                    onPressed: database.createManualDraft,
+                    onPressed: () => database.createManualDraft(),
                     icon: const Icon(Icons.add_circle_outline),
                   ),
                 ],
@@ -339,20 +339,24 @@ class UpcomingCommitmentsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final schedules = structure?.recurringSchedules ?? const [];
     final plans = structure?.installmentPlans ?? const [];
+    final now = DateTime.now();
     final items = <_CommitmentItem>[
       for (final schedule in schedules.where((item) => item.active))
         _CommitmentItem(
           label: schedule.label,
           subtitle: 'dia ${schedule.dayOfMonth} · ${_kindLabel(schedule.kind)}',
           amountCents: schedule.amountCents,
+          dueDate: _commitmentDate(now, schedule.dayOfMonth),
         ),
       for (final plan in plans.where((item) => item.active))
         _CommitmentItem(
           label: plan.label,
-          subtitle: '${plan.currentInstallment}/${plan.totalInstallments}',
+          subtitle:
+              '${plan.currentInstallment}/${plan.totalInstallments} · vence dia ${plan.dueDay ?? '-'}',
           amountCents: -plan.installmentAmountCents,
+          dueDate: _commitmentDate(now, plan.dueDay ?? 1),
         ),
-    ]..sort((left, right) => left.label.compareTo(right.label));
+    ]..sort((left, right) => left.dueDate.compareTo(right.dueDate));
 
     return Card(
       elevation: 0,
@@ -563,11 +567,35 @@ class _CommitmentItem {
     required this.label,
     required this.subtitle,
     required this.amountCents,
+    required this.dueDate,
   });
 
   final String label;
   final String subtitle;
   final int amountCents;
+  final DateTime dueDate;
+}
+
+DateTime _commitmentDate(DateTime now, int day) {
+  final clampedDay = _clampDay(now.year, now.month, day);
+  final date = DateTime(now.year, now.month, clampedDay);
+  if (date.isBefore(DateTime(now.year, now.month, now.day))) {
+    final nextMonth = DateTime(now.year, now.month + 1);
+    return DateTime(
+      nextMonth.year,
+      nextMonth.month,
+      _clampDay(nextMonth.year, nextMonth.month, day),
+    );
+  }
+  return date;
+}
+
+int _clampDay(int year, int month, int day) {
+  final lastDay = DateTime(year, month + 1, 0).day;
+  if (day < 1) {
+    return 1;
+  }
+  return day > lastDay ? lastDay : day;
 }
 
 String _monthTitle(DateTime date) {

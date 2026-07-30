@@ -13,7 +13,7 @@
 - Marco 08 - Captura Android: concluido
 - Marco 09 - Painel e Movimentacoes: concluido
 - Marco 10 - Backup e Recuperacao: concluido
-- Marco 11 - Sync e Acesso Opcional: proximo
+- Marco 11 - Sync e Acesso Opcional: em andamento; 11A e 11B concluidos
 - Marco 12 - Seguranca e Publicacao: planejado
 
 ## Direcao Atual
@@ -21,7 +21,9 @@
 Os Marcos 00 a 03 permanecem concluidos. A sequencia posterior foi
 reorganizada para entregar primeiro uma versao Android local realmente util,
 com importacao, notificacoes, conciliacao e backup, deixando MongoDB, login e
-publicacao para depois.
+publicacao para depois. O Marco 11 foi quebrado em 11A, 11B e 11C para reduzir
+risco: primeiro sync tecnico com MongoDB, depois acesso Google, depois dois
+dispositivos aplicando eventos remotos.
 
 O codigo novo do Lovable em `/Users/macbookair/Public/dev/pixel-perfect-pixels`
 e uma referencia visual importante, especialmente para revisao, edicao,
@@ -269,7 +271,22 @@ Criterio de aceite:
 - Dois dispositivos sincronizam sem duplicar lancamentos ou sobrescrever
   conflitos silenciosamente.
 
-Status: proximo.
+Status: em andamento.
+
+Sub-marcos:
+
+- 11A - Sync Local com MongoDB Atlas: concluido tecnicamente. A API usa store
+  MongoDB quando `MONGODB_URI` existe, cria colecoes/indices, aplica
+  `/sync/push` de forma idempotente por `opId`, entrega `/sync/pull`
+  incremental por `seq` e registra conflito por `baseVersion`. O mobile tem
+  cliente HTTP, envio da `sync_outbox`, ack local e cursor de pull.
+- 11B - Acesso Google Opcional: concluido tecnicamente. A API valida Google ID
+  token por OpenID Connect, aplica `ALLOWED_EMAILS`, emite sessao JWT local e
+  protege sync quando `GOOGLE_OIDC_ENABLED=true`. O mobile conecta Google com
+  `GOOGLE_WEB_CLIENT_ID`, guarda o token de sessao em secure storage e envia
+  bearer token no sync. Teste real exige Google Cloud configurado.
+- 11C - Dois Dispositivos: proximo. Aplicar eventos remotos no banco local,
+  gerar `deviceId` por instalacao e expor conflitos financeiros para revisao.
 
 ## Marco 12 - Seguranca e Publicacao
 

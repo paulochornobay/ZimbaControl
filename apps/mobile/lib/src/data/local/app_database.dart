@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:drift/drift.dart';
 
 import '../../application/import_parser.dart';
+import '../../infrastructure/api_sync_client.dart';
 import '../../infrastructure/notification_capture_service.dart';
 import 'connection/database_connection.dart';
 
@@ -40,6 +41,7 @@ class Accounts extends Table {
 class CreditCards extends Table {
   TextColumn get id => text()();
   TextColumn get householdId => text()();
+  TextColumn get accountId => text().nullable()();
   TextColumn get ownerPersonId => text().nullable()();
   TextColumn get provider => text()();
   TextColumn get name => text()();
@@ -61,6 +63,7 @@ class Categories extends Table {
   TextColumn get name => text()();
   TextColumn get kind => text()();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  BoolColumn get active => boolean().withDefault(const Constant(true))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -384,7 +387,7 @@ class AppDatabase extends _$AppDatabase {
   static const reviewFilterPreferenceKey = 'review_filter';
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -429,6 +432,10 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 7) {
         await migrator.createTable(rawNotificationEvents);
+      }
+      if (from < 8) {
+        await migrator.addColumn(categories, categories.active);
+        await migrator.addColumn(creditCards, creditCards.accountId);
       }
     },
   );
@@ -499,32 +506,46 @@ class AppDatabase extends _$AppDatabase {
     )..where((row) => row.id.equals(id))).getSingleOrNull();
   }
 
-  Future<List<CategoryRow>> listCategories() {
+  Future<List<CategoryRow>> listCategories({bool includeInactive = false}) {
     final query = select(categories)
       ..where((row) => row.householdId.equals(householdMain))
       ..orderBy([(row) => OrderingTerm.asc(row.sortOrder)]);
+    if (!includeInactive) {
+      query.where((row) => row.active.equals(true));
+    }
     return query.get();
   }
 
-  Future<List<CostCenterRow>> listCostCenters() {
+  Future<List<CostCenterRow>> listCostCenters({bool includeInactive = false}) {
     final query = select(costCenters)
       ..where((row) => row.householdId.equals(householdMain))
       ..orderBy([(row) => OrderingTerm.asc(row.name)]);
+    if (!includeInactive) {
+      query.where((row) => row.active.equals(true));
+    }
     return query.get();
   }
 
-  Future<List<AccountWithOwner>> listAccountsWithOwners() async {
+  Future<List<AccountWithOwner>> listAccountsWithOwners({
+    bool includeInactive = false,
+  }) async {
     final accountRows =
         await (select(accounts)
               ..where((row) => row.householdId.equals(householdMain))
               ..orderBy([(row) => OrderingTerm.asc(row.name)]))
             .get();
+    final visibleAccounts = includeInactive
+        ? accountRows
+        : accountRows.where((row) => row.active).toList(growable: false);
     final owners = await _peopleByIds(
-      accountRows.map((row) => row.ownerPersonId).whereType<String>().toSet(),
+      visibleAccounts
+          .map((row) => row.ownerPersonId)
+          .whereType<String>()
+          .toSet(),
     );
 
     return [
-      for (final account in accountRows)
+      for (final account in visibleAccounts)
         AccountWithOwner(
           account: account,
           owner: account.ownerPersonId == null
@@ -534,18 +555,23 @@ class AppDatabase extends _$AppDatabase {
     ];
   }
 
-  Future<List<CreditCardWithOwner>> listCreditCardsWithOwners() async {
+  Future<List<CreditCardWithOwner>> listCreditCardsWithOwners({
+    bool includeInactive = false,
+  }) async {
     final cardRows =
         await (select(creditCards)
               ..where((row) => row.householdId.equals(householdMain))
               ..orderBy([(row) => OrderingTerm.asc(row.name)]))
             .get();
+    final visibleCards = includeInactive
+        ? cardRows
+        : cardRows.where((row) => row.active).toList(growable: false);
     final owners = await _peopleByIds(
-      cardRows.map((row) => row.ownerPersonId).whereType<String>().toSet(),
+      visibleCards.map((row) => row.ownerPersonId).whereType<String>().toSet(),
     );
 
     return [
-      for (final card in cardRows)
+      for (final card in visibleCards)
         CreditCardWithOwner(
           creditCard: card,
           owner: card.ownerPersonId == null ? null : owners[card.ownerPersonId],
@@ -611,6 +637,39 @@ class AppDatabase extends _$AppDatabase {
     return query.get();
   }
 
+  Future<List<DuplicateCandidateRow>> listOpenDuplicateCandidates() {
+    final query = select(duplicateCandidates)
+      ..where((row) => row.resolvedAt.isNull())
+      ..orderBy([(row) => OrderingTerm.desc(row.createdAt)]);
+    return query.get();
+  }
+
+  Future<List<DuplicateCandidateDetails>>
+  listOpenDuplicateCandidateDetails() async {
+    final rows = await listOpenDuplicateCandidates();
+    final details = <DuplicateCandidateDetails>[];
+    for (final row in rows) {
+      final primary = await getTransaction(row.transactionId);
+      final candidate = row.candidateTransactionId == null
+          ? null
+          : await getTransaction(row.candidateTransactionId!);
+      final staged = row.stagedSourceRecordId == null
+          ? null
+          : await (select(stagedSourceRecords)
+                  ..where((item) => item.id.equals(row.stagedSourceRecordId!)))
+                .getSingleOrNull();
+      details.add(
+        DuplicateCandidateDetails(
+          candidate: row,
+          primaryTransaction: primary,
+          candidateTransaction: candidate,
+          stagedRecord: staged,
+        ),
+      );
+    }
+    return details;
+  }
+
   Future<List<TransactionSourceRow>> listTransactionSources(
     String transactionId,
   ) {
@@ -635,6 +694,74 @@ class AppDatabase extends _$AppDatabase {
       ..orderBy([(row) => OrderingTerm.desc(row.capturedAt)])
       ..limit(limit);
     return query.watch();
+  }
+
+  Future<List<SyncOutboxRow>> listPendingSyncOutbox({int limit = 50}) {
+    final query = select(syncOutbox)
+      ..where((row) => row.status.isIn(['pending', 'failed']))
+      ..orderBy([(row) => OrderingTerm.asc(row.createdAt)])
+      ..limit(limit);
+    return query.get();
+  }
+
+  Future<SyncRunSummary> runSyncOnce(SyncApiClient client) async {
+    final operations = await listPendingSyncOutbox();
+    final sinceSeq =
+        int.tryParse(await _preferenceValue('sync_pull_since_seq') ?? '0') ?? 0;
+    var pushed = 0;
+    var duplicates = 0;
+    var conflicts = 0;
+    var rejected = 0;
+
+    if (operations.isNotEmpty) {
+      final response = await client.push(
+        SyncPushPayload(
+          deviceId: operations.first.deviceId,
+          householdId: householdMain,
+          operations: [
+            for (final operation in operations) _syncOperationJson(operation),
+          ],
+        ),
+      );
+      final ackByOpId = {for (final ack in response.results) ack.opId: ack};
+
+      for (final operation in operations) {
+        final ack = ackByOpId[operation.opId];
+        if (ack == null) {
+          await _markOutboxFailure(operation);
+          continue;
+        }
+        switch (ack.result) {
+          case 'applied':
+            pushed += 1;
+            await _markOutboxAck(operation.opId);
+          case 'duplicate':
+            duplicates += 1;
+            await _markOutboxAck(operation.opId);
+          case 'conflict':
+            conflicts += 1;
+            await _markOutboxConflict(operation.opId);
+          default:
+            rejected += 1;
+            await _markOutboxRejected(operation.opId);
+        }
+      }
+    }
+
+    final pulled = await client.pull(
+      householdId: householdMain,
+      sinceSeq: sinceSeq,
+    );
+    await _setPreference('sync_pull_since_seq', pulled.latestSeq.toString());
+
+    return SyncRunSummary(
+      pushed: pushed,
+      duplicates: duplicates,
+      conflicts: conflicts,
+      rejected: rejected,
+      pulled: pulled.events.length,
+      latestSeq: pulled.latestSeq,
+    );
   }
 
   Future<ZimbaBackupFile> exportBackupFile() async {
@@ -1225,6 +1352,47 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Future<LocalDataStatus> getLocalDataStatus() async {
+    return LocalDataStatus(
+      people: (await select(people).get()).length,
+      accounts: (await select(accounts).get()).length,
+      creditCards: (await select(creditCards).get()).length,
+      categories: (await select(categories).get()).length,
+      transactions: (await select(transactions).get()).length,
+      pendingReview: (await (select(
+        transactions,
+      )..where((row) => row.reviewStatus.equals('pending'))).get()).length,
+      importBatches: (await select(importBatches).get()).length,
+      duplicateCandidates: (await select(duplicateCandidates).get()).length,
+      recurringSchedules: (await select(recurringSchedules).get()).length,
+      installmentPlans: (await select(installmentPlans).get()).length,
+    );
+  }
+
+  Future<RegistrySnapshot> getRegistrySnapshot({
+    bool includeInactive = true,
+  }) async {
+    final peopleRows = await watchPeople().first;
+    final accounts = await listAccountsWithOwners(
+      includeInactive: includeInactive,
+    );
+    final cards = await listCreditCardsWithOwners(
+      includeInactive: includeInactive,
+    );
+    final categoryRows = await listCategories(includeInactive: includeInactive);
+    final costCenterRows = await listCostCenters(
+      includeInactive: includeInactive,
+    );
+
+    return RegistrySnapshot(
+      people: peopleRows,
+      accounts: accounts,
+      creditCards: cards,
+      categories: categoryRows,
+      costCenters: costCenterRows,
+    );
+  }
+
   Future<void> seedIfEmpty() async {
     final existing = await (select(transactions)..limit(1)).getSingleOrNull();
     if (existing == null) {
@@ -1232,6 +1400,32 @@ class AppDatabase extends _$AppDatabase {
     }
 
     await ensureFamilyStructureSeed();
+  }
+
+  Future<void> loadDemoData() => seedIfEmpty();
+
+  Future<void> clearLocalData() async {
+    await transaction(() async {
+      await delete(rawNotificationEvents).go();
+      await delete(duplicateCandidates).go();
+      await delete(stagedSourceRecords).go();
+      await delete(importBatches).go();
+      await delete(installmentPlans).go();
+      await delete(recurringSchedules).go();
+      await delete(authUsers).go();
+      await delete(appPreferences).go();
+      await delete(syncOutbox).go();
+      await delete(transactionSources).go();
+      await delete(transactionBeneficiaries).go();
+      await delete(reviewInbox).go();
+      await delete(transactions).go();
+      await delete(merchants).go();
+      await delete(costCenters).go();
+      await delete(categories).go();
+      await delete(creditCards).go();
+      await delete(accounts).go();
+      await delete(people).go();
+    });
   }
 
   Future<void> _seedInitialData(DateTime now) async {
@@ -1457,7 +1651,10 @@ class AppDatabase extends _$AppDatabase {
       const AccountsCompanion(ownerPersonId: Value('eu')),
     );
     await (update(creditCards)..where((row) => row.id.equals('nu-card'))).write(
-      const CreditCardsCompanion(ownerPersonId: Value('eu')),
+      const CreditCardsCompanion(
+        accountId: Value('nu'),
+        ownerPersonId: Value('eu'),
+      ),
     );
 
     await into(authUsers).insert(
@@ -1769,7 +1966,62 @@ class AppDatabase extends _$AppDatabase {
     await _enqueueOutbox(id, 'update');
   }
 
-  Future<void> createManualDraft() async {
+  Future<void> updateTransactionDetails({
+    required String id,
+    required String description,
+    required int amountCents,
+    required String kind,
+    required DateTime occurredAt,
+    required String competenceMonth,
+    required String? accountId,
+    required String? categoryId,
+    required String? costCenterId,
+    required String? payerId,
+    required List<String> beneficiaryIds,
+  }) async {
+    final signedCents = kind == 'expense' && amountCents > 0
+        ? -amountCents
+        : kind == 'income' && amountCents < 0
+        ? amountCents.abs()
+        : amountCents;
+
+    await transaction(() async {
+      await (update(transactions)..where((row) => row.id.equals(id))).write(
+        TransactionsCompanion(
+          descriptionRaw: Value(description),
+          amountCents: Value(signedCents),
+          kind: Value(kind),
+          occurredAt: Value(occurredAt),
+          competenceMonth: Value(competenceMonth),
+          accountId: Value(accountId),
+          categoryId: Value(categoryId),
+          costCenterId: Value(costCenterId),
+          payerId: Value(payerId),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+
+      await (delete(
+        transactionBeneficiaries,
+      )..where((row) => row.transactionId.equals(id))).go();
+      final uniqueBeneficiaryIds = beneficiaryIds.toSet().toList();
+      if (uniqueBeneficiaryIds.isNotEmpty) {
+        await batch((batch) {
+          batch.insertAll(transactionBeneficiaries, [
+            for (final personId in uniqueBeneficiaryIds)
+              _beneficiary(
+                id,
+                personId,
+                personId == uniqueBeneficiaryIds.first,
+              ),
+          ]);
+        });
+      }
+    });
+    await _enqueueOutbox(id, 'update');
+  }
+
+  Future<String> createManualDraft() async {
     final now = DateTime.now();
     final id = 'tx-manual-${now.microsecondsSinceEpoch}';
     await into(transactions).insert(
@@ -1800,6 +2052,296 @@ class AppDatabase extends _$AppDatabase {
       reviewInbox,
     ).insert(_reviewItem(id, 'manual_draft_needs_review', now));
     await _enqueueOutbox(id, 'create');
+    return id;
+  }
+
+  Future<String> upsertAccount({
+    String? id,
+    required String provider,
+    required String name,
+    required String type,
+    required String? ownerPersonId,
+    String? last4,
+    bool active = true,
+  }) async {
+    final accountId = id ?? 'account-${DateTime.now().microsecondsSinceEpoch}';
+    await into(accounts).insertOnConflictUpdate(
+      AccountsCompanion.insert(
+        id: accountId,
+        householdId: householdMain,
+        ownerPersonId: Value(ownerPersonId),
+        provider: provider.trim().isEmpty ? 'manual' : provider.trim(),
+        name: name.trim(),
+        type: type,
+        last4: Value(last4?.trim().isEmpty == true ? null : last4?.trim()),
+        active: Value(active),
+      ),
+    );
+    return accountId;
+  }
+
+  Future<void> archiveAccount(String id, {bool active = false}) async {
+    await (update(accounts)..where((row) => row.id.equals(id))).write(
+      AccountsCompanion(active: Value(active)),
+    );
+  }
+
+  Future<String> upsertCreditCard({
+    String? id,
+    String? accountId,
+    required String provider,
+    required String name,
+    required String? ownerPersonId,
+    String? brand,
+    String? last4,
+    int? billingDay,
+    int? dueDay,
+    bool active = true,
+  }) async {
+    final cardId = id ?? 'card-${DateTime.now().microsecondsSinceEpoch}';
+    final instrumentId =
+        accountId ?? 'account-card-${DateTime.now().microsecondsSinceEpoch}';
+    await upsertAccount(
+      id: instrumentId,
+      provider: provider,
+      name: name,
+      type: 'credit_card',
+      ownerPersonId: ownerPersonId,
+      last4: last4,
+      active: active,
+    );
+    await into(creditCards).insertOnConflictUpdate(
+      CreditCardsCompanion.insert(
+        id: cardId,
+        householdId: householdMain,
+        accountId: Value(instrumentId),
+        ownerPersonId: Value(ownerPersonId),
+        provider: provider.trim().isEmpty ? 'manual' : provider.trim(),
+        name: name.trim(),
+        brand: Value(brand?.trim().isEmpty == true ? null : brand?.trim()),
+        last4: Value(last4?.trim().isEmpty == true ? null : last4?.trim()),
+        billingDay: Value(_validDayOrNull(billingDay)),
+        dueDay: Value(_validDayOrNull(dueDay)),
+        active: Value(active),
+      ),
+    );
+    return cardId;
+  }
+
+  Future<void> archiveCreditCard(String id, {bool active = false}) async {
+    final card = await (select(
+      creditCards,
+    )..where((row) => row.id.equals(id))).getSingleOrNull();
+    await (update(creditCards)..where((row) => row.id.equals(id))).write(
+      CreditCardsCompanion(active: Value(active)),
+    );
+    if (card?.accountId != null) {
+      await archiveAccount(card!.accountId!, active: active);
+    }
+  }
+
+  Future<String> upsertCategory({
+    String? id,
+    String? parentId,
+    required String name,
+    required String kind,
+    required int sortOrder,
+    bool active = true,
+  }) async {
+    final categoryId =
+        id ?? 'category-${DateTime.now().microsecondsSinceEpoch}';
+    await into(categories).insertOnConflictUpdate(
+      CategoriesCompanion.insert(
+        id: categoryId,
+        householdId: householdMain,
+        parentId: Value(parentId),
+        name: name.trim(),
+        kind: kind,
+        sortOrder: Value(sortOrder),
+        active: Value(active),
+      ),
+    );
+    return categoryId;
+  }
+
+  Future<void> archiveCategory(String id, {bool active = false}) async {
+    await (update(categories)..where((row) => row.id.equals(id))).write(
+      CategoriesCompanion(active: Value(active)),
+    );
+  }
+
+  Future<String> upsertCostCenter({
+    String? id,
+    required String name,
+    bool active = true,
+  }) async {
+    final costCenterId =
+        id ?? 'cost-center-${DateTime.now().microsecondsSinceEpoch}';
+    await into(costCenters).insertOnConflictUpdate(
+      CostCentersCompanion.insert(
+        id: costCenterId,
+        householdId: householdMain,
+        name: name.trim(),
+        active: Value(active),
+      ),
+    );
+    return costCenterId;
+  }
+
+  Future<void> archiveCostCenter(String id, {bool active = false}) async {
+    await (update(costCenters)..where((row) => row.id.equals(id))).write(
+      CostCentersCompanion(active: Value(active)),
+    );
+  }
+
+  Future<String> upsertRecurringSchedule({
+    String? id,
+    required String label,
+    required String kind,
+    required int amountCents,
+    required int dayOfMonth,
+    required String startMonth,
+    String? payerPersonId,
+    String? beneficiaryPersonId,
+    String? fromAccountId,
+    String? toAccountId,
+    String? categoryId,
+    String? costCenterId,
+    bool active = true,
+  }) async {
+    final scheduleId =
+        id ?? 'recurring-${DateTime.now().microsecondsSinceEpoch}';
+    await into(recurringSchedules).insertOnConflictUpdate(
+      RecurringSchedulesCompanion.insert(
+        id: scheduleId,
+        householdId: householdMain,
+        label: label.trim(),
+        kind: kind,
+        amountCents: amountCents,
+        dayOfMonth: _validDayOrNull(dayOfMonth) ?? 1,
+        startMonth: startMonth,
+        payerPersonId: Value(payerPersonId),
+        beneficiaryPersonId: Value(beneficiaryPersonId),
+        fromAccountId: Value(fromAccountId),
+        toAccountId: Value(toAccountId),
+        categoryId: Value(categoryId),
+        costCenterId: Value(costCenterId),
+        active: Value(active),
+        updatedAt: DateTime.now(),
+      ),
+    );
+    return scheduleId;
+  }
+
+  Future<void> archiveRecurringSchedule(
+    String id, {
+    bool active = false,
+  }) async {
+    await (update(recurringSchedules)..where((row) => row.id.equals(id))).write(
+      RecurringSchedulesCompanion(
+        active: Value(active),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<String> upsertInstallmentPlan({
+    String? id,
+    required String label,
+    required String planKind,
+    String? ownerPersonId,
+    String? assetName,
+    int? totalAmountCents,
+    required int installmentAmountCents,
+    required int currentInstallment,
+    required int totalInstallments,
+    int? dueDay,
+    required String startMonth,
+    String? endMonth,
+    String? categoryId,
+    String? costCenterId,
+    bool active = true,
+  }) async {
+    final planId = id ?? 'plan-${DateTime.now().microsecondsSinceEpoch}';
+    await into(installmentPlans).insertOnConflictUpdate(
+      InstallmentPlansCompanion.insert(
+        id: planId,
+        householdId: householdMain,
+        label: label.trim(),
+        planKind: planKind,
+        ownerPersonId: Value(ownerPersonId),
+        assetName: Value(assetName),
+        totalAmountCents: Value(totalAmountCents),
+        installmentAmountCents: installmentAmountCents,
+        currentInstallment: currentInstallment,
+        totalInstallments: totalInstallments,
+        dueDay: Value(_validDayOrNull(dueDay)),
+        startMonth: startMonth,
+        endMonth: Value(endMonth),
+        categoryId: Value(categoryId),
+        costCenterId: Value(costCenterId),
+        active: Value(active),
+        updatedAt: DateTime.now(),
+      ),
+    );
+    return planId;
+  }
+
+  Future<void> archiveInstallmentPlan(String id, {bool active = false}) async {
+    await (update(installmentPlans)..where((row) => row.id.equals(id))).write(
+      InstallmentPlansCompanion(
+        active: Value(active),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> resolveDuplicateCandidate({
+    required String id,
+    required String resolution,
+  }) async {
+    final candidate = await (select(
+      duplicateCandidates,
+    )..where((row) => row.id.equals(id))).getSingleOrNull();
+    if (candidate == null) {
+      return;
+    }
+
+    if (resolution == 'merge' &&
+        candidate.stagedSourceRecordId != null &&
+        candidate.transactionId.isNotEmpty) {
+      final staged =
+          await (select(
+                stagedSourceRecords,
+              )..where((row) => row.id.equals(candidate.stagedSourceRecordId!)))
+              .getSingleOrNull();
+      if (staged != null) {
+        final batch = await (select(
+          importBatches,
+        )..where((row) => row.id.equals(staged.batchId))).getSingleOrNull();
+        if (batch != null) {
+          await _mergeStagedSourceWithTransaction(
+            row: staged,
+            importBatch: batch,
+            transactionId: candidate.transactionId,
+          );
+          return;
+        }
+      }
+    }
+
+    if (resolution == 'merge' && candidate.candidateTransactionId != null) {
+      await markDuplicateAndResolve(candidate.candidateTransactionId!);
+    }
+
+    await (update(
+      duplicateCandidates,
+    )..where((row) => row.id.equals(id))).write(
+      DuplicateCandidatesCompanion(
+        status: Value(resolution),
+        resolvedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   Future<String> createInternalTransfer({
@@ -1869,6 +2411,82 @@ class AppDatabase extends _$AppDatabase {
         operationType: operationType,
         payloadJson: '{"entityId":"$entityId"}',
         createdAt: now,
+      ),
+    );
+  }
+
+  Map<String, dynamic> _syncOperationJson(SyncOutboxRow operation) {
+    final decoded = jsonDecode(operation.payloadJson);
+    final payload = decoded is Map
+        ? Map<String, dynamic>.from(decoded)
+        : <String, dynamic>{'entityId': operation.entityId};
+    return {
+      'opId': operation.opId,
+      'deviceId': operation.deviceId,
+      'householdId': operation.householdId,
+      'entityType': operation.entityType,
+      'entityId': operation.entityId,
+      'operationType': operation.operationType,
+      'baseVersion': operation.baseVersion,
+      'payload': payload,
+      'createdAt': operation.createdAt.toIso8601String(),
+    };
+  }
+
+  Future<void> _markOutboxAck(String opId) {
+    final now = DateTime.now();
+    return (update(syncOutbox)..where((row) => row.opId.equals(opId))).write(
+      SyncOutboxCompanion(
+        sentAt: Value(now),
+        ackAt: Value(now),
+        status: const Value('acked'),
+      ),
+    );
+  }
+
+  Future<void> _markOutboxFailure(SyncOutboxRow operation) {
+    return (update(
+      syncOutbox,
+    )..where((row) => row.opId.equals(operation.opId))).write(
+      SyncOutboxCompanion(
+        sentAt: Value(DateTime.now()),
+        status: const Value('failed'),
+        retryCount: Value(operation.retryCount + 1),
+      ),
+    );
+  }
+
+  Future<void> _markOutboxConflict(String opId) {
+    return (update(syncOutbox)..where((row) => row.opId.equals(opId))).write(
+      SyncOutboxCompanion(
+        sentAt: Value(DateTime.now()),
+        status: const Value('conflict'),
+      ),
+    );
+  }
+
+  Future<void> _markOutboxRejected(String opId) {
+    return (update(syncOutbox)..where((row) => row.opId.equals(opId))).write(
+      SyncOutboxCompanion(
+        sentAt: Value(DateTime.now()),
+        status: const Value('rejected'),
+      ),
+    );
+  }
+
+  Future<String?> _preferenceValue(String key) async {
+    final row = await (select(
+      appPreferences,
+    )..where((item) => item.key.equals(key))).getSingleOrNull();
+    return row?.value;
+  }
+
+  Future<void> _setPreference(String key, String value) {
+    return into(appPreferences).insertOnConflictUpdate(
+      AppPreferencesCompanion.insert(
+        key: key,
+        value: value,
+        updatedAt: DateTime.now(),
       ),
     );
   }
@@ -2451,13 +3069,19 @@ class AppDatabase extends _$AppDatabase {
     _InstallmentHint installment,
   ) async {
     final occurredAt = row.occurredAt!;
+    final accountId = _accountForProvider(row.provider);
+    final card = await _creditCardForAccountOrFirst(accountId);
     final label = _cleanInstallmentLabel(row.descriptionRaw ?? 'Compra');
+    final invoiceMonth = card == null
+        ? _monthKey(occurredAt)
+        : invoiceMonthFor(card, occurredAt);
+    final invoiceBase = _dateFromMonthKey(invoiceMonth);
     final planId =
-        'plan-card-${_compactId(label)}-${_monthKey(occurredAt)}-'
+        'plan-card-${_compactId(label)}-$invoiceMonth-'
         '${installment.totalInstallments}-${row.amountCents!.abs()}';
-    final start = _shiftMonth(occurredAt, 1 - installment.currentInstallment);
+    final start = _shiftMonth(invoiceBase, 1 - installment.currentInstallment);
     final end = _shiftMonth(
-      occurredAt,
+      invoiceBase,
       installment.totalInstallments - installment.currentInstallment,
     );
 
@@ -2474,6 +3098,7 @@ class AppDatabase extends _$AppDatabase {
         installmentAmountCents: row.amountCents!.abs(),
         currentInstallment: installment.currentInstallment,
         totalInstallments: installment.totalInstallments,
+        dueDay: Value(card?.dueDay),
         startMonth: _monthKey(start),
         endMonth: Value(_monthKey(end)),
         updatedAt: DateTime.now(),
@@ -2601,6 +3226,62 @@ class AppDatabase extends _$AppDatabase {
     return DateTime(date.year, date.month + months, 1);
   }
 
+  String invoiceMonthFor(CreditCardRow card, DateTime occurredAt) {
+    final closingDay = _validDayOrNull(card.billingDay) ?? occurredAt.day;
+    final invoiceBase = occurredAt.day <= closingDay
+        ? occurredAt
+        : _shiftMonth(occurredAt, 1);
+    return _monthKey(invoiceBase);
+  }
+
+  DateTime invoiceDueDateFor(CreditCardRow card, DateTime occurredAt) {
+    final invoiceMonth = invoiceMonthFor(card, occurredAt);
+    final base = _dateFromMonthKey(invoiceMonth);
+    final dueDay = _validDayOrNull(card.dueDay) ?? 1;
+    return DateTime(
+      base.year,
+      base.month,
+      _clampDay(base.year, base.month, dueDay),
+    );
+  }
+
+  DateTime installmentDueDateFor(InstallmentPlanRow plan, DateTime reference) {
+    final base = _dateFromMonthKey(plan.startMonth);
+    final dueDay = _validDayOrNull(plan.dueDay) ?? 1;
+    final due = DateTime(
+      base.year,
+      base.month,
+      _clampDay(base.year, base.month, dueDay),
+    );
+    if (!due.isBefore(
+      DateTime(reference.year, reference.month, reference.day),
+    )) {
+      return due;
+    }
+    return DateTime(
+      reference.year,
+      reference.month,
+      _clampDay(reference.year, reference.month, dueDay),
+    );
+  }
+
+  DateTime _dateFromMonthKey(String monthKey) {
+    final parts = monthKey.split('-');
+    final year = int.tryParse(parts.first) ?? DateTime.now().year;
+    final month = parts.length > 1
+        ? int.tryParse(parts[1]) ?? DateTime.now().month
+        : DateTime.now().month;
+    return DateTime(year, month, 1);
+  }
+
+  int _clampDay(int year, int month, int day) {
+    final lastDay = DateTime(year, month + 1, 0).day;
+    if (day < 1) {
+      return 1;
+    }
+    return day > lastDay ? lastDay : day;
+  }
+
   Future<bool> _hasStagedSource({
     required String fileHash,
     required String rowHash,
@@ -2628,6 +3309,24 @@ class AppDatabase extends _$AppDatabase {
       'mercado_pago' => 'mp',
       _ => null,
     };
+  }
+
+  Future<CreditCardRow?> _creditCardForAccountOrFirst(String? accountId) async {
+    if (accountId != null) {
+      final byAccount =
+          await (select(creditCards)
+                ..where((row) => row.accountId.equals(accountId))
+                ..where((row) => row.active.equals(true))
+                ..limit(1))
+              .getSingleOrNull();
+      if (byAccount != null) {
+        return byAccount;
+      }
+    }
+    return (select(creditCards)
+          ..where((row) => row.active.equals(true))
+          ..limit(1))
+        .getSingleOrNull();
   }
 
   Future<Map<String, PersonRow>> _peopleByIds(Set<String> ids) async {
@@ -2798,6 +3497,13 @@ class AppDatabase extends _$AppDatabase {
       costCenterId: Value(costCenterId),
       updatedAt: updatedAt,
     );
+  }
+
+  int? _validDayOrNull(int? value) {
+    if (value == null || value < 1 || value > 31) {
+      return null;
+    }
+    return value;
   }
 
   Future<List<ReviewTransactionDetails>> _hydrateReviewTransactions(
@@ -3041,6 +3747,72 @@ class FamilyStructureSnapshot {
   final List<InstallmentPlanRow> installmentPlans;
 }
 
+class RegistrySnapshot {
+  const RegistrySnapshot({
+    required this.people,
+    required this.accounts,
+    required this.creditCards,
+    required this.categories,
+    required this.costCenters,
+  });
+
+  final List<PersonRow> people;
+  final List<AccountWithOwner> accounts;
+  final List<CreditCardWithOwner> creditCards;
+  final List<CategoryRow> categories;
+  final List<CostCenterRow> costCenters;
+}
+
+class LocalDataStatus {
+  const LocalDataStatus({
+    required this.people,
+    required this.accounts,
+    required this.creditCards,
+    required this.categories,
+    required this.transactions,
+    required this.pendingReview,
+    required this.importBatches,
+    required this.duplicateCandidates,
+    required this.recurringSchedules,
+    required this.installmentPlans,
+  });
+
+  final int people;
+  final int accounts;
+  final int creditCards;
+  final int categories;
+  final int transactions;
+  final int pendingReview;
+  final int importBatches;
+  final int duplicateCandidates;
+  final int recurringSchedules;
+  final int installmentPlans;
+
+  bool get isEmpty =>
+      people == 0 &&
+      accounts == 0 &&
+      creditCards == 0 &&
+      categories == 0 &&
+      transactions == 0 &&
+      importBatches == 0 &&
+      recurringSchedules == 0 &&
+      installmentPlans == 0;
+}
+
+class DuplicateCandidateDetails {
+  const DuplicateCandidateDetails({
+    required this.candidate,
+    required this.primaryTransaction,
+    required this.candidateTransaction,
+    required this.stagedRecord,
+  });
+
+  final DuplicateCandidateRow candidate;
+  final FinanceTransaction? primaryTransaction;
+  final FinanceTransaction? candidateTransaction;
+  final StagedSourceRecordRow? stagedRecord;
+}
+
 class ImportBatchDetails {
   const ImportBatchDetails({required this.batch, required this.records});
 
@@ -3097,6 +3869,24 @@ class BackupValidationResult {
   int get transactionCount => counts['transactions'] ?? 0;
 
   int get totalRows => counts.values.fold<int>(0, (sum, count) => sum + count);
+}
+
+class SyncRunSummary {
+  const SyncRunSummary({
+    required this.pushed,
+    required this.duplicates,
+    required this.conflicts,
+    required this.rejected,
+    required this.pulled,
+    required this.latestSeq,
+  });
+
+  final int pushed;
+  final int duplicates;
+  final int conflicts;
+  final int rejected;
+  final int pulled;
+  final int latestSeq;
 }
 
 class _DecodedBackup {

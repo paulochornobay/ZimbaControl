@@ -18,9 +18,27 @@
     "/sync/push": {
       "post": {
         "summary": "Push local outbox operations",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncPushRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Operation results: applied, duplicate, conflict or rejected"
+            "description": "Operation results: applied, duplicate, conflict or rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPushResponse"
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid sync payload"
@@ -31,6 +49,7 @@
     "/sync/pull": {
       "get": {
         "summary": "Pull incremental sync events",
+        "security": [{ "bearerAuth": [] }],
         "parameters": [
           {
             "name": "householdId",
@@ -52,7 +71,47 @@
         ],
         "responses": {
           "200": {
-            "description": "Incremental events"
+            "description": "Incremental events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPullResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/google": {
+      "post": {
+        "summary": "Exchange a Google OpenID Connect ID token for an API session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GoogleAuthRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "API session for an allowed Google account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthSessionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid Google token"
+          },
+          "403": {
+            "description": "Email is outside the allowlist"
           }
         }
       }
@@ -151,6 +210,134 @@
             "description": "Planned endpoint"
           }
         }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "GoogleAuthRequest": {
+        "type": "object",
+        "required": ["idToken"],
+        "properties": {
+          "idToken": { "type": "string" }
+        }
+      },
+      "AuthSessionResponse": {
+        "type": "object",
+        "required": ["token", "expiresInSeconds", "user"],
+        "properties": {
+          "token": { "type": "string" },
+          "expiresInSeconds": { "type": "integer", "minimum": 1 },
+          "user": { "$ref": "#/components/schemas/AuthUser" }
+        }
+      },
+      "AuthUser": {
+        "type": "object",
+        "required": ["sub", "email"],
+        "properties": {
+          "sub": { "type": "string" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" },
+          "picture": { "type": "string" }
+        }
+      },
+      "SyncPushRequest": {
+        "type": "object",
+        "required": ["deviceId", "householdId", "operations"],
+        "properties": {
+          "deviceId": { "type": "string" },
+          "householdId": { "type": "string" },
+          "operations": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SyncOperation" }
+          }
+        }
+      },
+      "SyncPushResponse": {
+        "type": "object",
+        "required": ["results", "latestSeq"],
+        "properties": {
+          "latestSeq": { "type": "integer", "minimum": 0 },
+          "results": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SyncOperationResult" }
+          }
+        }
+      },
+      "SyncPullResponse": {
+        "type": "object",
+        "required": ["events", "latestSeq"],
+        "properties": {
+          "latestSeq": { "type": "integer", "minimum": 0 },
+          "events": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SyncEvent" }
+          }
+        }
+      },
+      "SyncOperation": {
+        "type": "object",
+        "required": [
+          "opId",
+          "deviceId",
+          "householdId",
+          "entityType",
+          "entityId",
+          "operationType",
+          "baseVersion",
+          "payload",
+          "createdAt"
+        ],
+        "properties": {
+          "opId": { "type": "string" },
+          "deviceId": { "type": "string" },
+          "householdId": { "type": "string" },
+          "entityType": {
+            "type": "string",
+            "enum": ["transaction", "rule", "reviewItem", "duplicateCandidate"]
+          },
+          "entityId": { "type": "string" },
+          "operationType": {
+            "type": "string",
+            "enum": ["create", "update", "delete", "resolve"]
+          },
+          "baseVersion": { "type": "integer", "minimum": 0 },
+          "payload": { "type": "object" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SyncOperationResult": {
+        "type": "object",
+        "required": ["opId", "result", "entityId", "seq"],
+        "properties": {
+          "opId": { "type": "string" },
+          "result": {
+            "type": "string",
+            "enum": ["applied", "duplicate", "conflict", "rejected"]
+          },
+          "entityId": { "type": "string" },
+          "seq": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "SyncEvent": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SyncOperation" },
+          {
+            "type": "object",
+            "required": ["seq", "serverAt"],
+            "properties": {
+              "seq": { "type": "integer", "minimum": 0 },
+              "serverAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        ]
       }
     }
   }

@@ -36,6 +36,16 @@
   validacao antes de restaurar, restauracao transacional, exportacao CSV de
   movimentacoes, salvamento por seletor nativo e compartilhamento Android via
   `share_plus`.
+- Marco 11A iniciado/concluido para sync tecnico: API tem store MongoDB/memoria,
+  `.env.example`, colecoes/indices planejados no Atlas, push idempotente,
+  pull incremental, conflito por `baseVersion` e painel mobile de sync via
+  `--dart-define`.
+- Marco 11B concluido tecnicamente: API tem `/auth/google`, validacao de ID
+  token Google por OpenID Connect, allowlist por `ALLOWED_EMAILS`, sessao JWT
+  local, protecao de `/sync/push` e `/sync/pull` quando
+  `GOOGLE_OIDC_ENABLED=true`, e o mobile tem login Google opcional com
+  `GOOGLE_WEB_CLIENT_ID`, armazenamento do token de sessao em secure storage e
+  envio de bearer token no sync.
 - O app ainda chama `seedIfEmpty()` ao iniciar. Em uma instalacao limpa, isso
   cria dados de exemplo/desenvolvimento para testar dashboard, revisao,
   familia, consorcio e importacao. Para uso real, limpar dados do app no
@@ -43,7 +53,8 @@
   acao explicita de demo.
 - Para teste visual no Chrome, o banco usa Drift Web com `sql.js`; Android e
   desktop nativo continuam usando SQLite nativo.
-- API tem `/health`, `/sync/push`, `/sync/pull` e stubs dos endpoints do plano.
+- API tem `/health`, `/sync/push`, `/sync/pull`, store MongoDB opcional e stubs
+  dos demais endpoints do plano.
 - Novo projeto Lovable analisado em
   `/Users/macbookair/Public/dev/pixel-perfect-pixels`. Ele e boa referencia
   visual para revisao, edicao, duplicidades e parcelas, mas segue com dados
@@ -134,9 +145,12 @@ Antes de continuar qualquer marco, leia:
 ## Problemas Abertos
 
 - Confirmar fixtures reais anonimizadas de Nubank e Mercado Pago.
-- Nao configurar MongoDB nem `.env` agora; isso fica para o Marco 11.
-- Auth futuro deve ser Google Sign-In via OpenID Connect com allowlist inicial
-  de um email, nao Gmail API.
+- Configurar MongoDB Atlas e `apps/api/.env` localmente para testar o Marco
+  11A com persistencia real; `.env` segue ignorado pelo Git.
+- Configurar Google Cloud para testar o Marco 11B em Android real: OAuth
+  consent screen em teste, email em test users, OAuth client Android com SHA-1
+  debug e package `br.com.zimbacontrol.zimba_control`, e OAuth client Web usado
+  em `GOOGLE_OIDC_AUDIENCE`/`GOOGLE_WEB_CLIENT_ID`.
 - Verificar limites atuais do provedor gratuito de deploy quando chegar no
   Marco 11.
 - Implementar telas Flutter completas equivalentes ao Lovable conforme cada
@@ -149,16 +163,14 @@ Antes de continuar qualquer marco, leia:
 
 ## Proximo Marco
 
-Marco 11 - Sync e Acesso Opcional.
+Marco 11C - Dois Dispositivos.
 
 Sequencia recomendada:
 
-1. Confirmar se vale iniciar MongoDB Atlas agora ou manter mais um ciclo local.
-2. Criar configuracao `.env.example` para API sem segredos reais.
-3. Implementar persistencia real da API com MongoDB Atlas Free/M0.
-4. Implementar push/pull idempotente com outbox e `opId`.
-5. Criar pull incremental com eventos sequenciais.
-6. Adicionar conflitos financeiros para revisao, sem last-writer-wins critico.
-7. Implementar Google Sign-In via OpenID Connect com allowlist de email.
-8. Testar dois dispositivos/simuladores sincronizando sem duplicar operacoes.
-9. Atualizar estes arquivos de contexto ao concluir o marco.
+1. Gerar e persistir `deviceId` por instalacao.
+2. Aplicar eventos remotos do pull no Drift local para entidades suportadas.
+3. Evitar reaplicar evento originado pelo proprio dispositivo.
+4. Mostrar conflitos financeiros pendentes vindos do backend na revisao.
+5. Testar dois bancos/dispositivos com o mesmo household.
+6. Garantir retry idempotente com o mesmo `opId`.
+7. Atualizar estes arquivos de contexto ao concluir o sub-marco.

@@ -5,18 +5,42 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../data/local/app_database.dart';
+import '../infrastructure/api_sync_client.dart';
+import '../infrastructure/google_session_client.dart';
 import '../infrastructure/notification_capture_service.dart';
+import 'commitments_page.dart';
 import 'dashboard_page.dart';
+import 'duplicates_page.dart';
+import 'registries_page.dart';
 
-class FamilyStructurePage extends StatelessWidget {
+class FamilyStructurePage extends StatefulWidget {
   const FamilyStructurePage({required this.database, super.key});
 
   final AppDatabase database;
 
   @override
+  State<FamilyStructurePage> createState() => _FamilyStructurePageState();
+}
+
+class _FamilyStructurePageState extends State<FamilyStructurePage> {
+  late Future<FamilyStructureSnapshot> snapshotFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    snapshotFuture = widget.database.getFamilyStructureSnapshot();
+  }
+
+  void refresh() {
+    setState(() {
+      snapshotFuture = widget.database.getFamilyStructureSnapshot();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return FutureBuilder<FamilyStructureSnapshot>(
-      future: database.getFamilyStructureSnapshot(),
+      future: snapshotFuture,
       builder: (context, snapshot) {
         return Scaffold(
           appBar: AppBar(
@@ -39,8 +63,9 @@ class FamilyStructurePage extends StatelessWidget {
               child: Text('Nao foi possivel carregar a estrutura familiar.'),
             ),
             _ => FamilyStructureContent(
-              database: database,
+              database: widget.database,
               snapshot: snapshot.data!,
+              onEnvironmentChanged: refresh,
             ),
           },
         );
@@ -53,17 +78,81 @@ class FamilyStructureContent extends StatelessWidget {
   const FamilyStructureContent({
     required this.database,
     required this.snapshot,
+    required this.onEnvironmentChanged,
     super.key,
   });
 
   final AppDatabase database;
   final FamilyStructureSnapshot snapshot;
+  final VoidCallback onEnvironmentChanged;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
       children: [
+        _Section(
+          title: 'Ambiente',
+          children: [
+            EnvironmentPanel(
+              database: database,
+              onChanged: onEnvironmentChanged,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _Section(
+          title: 'Cadastros',
+          children: [
+            _InfoRow(
+              icon: Icons.tune_outlined,
+              title: 'Contas, cartoes e categorias',
+              subtitle:
+                  'Cadastre instrumentos, categorias e centros usados nas movimentacoes.',
+            ),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => RegistriesPage(database: database),
+                ),
+              ),
+              icon: const Icon(Icons.edit_note_outlined),
+              label: const Text('Abrir cadastros'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _Section(
+          title: 'Fluxos financeiros',
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => DuplicatesPage(database: database),
+                    ),
+                  ),
+                  icon: const Icon(Icons.content_copy_outlined),
+                  label: const Text('Duplicidades'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => CommitmentsPage(database: database),
+                    ),
+                  ),
+                  icon: const Icon(Icons.event_repeat_outlined),
+                  label: const Text('Compromissos'),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
         _Section(
           title: 'Pessoas',
           children: [
@@ -134,6 +223,10 @@ class FamilyStructureContent extends StatelessWidget {
           children: [NotificationCapturePanel(database: database)],
         ),
         _Section(
+          title: 'Sync opcional',
+          children: [SyncPanel(database: database)],
+        ),
+        _Section(
           title: 'Backup e recuperacao',
           children: [BackupPanel(database: database)],
         ),
@@ -166,6 +259,141 @@ class FamilyStructureContent extends StatelessWidget {
       'transfer' => 'Transferencia interna',
       _ => 'Despesa',
     };
+  }
+}
+
+class EnvironmentPanel extends StatefulWidget {
+  const EnvironmentPanel({
+    required this.database,
+    required this.onChanged,
+    super.key,
+  });
+
+  final AppDatabase database;
+  final VoidCallback onChanged;
+
+  @override
+  State<EnvironmentPanel> createState() => _EnvironmentPanelState();
+}
+
+class _EnvironmentPanelState extends State<EnvironmentPanel> {
+  late Future<LocalDataStatus> statusFuture;
+  bool loading = false;
+  String? message;
+
+  @override
+  void initState() {
+    super.initState();
+    statusFuture = widget.database.getLocalDataStatus();
+  }
+
+  void refresh() {
+    setState(() {
+      statusFuture = widget.database.getLocalDataStatus();
+    });
+    widget.onChanged();
+  }
+
+  Future<void> loadDemo() async {
+    setState(() {
+      loading = true;
+      message = null;
+    });
+    await widget.database.loadDemoData();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      loading = false;
+      message = 'Dados demo carregados.';
+    });
+    refresh();
+  }
+
+  Future<void> clearLocalData() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Apagar dados locais?'),
+        content: const Text(
+          'Isto remove lancamentos, cadastros, importacoes, backup em staging, preferencias e outbox local deste aparelho.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Apagar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    setState(() {
+      loading = true;
+      message = null;
+    });
+    await widget.database.clearLocalData();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      loading = false;
+      message = 'Ambiente local zerado.';
+    });
+    refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<LocalDataStatus>(
+      future: statusFuture,
+      builder: (context, snapshot) {
+        final status = snapshot.data;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _InfoRow(
+              icon: status?.isEmpty == true
+                  ? Icons.radio_button_unchecked
+                  : Icons.storage_outlined,
+              title: status?.isEmpty == true
+                  ? 'Banco local zerado'
+                  : 'Banco local com dados',
+              subtitle: status == null
+                  ? 'Carregando status local.'
+                  : '${status.transactions} lancamentos · ${status.accounts} contas · ${status.categories} categorias',
+            ),
+            if (loading) const LinearProgressIndicator(),
+            if (message != null) ...[
+              const SizedBox(height: 8),
+              Text(message!, style: Theme.of(context).textTheme.bodySmall),
+            ],
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: loading ? null : loadDemo,
+                  icon: const Icon(Icons.science_outlined),
+                  label: const Text('Carregar demo'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: loading ? null : clearLocalData,
+                  icon: const Icon(Icons.delete_outline),
+                  label: const Text('Apagar dados locais'),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -328,6 +556,198 @@ enum _KnownNotificationApp {
 
   final String label;
   final String packageName;
+}
+
+class SyncPanel extends StatefulWidget {
+  const SyncPanel({required this.database, super.key});
+
+  final AppDatabase database;
+
+  @override
+  State<SyncPanel> createState() => _SyncPanelState();
+}
+
+class _SyncPanelState extends State<SyncPanel> {
+  static const syncEnabled = bool.fromEnvironment('SYNC_ENABLED');
+  static const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
+  static const googleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+  );
+  var loading = false;
+  String? sessionToken;
+  String? sessionEmail;
+  String? message;
+
+  bool get configured => syncEnabled && apiBaseUrl.isNotEmpty;
+
+  bool get googleConfigured => googleWebClientId.isNotEmpty;
+
+  GoogleSessionClient get sessionClient => GoogleSessionClient(
+    apiBaseUrl: apiBaseUrl,
+    googleWebClientId: googleWebClientId,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSession();
+  }
+
+  Future<void> _loadSession() async {
+    if (!configured || !googleConfigured) {
+      return;
+    }
+    final token = await sessionClient.readSessionToken();
+    final email = await sessionClient.readSessionEmail();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      sessionToken = token;
+      sessionEmail = email;
+    });
+  }
+
+  Future<void> _connectGoogle() async {
+    setState(() {
+      loading = true;
+      message = null;
+    });
+    try {
+      final session = await sessionClient.signIn();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        loading = false;
+        sessionToken = session.token;
+        sessionEmail = session.email;
+        message = 'Conta conectada: ${session.email}.';
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        loading = false;
+        message = 'Nao foi possivel conectar com Google.';
+      });
+    }
+  }
+
+  Future<void> _disconnectGoogle() async {
+    setState(() {
+      loading = true;
+      message = null;
+    });
+    try {
+      await sessionClient.signOut();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        loading = false;
+        sessionToken = null;
+        sessionEmail = null;
+        message = 'Conta desconectada.';
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        loading = false;
+        message = 'Nao foi possivel desconectar agora.';
+      });
+    }
+  }
+
+  Future<void> _syncNow() async {
+    setState(() {
+      loading = true;
+      message = null;
+    });
+    try {
+      final summary = await widget.database.runSyncOnce(
+        HttpSyncApiClient(baseUrl: apiBaseUrl, sessionToken: sessionToken),
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        loading = false;
+        message =
+            '${summary.pushed} enviados, ${summary.duplicates} duplicados, '
+            '${summary.conflicts} conflitos, ${summary.pulled} recebidos. '
+            'Seq ${summary.latestSeq}.';
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        loading = false;
+        message = 'Nao foi possivel sincronizar agora.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _InfoRow(
+          icon: configured
+              ? Icons.cloud_sync_outlined
+              : Icons.cloud_off_outlined,
+          title: configured ? 'Sync local habilitado' : 'Sync desligado',
+          subtitle: configured
+              ? apiBaseUrl
+              : 'Use --dart-define=SYNC_ENABLED=true e API_BASE_URL.',
+        ),
+        if (configured && googleConfigured) ...[
+          const SizedBox(height: 8),
+          _InfoRow(
+            icon: sessionEmail == null
+                ? Icons.account_circle_outlined
+                : Icons.verified_user_outlined,
+            title: sessionEmail == null
+                ? 'Google nao conectado'
+                : 'Google conectado',
+            subtitle:
+                sessionEmail ?? 'Use o email liberado na allowlist da API.',
+          ),
+        ],
+        const SizedBox(height: 8),
+        if (loading) const LinearProgressIndicator(),
+        if (message != null) ...[
+          const SizedBox(height: 8),
+          Text(message!, style: Theme.of(context).textTheme.bodySmall),
+        ],
+        const SizedBox(height: 8),
+        FilledButton.icon(
+          onPressed: configured && !loading ? _syncNow : null,
+          icon: const Icon(Icons.sync),
+          label: const Text('Sincronizar agora'),
+        ),
+        if (configured && googleConfigured) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: loading
+                ? null
+                : sessionToken == null
+                ? _connectGoogle
+                : _disconnectGoogle,
+            icon: Icon(sessionToken == null ? Icons.login : Icons.logout),
+            label: Text(
+              sessionToken == null ? 'Conectar Google' : 'Sair do Google',
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 }
 
 class BackupPanel extends StatefulWidget {

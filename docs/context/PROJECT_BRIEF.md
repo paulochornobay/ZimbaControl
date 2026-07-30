@@ -7,17 +7,17 @@ no Android. O app deve transformar notificacoes, arquivos CSV/OFX e lancamentos
 manuais em transacoes financeiras ricas, revisaveis e confiaveis.
 
 A primeira versao util deve funcionar bem em um unico Android, sem internet,
-sem MongoDB e sem login. Sync, Google Sign-In e publicacao entram apenas depois
-que o nucleo local, importacao, notificacoes, conciliacao e backup estiverem
-confiaveis.
+sem MongoDB e sem login. O nucleo local, importacao, notificacoes,
+conciliacao e backup ja existem; sync em nuvem agora entra como caminho
+opcional e incremental.
 
 Durante desenvolvimento, o app ainda inicia com dados seed de exemplo quando o
 banco esta vazio. Antes do uso real continuo, essa seed deve virar opcao
 explicita ou ser removida do fluxo automatico de abertura.
 
 O app ja possui caminho local de recuperacao: backup JSON versionado e
-restauracao sem MongoDB. Sync em nuvem deve continuar opcional e posterior ao
-uso local confiavel.
+restauracao sem MongoDB. Sync em nuvem deve continuar opcional e nunca deve
+bloquear o uso local.
 
 ## Decisoes Fixas
 
@@ -27,7 +27,8 @@ uso local confiavel.
   `NotificationListenerService`.
 - O banco local sera SQLite com Drift.
 - O sync sera proprio, via backend Node.js/TypeScript e MongoDB Atlas.
-- MongoDB Atlas e `.env` nao sao necessarios antes do marco de sync.
+- MongoDB Atlas e `apps/api/.env` sao necessarios apenas para testar o sync
+  opcional com persistencia real; sem `.env`, a API usa memoria local.
 - Google Sign-In futuro usara OpenID Connect; Gmail API nao sera usada como
   login.
 - Nao usar Realm Sync, Atlas Device Sync, Atlas App Services Data API,
@@ -85,7 +86,8 @@ despesas:
 - Tempo real antes de um nucleo local confiavel.
 - CRDT/OT generico para ledger financeiro.
 - XLSX no primeiro MVP de importacao.
-- Login, MongoDB e dois dispositivos antes do backup local.
+- Sync obrigatorio, login obrigatorio ou dois dispositivos antes do backup
+  local.
 
 ## Prioridade de Qualidade
 

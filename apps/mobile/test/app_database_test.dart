@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'package:zimba_control/src/application/dashboard_summary.dart';
 import 'package:zimba_control/src/data/local/app_database.dart';
+import 'package:zimba_control/src/infrastructure/api_sync_client.dart';
 import 'package:zimba_control/src/infrastructure/notification_capture_service.dart';
 import 'package:zimba_control/src/presentation/dashboard_page.dart';
 import 'package:zimba_control/src/presentation/movements_page.dart';
@@ -12,6 +13,56 @@ void main() {
   test('formatBrl formats integer cents as Brazilian currency text', () {
     expect(formatBrl(1280000), 'R\$ 12.800,00');
     expect(formatBrl(-48732), '-R\$ 487,32');
+  });
+
+  test('new local database starts empty until demo is explicit', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    final status = await database.getLocalDataStatus();
+
+    expect(status.isEmpty, isTrue);
+    expect(await database.watchAllTransactions().first, isEmpty);
+    expect(await database.watchPeople().first, isEmpty);
+    expect(await database.listCategories(), isEmpty);
+  });
+
+  test(
+    'loadDemoData and clearLocalData control the local environment',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      await database.loadDemoData();
+      var status = await database.getLocalDataStatus();
+
+      expect(status.transactions, 7);
+      expect(status.accounts, greaterThan(0));
+      expect(status.categories, greaterThan(0));
+
+      await database.loadDemoData();
+      status = await database.getLocalDataStatus();
+      expect(status.transactions, 7);
+
+      await database.clearLocalData();
+      status = await database.getLocalDataStatus();
+      expect(status.isEmpty, isTrue);
+    },
+  );
+
+  test('credit card invoice helpers honor closing and due days', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    await database.loadDemoData();
+    final card = (await database.listCreditCardsWithOwners()).single.creditCard;
+
+    expect(database.invoiceMonthFor(card, DateTime(2026, 7, 20)), '2026-07');
+    expect(database.invoiceMonthFor(card, DateTime(2026, 7, 21)), '2026-08');
+    expect(
+      database.invoiceDueDateFor(card, DateTime(2026, 7, 21)),
+      DateTime(2026, 8, 27),
+    );
   });
 
   test('seedIfEmpty creates the first offline dashboard records', () async {
@@ -222,6 +273,24 @@ void main() {
     },
   );
 
+  test('sync run pushes pending outbox and stores pull cursor', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    await database.seedIfEmpty();
+    await database.createManualDraft();
+
+    final before = await database.listPendingSyncOutbox();
+    final summary = await database.runSyncOnce(_FakeSyncApiClient());
+    final after = await database.listPendingSyncOutbox();
+
+    expect(before, isNotEmpty);
+    expect(summary.pushed, before.length);
+    expect(summary.pulled, 1);
+    expect(summary.latestSeq, 7);
+    expect(after, isEmpty);
+  });
+
   test('pension and school are tied to the child financial context', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
@@ -405,6 +474,7 @@ void main() {
       expect(cardPlan.planKind, 'credit_card_purchase');
       expect(cardPlan.currentInstallment, 2);
       expect(cardPlan.totalInstallments, 10);
+      expect(cardPlan.dueDay, 27);
       expect(consortium.installmentPlanId, 'plan-consorcio-carro');
       expect(consortium.categoryId, 'transporte');
     },
@@ -536,6 +606,158 @@ void main() {
     expect(await database.watchReviewFilter().first, 'low_confidence');
   });
 
+  test('local registries create edit archive and reactivate records', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    await database.seedIfEmpty();
+
+    final accountId = await database.upsertAccount(
+      provider: 'manual',
+      name: 'Conta corrente teste',
+      type: 'account',
+      ownerPersonId: 'eu',
+      last4: '4321',
+    );
+    final cardId = await database.upsertCreditCard(
+      provider: 'manual',
+      name: 'Cartao teste',
+      ownerPersonId: 'eu',
+      brand: 'Visa',
+      last4: '9876',
+      billingDay: 10,
+      dueDay: 20,
+    );
+    final categoryId = await database.upsertCategory(
+      name: 'Assinaturas',
+      kind: 'expense',
+      sortOrder: 90,
+    );
+    final costCenterId = await database.upsertCostCenter(name: 'Projetos');
+
+    var registry = await database.getRegistrySnapshot();
+    final createdCard = registry.creditCards.firstWhere(
+      (item) => item.creditCard.id == cardId,
+    );
+
+    expect(
+      registry.accounts.map((item) => item.account.id),
+      contains(accountId),
+    );
+    expect(createdCard.creditCard.accountId, isNotNull);
+    expect(
+      registry.categories.map((category) => category.id),
+      contains(categoryId),
+    );
+    expect(
+      registry.costCenters.map((center) => center.id),
+      contains(costCenterId),
+    );
+
+    await database.archiveAccount(accountId);
+    await database.archiveCreditCard(cardId);
+    await database.archiveCategory(categoryId);
+    await database.archiveCostCenter(costCenterId);
+
+    expect(
+      (await database.listAccountsWithOwners()).map((item) => item.account.id),
+      isNot(contains(accountId)),
+    );
+    expect(
+      (await database.listCreditCardsWithOwners()).map(
+        (item) => item.creditCard.id,
+      ),
+      isNot(contains(cardId)),
+    );
+    expect(
+      (await database.listCategories()).map((category) => category.id),
+      isNot(contains(categoryId)),
+    );
+    expect(
+      (await database.listCostCenters()).map((center) => center.id),
+      isNot(contains(costCenterId)),
+    );
+
+    await database.upsertCategory(
+      id: categoryId,
+      name: 'Assinaturas fixas',
+      kind: 'expense',
+      sortOrder: 95,
+      active: true,
+    );
+
+    registry = await database.getRegistrySnapshot();
+    expect(
+      registry.categories
+          .firstWhere((category) => category.id == categoryId)
+          .name,
+      'Assinaturas fixas',
+    );
+  });
+
+  test(
+    'archived category is hidden from pickers but kept in history',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      await database.seedIfEmpty();
+      await database.archiveCategory('saude');
+
+      final activeCategories = await database.listCategories();
+      final allDetails = await database.watchAllTransactionDetails().first;
+      final farmacia = allDetails.firstWhere(
+        (item) => item.transaction.id == 'tx-farmacia',
+      );
+
+      expect(
+        activeCategories.map((category) => category.id),
+        isNot(contains('saude')),
+      );
+      expect(farmacia.categoryLabel, 'Saude');
+    },
+  );
+
+  test(
+    'updateTransactionDetails edits account payer dates and beneficiaries',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      await database.seedIfEmpty();
+      await database.updateTransactionDetails(
+        id: 'tx-farmacia',
+        description: 'Farmacia completa',
+        amountCents: 4567,
+        kind: 'expense',
+        occurredAt: DateTime(2026, 7, 29),
+        competenceMonth: '2026-07',
+        accountId: 'marina-conta',
+        categoryId: 'saude',
+        costCenterId: 'pessoal',
+        payerId: 'marina',
+        beneficiaryIds: const ['marina', 'bebe'],
+      );
+
+      final transaction = await database.getTransaction('tx-farmacia');
+      final details = await database.watchAllTransactionDetails().first;
+      final farmacia = details.firstWhere(
+        (item) => item.transaction.id == 'tx-farmacia',
+      );
+
+      expect(transaction?.descriptionRaw, 'Farmacia completa');
+      expect(transaction?.amountCents, -4567);
+      expect(transaction?.occurredAt, DateTime(2026, 7, 29));
+      expect(transaction?.accountId, 'marina-conta');
+      expect(transaction?.payerId, 'marina');
+      expect(transaction?.costCenterId, 'pessoal');
+      expect(
+        farmacia.beneficiaries.map((person) => person.id),
+        containsAll(['marina', 'bebe']),
+      );
+    },
+  );
+
   test('duplicate and transfer review actions can be undone', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
@@ -605,4 +827,35 @@ void main() {
     expect(transaction?.amountCents, -12000);
     expect(transaction?.costCenterId, 'pessoal');
   });
+}
+
+class _FakeSyncApiClient implements SyncApiClient {
+  @override
+  Future<SyncPullResponse> pull({
+    required String householdId,
+    required int sinceSeq,
+  }) async {
+    return const SyncPullResponse(
+      events: [
+        {'seq': 7, 'entityId': 'remote-tx-1'},
+      ],
+      latestSeq: 7,
+    );
+  }
+
+  @override
+  Future<SyncPushResponse> push(SyncPushPayload payload) async {
+    return SyncPushResponse(
+      latestSeq: payload.operations.length,
+      results: [
+        for (final operation in payload.operations)
+          SyncOperationAck(
+            opId: operation['opId'] as String,
+            result: 'applied',
+            entityId: operation['entityId'] as String,
+            seq: payload.operations.indexOf(operation) + 1,
+          ),
+      ],
+    );
+  }
 }

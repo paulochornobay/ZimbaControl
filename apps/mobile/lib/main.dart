@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'src/data/local/app_database.dart';
 import 'src/presentation/dashboard_page.dart';
+import 'src/presentation/edit_transaction_page.dart';
 import 'src/presentation/family_structure_page.dart';
 import 'src/presentation/movements_page.dart';
 import 'src/presentation/review_page.dart';
@@ -29,7 +30,6 @@ class _ZimbaControlAppState extends State<ZimbaControlApp> {
     super.initState();
     database = widget.database ?? AppDatabase();
     ownsDatabase = widget.database == null;
-    database.seedIfEmpty();
   }
 
   @override
@@ -59,12 +59,7 @@ class _ZimbaControlAppState extends State<ZimbaControlApp> {
           children: [
             DashboardPage(database: database),
             ReviewPage(database: database),
-            NewDraftPage(
-              onCreate: () async {
-                await database.createManualDraft();
-                setState(() => selectedIndex = 1);
-              },
-            ),
+            NewDraftPage(database: database),
             MovementsPage(database: database),
             FamilyStructurePage(database: database),
           ],
@@ -103,9 +98,22 @@ class _ZimbaControlAppState extends State<ZimbaControlApp> {
 }
 
 class NewDraftPage extends StatelessWidget {
-  const NewDraftPage({required this.onCreate, super.key});
+  const NewDraftPage({required this.database, super.key});
 
-  final Future<void> Function() onCreate;
+  final AppDatabase database;
+
+  Future<void> _createAndEdit(BuildContext context) async {
+    final id = await database.createManualDraft();
+    if (!context.mounted) {
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            EditTransactionPage(database: database, transactionId: id),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -120,22 +128,22 @@ class NewDraftPage extends StatelessWidget {
               const Icon(Icons.note_add_outlined, size: 48),
               const SizedBox(height: 12),
               Text(
-                'Criar rascunho local',
+                'Criar e editar',
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 8),
               Text(
-                'Ele entra na caixa de revisao para edicao e confirmacao.',
+                'O rascunho abre direto na edicao completa e fica salvo localmente.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 18),
               FilledButton.icon(
-                onPressed: onCreate,
+                onPressed: () => _createAndEdit(context),
                 icon: const Icon(Icons.add),
-                label: const Text('Criar rascunho'),
+                label: const Text('Criar lancamento'),
               ),
             ],
           ),

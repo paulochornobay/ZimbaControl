@@ -967,6 +967,17 @@ class $CreditCardsTable extends CreditCards
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _accountIdMeta = const VerificationMeta(
+    'accountId',
+  );
+  @override
+  late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
+    'account_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _ownerPersonIdMeta = const VerificationMeta(
     'ownerPersonId',
   );
@@ -1053,6 +1064,7 @@ class $CreditCardsTable extends CreditCards
   List<GeneratedColumn> get $columns => [
     id,
     householdId,
+    accountId,
     ownerPersonId,
     provider,
     name,
@@ -1089,6 +1101,12 @@ class $CreditCardsTable extends CreditCards
       );
     } else if (isInserting) {
       context.missing(_householdIdMeta);
+    }
+    if (data.containsKey('account_id')) {
+      context.handle(
+        _accountIdMeta,
+        accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
+      );
     }
     if (data.containsKey('owner_person_id')) {
       context.handle(
@@ -1162,6 +1180,10 @@ class $CreditCardsTable extends CreditCards
         DriftSqlType.string,
         data['${effectivePrefix}household_id'],
       )!,
+      accountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_id'],
+      ),
       ownerPersonId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}owner_person_id'],
@@ -1206,6 +1228,7 @@ class $CreditCardsTable extends CreditCards
 class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
   final String id;
   final String householdId;
+  final String? accountId;
   final String? ownerPersonId;
   final String provider;
   final String name;
@@ -1217,6 +1240,7 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
   const CreditCardRow({
     required this.id,
     required this.householdId,
+    this.accountId,
     this.ownerPersonId,
     required this.provider,
     required this.name,
@@ -1231,6 +1255,9 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
     map['household_id'] = Variable<String>(householdId);
+    if (!nullToAbsent || accountId != null) {
+      map['account_id'] = Variable<String>(accountId);
+    }
     if (!nullToAbsent || ownerPersonId != null) {
       map['owner_person_id'] = Variable<String>(ownerPersonId);
     }
@@ -1256,6 +1283,9 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
     return CreditCardsCompanion(
       id: Value(id),
       householdId: Value(householdId),
+      accountId: accountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accountId),
       ownerPersonId: ownerPersonId == null && nullToAbsent
           ? const Value.absent()
           : Value(ownerPersonId),
@@ -1285,6 +1315,7 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
     return CreditCardRow(
       id: serializer.fromJson<String>(json['id']),
       householdId: serializer.fromJson<String>(json['householdId']),
+      accountId: serializer.fromJson<String?>(json['accountId']),
       ownerPersonId: serializer.fromJson<String?>(json['ownerPersonId']),
       provider: serializer.fromJson<String>(json['provider']),
       name: serializer.fromJson<String>(json['name']),
@@ -1301,6 +1332,7 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
       'householdId': serializer.toJson<String>(householdId),
+      'accountId': serializer.toJson<String?>(accountId),
       'ownerPersonId': serializer.toJson<String?>(ownerPersonId),
       'provider': serializer.toJson<String>(provider),
       'name': serializer.toJson<String>(name),
@@ -1315,6 +1347,7 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
   CreditCardRow copyWith({
     String? id,
     String? householdId,
+    Value<String?> accountId = const Value.absent(),
     Value<String?> ownerPersonId = const Value.absent(),
     String? provider,
     String? name,
@@ -1326,6 +1359,7 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
   }) => CreditCardRow(
     id: id ?? this.id,
     householdId: householdId ?? this.householdId,
+    accountId: accountId.present ? accountId.value : this.accountId,
     ownerPersonId: ownerPersonId.present
         ? ownerPersonId.value
         : this.ownerPersonId,
@@ -1343,6 +1377,7 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
       householdId: data.householdId.present
           ? data.householdId.value
           : this.householdId,
+      accountId: data.accountId.present ? data.accountId.value : this.accountId,
       ownerPersonId: data.ownerPersonId.present
           ? data.ownerPersonId.value
           : this.ownerPersonId,
@@ -1363,6 +1398,7 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
     return (StringBuffer('CreditCardRow(')
           ..write('id: $id, ')
           ..write('householdId: $householdId, ')
+          ..write('accountId: $accountId, ')
           ..write('ownerPersonId: $ownerPersonId, ')
           ..write('provider: $provider, ')
           ..write('name: $name, ')
@@ -1379,6 +1415,7 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
   int get hashCode => Object.hash(
     id,
     householdId,
+    accountId,
     ownerPersonId,
     provider,
     name,
@@ -1394,6 +1431,7 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
       (other is CreditCardRow &&
           other.id == this.id &&
           other.householdId == this.householdId &&
+          other.accountId == this.accountId &&
           other.ownerPersonId == this.ownerPersonId &&
           other.provider == this.provider &&
           other.name == this.name &&
@@ -1407,6 +1445,7 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
 class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
   final Value<String> id;
   final Value<String> householdId;
+  final Value<String?> accountId;
   final Value<String?> ownerPersonId;
   final Value<String> provider;
   final Value<String> name;
@@ -1419,6 +1458,7 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
   const CreditCardsCompanion({
     this.id = const Value.absent(),
     this.householdId = const Value.absent(),
+    this.accountId = const Value.absent(),
     this.ownerPersonId = const Value.absent(),
     this.provider = const Value.absent(),
     this.name = const Value.absent(),
@@ -1432,6 +1472,7 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
   CreditCardsCompanion.insert({
     required String id,
     required String householdId,
+    this.accountId = const Value.absent(),
     this.ownerPersonId = const Value.absent(),
     required String provider,
     required String name,
@@ -1448,6 +1489,7 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
   static Insertable<CreditCardRow> custom({
     Expression<String>? id,
     Expression<String>? householdId,
+    Expression<String>? accountId,
     Expression<String>? ownerPersonId,
     Expression<String>? provider,
     Expression<String>? name,
@@ -1461,6 +1503,7 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (householdId != null) 'household_id': householdId,
+      if (accountId != null) 'account_id': accountId,
       if (ownerPersonId != null) 'owner_person_id': ownerPersonId,
       if (provider != null) 'provider': provider,
       if (name != null) 'name': name,
@@ -1476,6 +1519,7 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
   CreditCardsCompanion copyWith({
     Value<String>? id,
     Value<String>? householdId,
+    Value<String?>? accountId,
     Value<String?>? ownerPersonId,
     Value<String>? provider,
     Value<String>? name,
@@ -1489,6 +1533,7 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
     return CreditCardsCompanion(
       id: id ?? this.id,
       householdId: householdId ?? this.householdId,
+      accountId: accountId ?? this.accountId,
       ownerPersonId: ownerPersonId ?? this.ownerPersonId,
       provider: provider ?? this.provider,
       name: name ?? this.name,
@@ -1509,6 +1554,9 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
     }
     if (householdId.present) {
       map['household_id'] = Variable<String>(householdId.value);
+    }
+    if (accountId.present) {
+      map['account_id'] = Variable<String>(accountId.value);
     }
     if (ownerPersonId.present) {
       map['owner_person_id'] = Variable<String>(ownerPersonId.value);
@@ -1545,6 +1593,7 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
     return (StringBuffer('CreditCardsCompanion(')
           ..write('id: $id, ')
           ..write('householdId: $householdId, ')
+          ..write('accountId: $accountId, ')
           ..write('ownerPersonId: $ownerPersonId, ')
           ..write('provider: $provider, ')
           ..write('name: $name, ')
@@ -1626,6 +1675,19 @@ class $CategoriesTable extends Categories
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _activeMeta = const VerificationMeta('active');
+  @override
+  late final GeneratedColumn<bool> active = GeneratedColumn<bool>(
+    'active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -1634,6 +1696,7 @@ class $CategoriesTable extends Categories
     name,
     kind,
     sortOrder,
+    active,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1691,6 +1754,12 @@ class $CategoriesTable extends Categories
         sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
       );
     }
+    if (data.containsKey('active')) {
+      context.handle(
+        _activeMeta,
+        active.isAcceptableOrUnknown(data['active']!, _activeMeta),
+      );
+    }
     return context;
   }
 
@@ -1724,6 +1793,10 @@ class $CategoriesTable extends Categories
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
       )!,
+      active: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}active'],
+      )!,
     );
   }
 
@@ -1740,6 +1813,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
   final String name;
   final String kind;
   final int sortOrder;
+  final bool active;
   const CategoryRow({
     required this.id,
     required this.householdId,
@@ -1747,6 +1821,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     required this.name,
     required this.kind,
     required this.sortOrder,
+    required this.active,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1759,6 +1834,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     map['name'] = Variable<String>(name);
     map['kind'] = Variable<String>(kind);
     map['sort_order'] = Variable<int>(sortOrder);
+    map['active'] = Variable<bool>(active);
     return map;
   }
 
@@ -1772,6 +1848,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       name: Value(name),
       kind: Value(kind),
       sortOrder: Value(sortOrder),
+      active: Value(active),
     );
   }
 
@@ -1787,6 +1864,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       name: serializer.fromJson<String>(json['name']),
       kind: serializer.fromJson<String>(json['kind']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
+      active: serializer.fromJson<bool>(json['active']),
     );
   }
   @override
@@ -1799,6 +1877,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       'name': serializer.toJson<String>(name),
       'kind': serializer.toJson<String>(kind),
       'sortOrder': serializer.toJson<int>(sortOrder),
+      'active': serializer.toJson<bool>(active),
     };
   }
 
@@ -1809,6 +1888,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     String? name,
     String? kind,
     int? sortOrder,
+    bool? active,
   }) => CategoryRow(
     id: id ?? this.id,
     householdId: householdId ?? this.householdId,
@@ -1816,6 +1896,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     name: name ?? this.name,
     kind: kind ?? this.kind,
     sortOrder: sortOrder ?? this.sortOrder,
+    active: active ?? this.active,
   );
   CategoryRow copyWithCompanion(CategoriesCompanion data) {
     return CategoryRow(
@@ -1827,6 +1908,7 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       name: data.name.present ? data.name.value : this.name,
       kind: data.kind.present ? data.kind.value : this.kind,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
+      active: data.active.present ? data.active.value : this.active,
     );
   }
 
@@ -1838,14 +1920,15 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
           ..write('parentId: $parentId, ')
           ..write('name: $name, ')
           ..write('kind: $kind, ')
-          ..write('sortOrder: $sortOrder')
+          ..write('sortOrder: $sortOrder, ')
+          ..write('active: $active')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, householdId, parentId, name, kind, sortOrder);
+      Object.hash(id, householdId, parentId, name, kind, sortOrder, active);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1855,7 +1938,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
           other.parentId == this.parentId &&
           other.name == this.name &&
           other.kind == this.kind &&
-          other.sortOrder == this.sortOrder);
+          other.sortOrder == this.sortOrder &&
+          other.active == this.active);
 }
 
 class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
@@ -1865,6 +1949,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
   final Value<String> name;
   final Value<String> kind;
   final Value<int> sortOrder;
+  final Value<bool> active;
   final Value<int> rowid;
   const CategoriesCompanion({
     this.id = const Value.absent(),
@@ -1873,6 +1958,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     this.name = const Value.absent(),
     this.kind = const Value.absent(),
     this.sortOrder = const Value.absent(),
+    this.active = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   CategoriesCompanion.insert({
@@ -1882,6 +1968,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     required String name,
     required String kind,
     this.sortOrder = const Value.absent(),
+    this.active = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        householdId = Value(householdId),
@@ -1894,6 +1981,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     Expression<String>? name,
     Expression<String>? kind,
     Expression<int>? sortOrder,
+    Expression<bool>? active,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1903,6 +1991,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
       if (name != null) 'name': name,
       if (kind != null) 'kind': kind,
       if (sortOrder != null) 'sort_order': sortOrder,
+      if (active != null) 'active': active,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1914,6 +2003,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     Value<String>? name,
     Value<String>? kind,
     Value<int>? sortOrder,
+    Value<bool>? active,
     Value<int>? rowid,
   }) {
     return CategoriesCompanion(
@@ -1923,6 +2013,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
       name: name ?? this.name,
       kind: kind ?? this.kind,
       sortOrder: sortOrder ?? this.sortOrder,
+      active: active ?? this.active,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1948,6 +2039,9 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
+    if (active.present) {
+      map['active'] = Variable<bool>(active.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1963,6 +2057,7 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
           ..write('name: $name, ')
           ..write('kind: $kind, ')
           ..write('sortOrder: $sortOrder, ')
+          ..write('active: $active, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -13593,6 +13688,7 @@ typedef $$CreditCardsTableCreateCompanionBuilder =
     CreditCardsCompanion Function({
       required String id,
       required String householdId,
+      Value<String?> accountId,
       Value<String?> ownerPersonId,
       required String provider,
       required String name,
@@ -13607,6 +13703,7 @@ typedef $$CreditCardsTableUpdateCompanionBuilder =
     CreditCardsCompanion Function({
       Value<String> id,
       Value<String> householdId,
+      Value<String?> accountId,
       Value<String?> ownerPersonId,
       Value<String> provider,
       Value<String> name,
@@ -13634,6 +13731,11 @@ class $$CreditCardsTableFilterComposer
 
   ColumnFilters<String> get householdId => $composableBuilder(
     column: $table.householdId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get accountId => $composableBuilder(
+    column: $table.accountId,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -13697,6 +13799,11 @@ class $$CreditCardsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get accountId => $composableBuilder(
+    column: $table.accountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get ownerPersonId => $composableBuilder(
     column: $table.ownerPersonId,
     builder: (column) => ColumnOrderings(column),
@@ -13754,6 +13861,9 @@ class $$CreditCardsTableAnnotationComposer
     column: $table.householdId,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get accountId =>
+      $composableBuilder(column: $table.accountId, builder: (column) => column);
 
   GeneratedColumn<String> get ownerPersonId => $composableBuilder(
     column: $table.ownerPersonId,
@@ -13817,6 +13927,7 @@ class $$CreditCardsTableTableManager
               ({
                 Value<String> id = const Value.absent(),
                 Value<String> householdId = const Value.absent(),
+                Value<String?> accountId = const Value.absent(),
                 Value<String?> ownerPersonId = const Value.absent(),
                 Value<String> provider = const Value.absent(),
                 Value<String> name = const Value.absent(),
@@ -13829,6 +13940,7 @@ class $$CreditCardsTableTableManager
               }) => CreditCardsCompanion(
                 id: id,
                 householdId: householdId,
+                accountId: accountId,
                 ownerPersonId: ownerPersonId,
                 provider: provider,
                 name: name,
@@ -13843,6 +13955,7 @@ class $$CreditCardsTableTableManager
               ({
                 required String id,
                 required String householdId,
+                Value<String?> accountId = const Value.absent(),
                 Value<String?> ownerPersonId = const Value.absent(),
                 required String provider,
                 required String name,
@@ -13855,6 +13968,7 @@ class $$CreditCardsTableTableManager
               }) => CreditCardsCompanion.insert(
                 id: id,
                 householdId: householdId,
+                accountId: accountId,
                 ownerPersonId: ownerPersonId,
                 provider: provider,
                 name: name,
@@ -13898,6 +14012,7 @@ typedef $$CategoriesTableCreateCompanionBuilder =
       required String name,
       required String kind,
       Value<int> sortOrder,
+      Value<bool> active,
       Value<int> rowid,
     });
 typedef $$CategoriesTableUpdateCompanionBuilder =
@@ -13908,6 +14023,7 @@ typedef $$CategoriesTableUpdateCompanionBuilder =
       Value<String> name,
       Value<String> kind,
       Value<int> sortOrder,
+      Value<bool> active,
       Value<int> rowid,
     });
 
@@ -13947,6 +14063,11 @@ class $$CategoriesTableFilterComposer
 
   ColumnFilters<int> get sortOrder => $composableBuilder(
     column: $table.sortOrder,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get active => $composableBuilder(
+    column: $table.active,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -13989,6 +14110,11 @@ class $$CategoriesTableOrderingComposer
     column: $table.sortOrder,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<bool> get active => $composableBuilder(
+    column: $table.active,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$CategoriesTableAnnotationComposer
@@ -14019,6 +14145,9 @@ class $$CategoriesTableAnnotationComposer
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
+
+  GeneratedColumn<bool> get active =>
+      $composableBuilder(column: $table.active, builder: (column) => column);
 }
 
 class $$CategoriesTableTableManager
@@ -14058,6 +14187,7 @@ class $$CategoriesTableTableManager
                 Value<String> name = const Value.absent(),
                 Value<String> kind = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
+                Value<bool> active = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CategoriesCompanion(
                 id: id,
@@ -14066,6 +14196,7 @@ class $$CategoriesTableTableManager
                 name: name,
                 kind: kind,
                 sortOrder: sortOrder,
+                active: active,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -14076,6 +14207,7 @@ class $$CategoriesTableTableManager
                 required String name,
                 required String kind,
                 Value<int> sortOrder = const Value.absent(),
+                Value<bool> active = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CategoriesCompanion.insert(
                 id: id,
@@ -14084,6 +14216,7 @@ class $$CategoriesTableTableManager
                 name: name,
                 kind: kind,
                 sortOrder: sortOrder,
+                active: active,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

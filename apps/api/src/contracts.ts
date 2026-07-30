@@ -57,6 +57,18 @@ export const syncPushRequestSchema = z.object({
   operations: z.array(syncPushOperationSchema),
 });
 
+export const syncPullQuerySchema = z.object({
+  householdId: z.string().min(1),
+  sinceSeq: z.coerce.number().int().nonnegative().default(0),
+});
+
+export const googleAuthRequestSchema = z.object({
+  idToken: z.string().min(1),
+});
+
 export type Transaction = z.infer<typeof transactionSchema>;
+export type SyncPushOperation = z.infer<typeof syncPushOperationSchema>;
 export type SyncPushRequest = z.infer<typeof syncPushRequestSchema>;
 export type SyncOperationResult = z.infer<typeof syncOperationResultSchema>;
+export type SyncPullQuery = z.infer<typeof syncPullQuerySchema>;
+export type GoogleAuthRequest = z.infer<typeof googleAuthRequestSchema>;

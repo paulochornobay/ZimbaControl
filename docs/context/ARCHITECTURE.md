@@ -6,9 +6,8 @@ Arquitetura offline-first com fonte da verdade local. O app grava primeiro em
 SQLite/Drift, coloca operacoes na outbox e sincroniza depois com um backend
 proprio. A nuvem nao e requisito para operacao diaria basica.
 
-Ordem de entrega: Android local confiavel primeiro; MongoDB, login e dois
-dispositivos ficam para depois de importacao, notificacoes, conciliacao e
-backup local.
+Ordem de entrega: Android local confiavel primeiro; depois sync tecnico com
+MongoDB, login opcional e dois dispositivos.
 
 ## Stack
 
@@ -19,7 +18,7 @@ backup local.
 - Android nativo: Kotlin `NotificationListenerService`.
 - Background Android: WorkManager.
 - Backend: Node.js + TypeScript + Fastify.
-- Cloud DB: MongoDB Atlas Free/M0 somente no marco de sync.
+- Cloud DB: MongoDB Atlas Free/M0 no sync opcional.
 - Contratos: OpenAPI e JSON schemas em `packages/contracts`.
 - Sync quase tempo real futuro: Change Streams + WebSocket/SSE.
 
@@ -302,18 +301,50 @@ Estado implementado no Marco 10:
   restauracao.
 - Salvamento usa `file_picker`; compartilhamento Android usa `share_plus`.
 
-## Sync Futuro
+## Sync Opcional
 
-Sync so deve comecar depois do app Android local ficar confiavel e recuperavel
-por backup.
+Estado implementado no Marco 11A:
 
-- Backend Fastify + MongoDB Atlas Free/M0.
-- Google Sign-In futuro via OpenID Connect, com allowlist inicial de um email.
+- API Fastify carrega `.env` via `dotenv/config`.
+- `apps/api/.env.example` documenta variaveis locais sem segredos reais.
+- Quando `MONGODB_URI` existe, a API usa MongoDB Atlas; sem URI, usa store em
+  memoria para testes locais.
+- Colecoes MongoDB planejadas/criadas pela API: `sync_operations`,
+  `sync_events`, `entities`, `devices` e `conflicts`.
+- Indices protegem idempotencia por `opId`, pull incremental por
+  `householdId + seq`, entidades por `householdId + entityType + entityId` e
+  dispositivos por `householdId + deviceId`.
+- `POST /sync/push` aplica operacoes da outbox uma vez e retorna `applied`,
+  `duplicate`, `conflict` ou `rejected`.
+- `GET /sync/pull?householdId=<id>&sinceSeq=<seq>` retorna eventos
+  incrementais em ordem.
+- `baseVersion` protege updates concorrentes; conflito financeiro ainda fica
+  registrado no backend e sera apresentado no mobile no 11C.
+- Mobile tem `HttpSyncApiClient`, `runSyncOnce`, envio da `sync_outbox`, ack de
+  `applied/duplicate`, marcacao de `conflict/rejected` e cursor local
+  `sync_pull_since_seq`.
+- A tela Ajustes mostra painel tecnico de sync quando o app roda com
+  `--dart-define=SYNC_ENABLED=true` e `--dart-define=API_BASE_URL=...`.
+
+Estado implementado no Marco 11B:
+
+- `/auth/google` recebe ID token do Google, valida por OpenID Connect usando
+  `GOOGLE_OIDC_AUDIENCE` e rejeita email fora de `ALLOWED_EMAILS`.
+- A API emite sessao JWT local com `SESSION_JWT_SECRET` e
+  `SESSION_TTL_SECONDS`.
+- Quando `GOOGLE_OIDC_ENABLED=true`, `/sync/push` e `/sync/pull` exigem
+  `Authorization: Bearer <token>`.
+- Quando Google esta desligado, o modo dev local continua simples para teste.
+- Mobile usa `google_sign_in` 7.x, inicializado com `GOOGLE_WEB_CLIENT_ID` como
+  `serverClientId`.
+- Mobile troca ID token por sessao da API, guarda token/email em secure
+  storage e envia bearer token no sync.
 - Gmail API nao e mecanismo de login.
-- Outbox idempotente por `opId`.
-- `baseVersion` protege updates concorrentes.
-- Conflitos em valor, beneficiarios, conta, cartao, categoria critica e
-  transferencia voltam para revisao.
+
+Ainda pendente:
+
+- 11C: aplicar eventos remotos no Drift local, gerar/guardar `deviceId` por
+  instalacao e expor conflitos para revisao.
 
 ## Privacidade
 
