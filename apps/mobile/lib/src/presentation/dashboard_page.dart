@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../application/dashboard_summary.dart';
 import '../data/local/app_database.dart';
+import 'design/zimba_theme.dart';
+import 'design/zimba_ui.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({required this.database, super.key});
@@ -28,14 +30,21 @@ class DashboardPage extends StatelessWidget {
 
             return Scaffold(
               appBar: AppBar(
+                toolbarHeight: 82,
                 title: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_monthTitle(DateTime.now())),
-                    const Text(
-                      'Resumo familiar',
-                      style: TextStyle(
-                        fontSize: 13,
+                    Text(
+                      'Resumo',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleLarge?.copyWith(letterSpacing: -.5),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      _monthTitle(DateTime.now()),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: ZimbaColors.secondaryText,
                         fontWeight: FontWeight.w400,
                       ),
                     ),
@@ -43,7 +52,7 @@ class DashboardPage extends StatelessWidget {
                 ),
               ),
               body: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
                 children: [
                   if (transactionSnapshot.connectionState ==
                           ConnectionState.waiting &&
@@ -120,46 +129,46 @@ class SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Saldo do mes',
-              style: Theme.of(context).textTheme.labelMedium,
+    return ZimbaCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'SALDO DO MÊS',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: ZimbaColors.secondaryText,
+              letterSpacing: .65,
             ),
-            const SizedBox(height: 6),
-            Text(
-              formatBrl(summary.balanceCents),
-              style: Theme.of(
-                context,
-              ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: StatPill(
-                    label: 'Entradas',
-                    value: formatBrl(summary.incomeCents),
-                    color: Colors.green,
-                  ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            formatBrl(summary.balanceCents),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: StatPill(
+                  label: 'Entradas',
+                  value: formatBrl(summary.incomeCents),
+                  color: Colors.green,
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: StatPill(
-                    label: 'Saidas',
-                    value: formatBrl(summary.expenseCents.abs()),
-                    color: Colors.red,
-                  ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: StatPill(
+                  label: 'Saidas',
+                  value: formatBrl(summary.expenseCents.abs()),
+                  color: Colors.red,
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
