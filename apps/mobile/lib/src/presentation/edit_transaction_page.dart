@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/local/app_database.dart';
+import 'design/zimba_theme.dart';
 import 'design/zimba_ui.dart';
 
 class EditTransactionPage extends StatefulWidget {
@@ -188,13 +189,23 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Column(
+        toolbarHeight: 82,
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Editar lancamento'),
             Text(
-              'Classificacao completa',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
+              'Editar lançamento',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(letterSpacing: -.5),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              'Classificação completa',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: ZimbaColors.secondaryText,
+                fontWeight: FontWeight.w400,
+              ),
             ),
           ],
         ),
@@ -207,7 +218,7 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
         children: [
           _SectionCard(
             title: 'Valor',
@@ -217,38 +228,22 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
                 TextField(
                   controller: amountController,
                   keyboardType: TextInputType.number,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                   decoration: const InputDecoration(
                     prefixText: 'R\$ ',
                     helperText: 'Ex.: 487,32 ou -48732',
-                    border: OutlineInputBorder(),
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
                   ),
                 ),
                 const SizedBox(height: 12),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(
-                      value: 'expense',
-                      label: Text('Despesa'),
-                      icon: Icon(Icons.trending_down),
-                    ),
-                    ButtonSegment(
-                      value: 'income',
-                      label: Text('Receita'),
-                      icon: Icon(Icons.trending_up),
-                    ),
-                    ButtonSegment(
-                      value: 'transfer',
-                      label: Text('Transfer.'),
-                      icon: Icon(Icons.compare_arrows),
-                    ),
-                  ],
-                  selected: {kind},
-                  onSelectionChanged: (selection) {
-                    setState(() => kind = selection.first);
-                  },
+                _EditKindPicker(
+                  selected: kind,
+                  onSelected: (value) => setState(() => kind = value),
                 ),
               ],
             ),
@@ -298,6 +293,7 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
               children: [
                 DropdownButtonFormField<String?>(
                   initialValue: accountId,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Conta / cartao',
                     border: OutlineInputBorder(),
@@ -320,6 +316,7 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
                   initialValue: payerId,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Pagador',
                     border: OutlineInputBorder(),
@@ -347,6 +344,7 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
               children: [
                 DropdownButtonFormField<String?>(
                   initialValue: categoryId,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Categoria',
                     border: OutlineInputBorder(),
@@ -373,6 +371,7 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
                   initialValue: costCenterId,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Centro de custo',
                     border: OutlineInputBorder(),
@@ -407,13 +406,13 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
               runSpacing: 8,
               children: [
                 for (final person in people)
-                  FilterChip(
-                    label: Text(person.displayName),
+                  _EditChoice(
+                    label: person.displayName,
                     selected: beneficiaryIds.contains(person.id),
-                    onSelected: (selected) {
+                    onTap: () {
                       setState(() {
                         final next = beneficiaryIds.toSet();
-                        if (selected) {
+                        if (!next.contains(person.id)) {
                           next.add(person.id);
                         } else {
                           next.remove(person.id);
@@ -433,6 +432,157 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
             label: const Text('Salvar localmente'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _EditKindPicker extends StatelessWidget {
+  const _EditKindPicker({required this.selected, required this.onSelected});
+
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    const options = [
+      ('expense', 'Despesa', Icons.trending_down, ZimbaTone.danger),
+      ('income', 'Receita', Icons.trending_up, ZimbaTone.success),
+      ('transfer', 'Transferência', Icons.compare_arrows, ZimbaTone.accent),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 380;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (var index = 0; index < options.length; index++)
+              SizedBox(
+                width: narrow && index == options.length - 1
+                    ? constraints.maxWidth
+                    : narrow
+                    ? (constraints.maxWidth - 8) / 2
+                    : (constraints.maxWidth - 16) / 3,
+                child: _EditKindButton(
+                  label: options[index].$2,
+                  icon: options[index].$3,
+                  selected: selected == options[index].$1,
+                  tone: options[index].$4,
+                  onTap: () => onSelected(options[index].$1),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _EditKindButton extends StatelessWidget {
+  const _EditKindButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.tone,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final ZimbaTone tone;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = switch (tone) {
+      ZimbaTone.danger => (
+        ZimbaColors.destructiveSoft,
+        ZimbaColors.destructive,
+      ),
+      ZimbaTone.success => (ZimbaColors.successSoft, ZimbaColors.success),
+      _ => (ZimbaColors.accentSoft, ZimbaColors.accent),
+    };
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          height: 40,
+          decoration: BoxDecoration(
+            color: selected ? colors.$1 : ZimbaColors.surfaceMuted,
+            border: Border.all(
+              color: selected ? colors.$2 : Colors.transparent,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: selected ? colors.$2 : ZimbaColors.secondaryText,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: selected ? colors.$2 : ZimbaColors.secondaryText,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EditChoice extends StatelessWidget {
+  const _EditChoice({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? ZimbaColors.accentSoft : ZimbaColors.surface,
+            border: Border.all(
+              color: selected ? ZimbaColors.accent : ZimbaColors.border,
+            ),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 260),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: selected
+                    ? ZimbaColors.accent
+                    : ZimbaColors.secondaryText,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
