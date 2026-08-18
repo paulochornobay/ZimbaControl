@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/local/app_database.dart';
 import 'dashboard_page.dart';
+import 'design/zimba_theme.dart';
 import 'design/zimba_ui.dart';
 import 'import_page.dart';
 
@@ -43,13 +44,23 @@ class _MovementsPageState extends State<MovementsPage> {
 
         return Scaffold(
           appBar: AppBar(
-            title: const Column(
+            toolbarHeight: 82,
+            title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Movimentacoes'),
                 Text(
-                  'Busca, filtros e importacao',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
+                  'Movimentações',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(letterSpacing: -.5),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${filtered.length} nesta visão',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: ZimbaColors.secondaryText,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
               ],
             ),
@@ -66,7 +77,7 @@ class _MovementsPageState extends State<MovementsPage> {
             ],
           ),
           body: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
             children: [
               if (snapshot.connectionState == ConnectionState.waiting &&
                   all.isEmpty)
@@ -205,7 +216,16 @@ class MovementFilterPanel extends StatelessWidget {
     return ZimbaCard(
       padding: const EdgeInsets.all(14),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            'FILTROS',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: ZimbaColors.secondaryText,
+              letterSpacing: .7,
+            ),
+          ),
+          const SizedBox(height: 10),
           TextField(
             controller: searchController,
             onChanged: (_) => onSearchChanged(),
@@ -217,50 +237,44 @@ class MovementFilterPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          SwitchListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Somente mes atual'),
-            value: currentMonthOnly,
+          _MovementPeriodToggle(
+            currentMonthOnly: currentMonthOnly,
             onChanged: (value) => onChanged(monthOnly: value),
           ),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: [
-              FilterChip(
-                label: const Text('Todos'),
+              _MovementPill(
+                label: 'Todos',
                 selected: kindFilter == 'all',
-                onSelected: (_) => onChanged(kind: 'all'),
+                onTap: () => onChanged(kind: 'all'),
               ),
-              FilterChip(
-                label: const Text('Receitas'),
+              _MovementPill(
+                label: 'Receitas',
                 selected: kindFilter == 'income',
-                onSelected: (_) => onChanged(kind: 'income'),
+                onTap: () => onChanged(kind: 'income'),
               ),
-              FilterChip(
-                label: const Text('Despesas'),
+              _MovementPill(
+                label: 'Despesas',
                 selected: kindFilter == 'expense',
-                onSelected: (_) => onChanged(kind: 'expense'),
+                onTap: () => onChanged(kind: 'expense'),
               ),
-              FilterChip(
-                label: const Text('Transfer.'),
+              _MovementPill(
+                label: 'Transferências',
                 selected: kindFilter == 'transfer',
-                onSelected: (_) => onChanged(kind: 'transfer'),
+                onTap: () => onChanged(kind: 'transfer'),
               ),
             ],
           ),
           const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: statusFilter,
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    labelText: 'Status',
-                    border: OutlineInputBorder(),
-                  ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final fields = [
+                _MovementSelect(
+                  label: 'Status',
+                  value: statusFilter,
                   items: const [
                     DropdownMenuItem(value: 'all', child: Text('Todos')),
                     DropdownMenuItem(value: 'pending', child: Text('Pendente')),
@@ -272,21 +286,14 @@ class MovementFilterPanel extends StatelessWidget {
                   ],
                   onChanged: (value) => onChanged(status: value),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  initialValue: sourceFilter,
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    labelText: 'Origem',
-                    border: OutlineInputBorder(),
-                  ),
+                _MovementSelect(
+                  label: 'Origem',
+                  value: sourceFilter,
                   items: const [
                     DropdownMenuItem(value: 'all', child: Text('Todas')),
                     DropdownMenuItem(
                       value: 'notification',
-                      child: Text('Notif.'),
+                      child: Text('Notificação'),
                     ),
                     DropdownMenuItem(value: 'csv', child: Text('CSV')),
                     DropdownMenuItem(value: 'ofx', child: Text('OFX')),
@@ -294,11 +301,128 @@ class MovementFilterPanel extends StatelessWidget {
                   ],
                   onChanged: (value) => onChanged(source: value),
                 ),
-              ),
-            ],
+              ];
+              if (constraints.maxWidth < 360) {
+                return Column(
+                  children: [
+                    fields.first,
+                    const SizedBox(height: 8),
+                    fields.last,
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: fields.first),
+                  const SizedBox(width: 8),
+                  Expanded(child: fields.last),
+                ],
+              );
+            },
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MovementPeriodToggle extends StatelessWidget {
+  const _MovementPeriodToggle({
+    required this.currentMonthOnly,
+    required this.onChanged,
+  });
+
+  final bool currentMonthOnly;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => onChanged(!currentMonthOnly),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(
+            children: [
+              const Icon(Icons.calendar_month_outlined, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Somente mês atual',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+              Switch(value: currentMonthOnly, onChanged: onChanged),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MovementPill extends StatelessWidget {
+  const _MovementPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? ZimbaColors.foreground : ZimbaColors.surface,
+            border: Border.all(
+              color: selected ? ZimbaColors.foreground : ZimbaColors.border,
+            ),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: selected ? Colors.white : ZimbaColors.secondaryText,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MovementSelect extends StatelessWidget {
+  const _MovementSelect({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
+
+  final String label;
+  final String value;
+  final List<DropdownMenuItem<String>> items;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String>(
+      initialValue: value,
+      isExpanded: true,
+      decoration: InputDecoration(isDense: true, labelText: label),
+      items: items,
+      onChanged: onChanged,
     );
   }
 }
@@ -319,30 +443,42 @@ class MovementTotalsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return ZimbaCard(
       padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          Expanded(
-            child: MovementMetric(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final metrics = [
+            MovementMetric(
               icon: Icons.format_list_bulleted,
               label: 'Itens',
               value: count.toString(),
             ),
-          ),
-          Expanded(
-            child: MovementMetric(
+            MovementMetric(
               icon: Icons.trending_up,
               label: 'Entradas',
               value: formatBrl(incomeCents),
             ),
-          ),
-          Expanded(
-            child: MovementMetric(
+            MovementMetric(
               icon: Icons.trending_down,
-              label: 'Saidas',
+              label: 'Saídas',
               value: formatBrl(expenseCents.abs()),
             ),
-          ),
-        ],
+          ];
+          if (constraints.maxWidth < 390) {
+            return Wrap(
+              spacing: 8,
+              runSpacing: 10,
+              children: [
+                for (final metric in metrics)
+                  SizedBox(
+                    width: (constraints.maxWidth - 8) / 2,
+                    child: metric,
+                  ),
+              ],
+            );
+          }
+          return Row(
+            children: [for (final metric in metrics) Expanded(child: metric)],
+          );
+        },
       ),
     );
   }

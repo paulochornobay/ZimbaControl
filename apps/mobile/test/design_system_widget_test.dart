@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zimba_control/src/presentation/design/zimba_theme.dart';
 import 'package:zimba_control/src/presentation/design/zimba_ui.dart';
 import 'package:zimba_control/src/presentation/feature_availability_page.dart';
+import 'package:zimba_control/src/presentation/movements_page.dart';
 
 void main() {
   for (final size in const [Size(360, 800), Size(390, 844)]) {
@@ -88,6 +89,53 @@ void main() {
       expect(find.text('COMPONENTES'), findsOneWidget);
       expect(find.text('3 beneficiários'), findsOneWidget);
       expect(find.text('Confirmar'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final size in const [Size(360, 800), Size(390, 844)]) {
+    testWidgets('movement filters fit ${size.width.toInt()}px', (tester) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 1.3;
+      final controller = TextEditingController();
+      addTearDown(() {
+        controller.dispose();
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        tester.platformDispatcher.clearTextScaleFactorTestValue();
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ZimbaTheme.light,
+          home: Scaffold(
+            body: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                MovementFilterPanel(
+                  searchController: controller,
+                  kindFilter: 'all',
+                  statusFilter: 'confirmed',
+                  sourceFilter: 'notification',
+                  currentMonthOnly: true,
+                  onChanged: ({kind, status, source, monthOnly}) {},
+                  onSearchChanged: _noop,
+                ),
+                const SizedBox(height: 12),
+                const MovementTotalsCard(
+                  count: 123,
+                  incomeCents: 1289450,
+                  expenseCents: -887755,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Transferências'), findsOneWidget);
+      expect(find.text('Entradas'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }
