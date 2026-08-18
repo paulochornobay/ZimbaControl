@@ -79,8 +79,8 @@ class _ReviewPageState extends State<ReviewPage> {
             return ReviewScaffold(
               count: allItems.length,
               subtitle: allItems.isEmpty
-                  ? 'Sem pendencias'
-                  : '${filteredItems.length} nesta visao',
+                  ? 'Sem pendências'
+                  : '${allItems.length} pendentes · ${filteredItems.length} nesta visão',
               child: allItems.isEmpty
                   ? const ReviewStateMessage(
                       icon: Icons.inbox_outlined,
@@ -89,14 +89,14 @@ class _ReviewPageState extends State<ReviewPage> {
                           'Novas notificacoes, importacoes e rascunhos manuais aparecem aqui.',
                     )
                   : ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
                       children: [
                         ReviewFilterBar(
                           selected: selectedFilter,
                           onSelected: (filter) =>
                               widget.database.setReviewFilter(filter.key),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 28),
                         if (filteredItems.isEmpty)
                           ReviewStateMessage(
                             icon: Icons.filter_alt_off_outlined,
@@ -109,11 +109,6 @@ class _ReviewPageState extends State<ReviewPage> {
                             ),
                           )
                         else ...[
-                          ReviewQueueHeader(
-                            current: filteredItems.length,
-                            total: allItems.length,
-                          ),
-                          const SizedBox(height: 10),
                           for (final item in filteredItems) ...[
                             ReviewTransactionCard(
                               item: item,
@@ -147,7 +142,7 @@ class _ReviewPageState extends State<ReviewPage> {
                               ),
                               onEdit: () => _openEdit(item.transaction.id),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 12),
                           ],
                         ],
                       ],
@@ -252,14 +247,19 @@ class ReviewScaffold extends StatelessWidget {
       appBar: AppBar(
         toolbarHeight: 82,
         titleSpacing: 20,
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, color: ZimbaColors.border),
+        ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'Caixa de revisão',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(letterSpacing: -.5),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                letterSpacing: -.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 3),
             Text(
@@ -267,6 +267,7 @@ class ReviewScaffold extends StatelessWidget {
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: ZimbaColors.secondaryText,
                 fontWeight: FontWeight.w400,
+                fontSize: 13,
               ),
             ),
           ],
@@ -290,6 +291,7 @@ class ReviewFilterBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ZimbaChipScroller(
+      padding: EdgeInsets.zero,
       children: [
         for (final filter in ReviewFilter.values)
           _ReviewFilterButton(
@@ -333,7 +335,8 @@ class _ReviewFilterButton extends StatelessWidget {
             filter.label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
               color: selected ? Colors.white : ZimbaColors.secondaryText,
-              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -409,12 +412,13 @@ class ReviewTransactionCard extends StatelessWidget {
     return ZimbaCard(
       padding: EdgeInsets.zero,
       borderColor: _borderColor(scheme),
+      borderRadius: 24,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (_hasAlert) ReviewAlertStrip(item: item),
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -429,50 +433,60 @@ class ReviewTransactionCard extends StatelessWidget {
                             item.displayMerchant,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleSmall
-                                ?.copyWith(fontWeight: FontWeight.w800),
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             transaction.descriptionRaw,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: ZimbaColors.secondaryText),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          formatBrl(transaction.amountCents),
-                          style: Theme.of(context).textTheme.titleSmall
-                              ?.copyWith(
-                                color: isIncome ? Colors.green.shade700 : null,
-                                fontWeight: FontWeight.w800,
-                              ),
-                        ),
-                        Text(
-                          formatShortDate(transaction.occurredAt),
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                      ],
+                    SizedBox(
+                      width: 104,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              formatBrl(transaction.amountCents),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    color: isIncome
+                                        ? Colors.green.shade700
+                                        : null,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                            ),
+                          ),
+                          Text(
+                            formatShortDate(transaction.occurredAt),
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
                 Wrap(
-                  spacing: 6,
+                  spacing: 16,
                   runSpacing: 6,
                   children: [
-                    ZimbaBadge(
+                    ReviewMeta(
+                      icon: Icons.notifications_none_outlined,
                       label: item.sourceLabel,
-                      tone: ZimbaTone.neutral,
                     ),
-                    ReviewChip(
-                      icon: Icons.account_balance_wallet_outlined,
+                    ReviewMeta(
+                      icon: Icons.credit_card_outlined,
                       label: item.accountLabel,
                     ),
                   ],
@@ -504,6 +518,7 @@ class ReviewTransactionCard extends StatelessWidget {
                           for (final person in item.beneficiaries)
                             person.displayName,
                         ],
+                        showCount: false,
                       ),
                     ),
                     ZimbaBadge(
@@ -598,7 +613,7 @@ class ReviewAlertStrip extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: alert.color.withValues(alpha: 0.12),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -661,36 +676,32 @@ class _ReviewAlert {
   final Color color;
 }
 
-class ReviewChip extends StatelessWidget {
-  const ReviewChip({required this.icon, required this.label, super.key});
+class ReviewMeta extends StatelessWidget {
+  const ReviewMeta({required this.icon, required this.label, super.key});
 
   final IconData icon;
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: ZimbaColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 14),
-            const SizedBox(width: 4),
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall,
-              ),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 135),
+      child: Row(
+        mainAxisSize: MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 15, color: ZimbaColors.secondaryText),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 2,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: ZimbaColors.secondaryText),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

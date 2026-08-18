@@ -113,19 +113,23 @@ class ZimbaCard extends StatelessWidget {
     this.padding = const EdgeInsets.all(16),
     this.color,
     this.borderColor,
+    this.borderRadius,
   });
 
   final Widget child;
   final EdgeInsetsGeometry padding;
   final Color? color;
   final Color? borderColor;
+  final double? borderRadius;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color ?? ZimbaColors.surface,
-        borderRadius: BorderRadius.circular(ZimbaLayout.cardRadius),
+        borderRadius: BorderRadius.circular(
+          borderRadius ?? ZimbaLayout.cardRadius,
+        ),
         border: Border.all(color: borderColor ?? ZimbaColors.border),
         boxShadow: const [
           BoxShadow(
@@ -229,16 +233,21 @@ class ZimbaBadge extends StatelessWidget {
 }
 
 class ZimbaChipScroller extends StatelessWidget {
-  const ZimbaChipScroller({required this.children, super.key});
+  const ZimbaChipScroller({
+    required this.children,
+    super.key,
+    this.padding = ZimbaLayout.pagePadding,
+  });
 
   final List<Widget> children;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: 36,
       child: ListView.separated(
-        padding: ZimbaLayout.pagePadding,
+        padding: padding,
         scrollDirection: Axis.horizontal,
         itemCount: children.length,
         separatorBuilder: (_, _) => const SizedBox(width: 8),
@@ -411,10 +420,10 @@ class ZimbaSuggestionTile extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: ZimbaColors.surfaceMuted,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -531,13 +540,13 @@ class _ZimbaActionButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: item.onPressed,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(20),
           child: Ink(
-            height: 40,
+            height: 36,
             decoration: BoxDecoration(
               color: background,
               border: Border.all(color: border),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Center(
               child: Padding(
@@ -556,7 +565,7 @@ class _ZimbaActionButton extends StatelessWidget {
                         style: Theme.of(context).textTheme.labelMedium
                             ?.copyWith(
                               color: foreground,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w500,
                             ),
                       ),
                     ),
@@ -582,10 +591,10 @@ class ZimbaBottomNavigation extends StatelessWidget {
   final ValueChanged<int> onSelected;
 
   static const _items = <_ZimbaNavItem>[
-    _ZimbaNavItem('Resumo', Icons.grid_view_outlined, Icons.grid_view_rounded),
+    _ZimbaNavItem('Início', Icons.home_outlined, Icons.home_rounded),
     _ZimbaNavItem('Revisão', Icons.inbox_outlined, Icons.inbox_rounded),
     _ZimbaNavItem('Novo', Icons.add_circle_outline, Icons.add_circle),
-    _ZimbaNavItem('Movim.', Icons.checklist_outlined, Icons.checklist_rounded),
+    _ZimbaNavItem('Filtros', Icons.tune_outlined, Icons.tune_rounded),
     _ZimbaNavItem('Ajustes', Icons.settings_outlined, Icons.settings_rounded),
   ];
 
@@ -599,7 +608,7 @@ class ZimbaBottomNavigation extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: SizedBox(
-          height: 64,
+          height: 66,
           child: Row(
             children: [
               for (var index = 0; index < _items.length; index++)
@@ -643,39 +652,29 @@ class _ZimbaNavButton extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 7),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: selected ? ZimbaColors.accentSoft : Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 3,
-                ),
-                child: Icon(
-                  icon,
-                  size: item.label == 'Novo' ? 26 : 21,
-                  color: selected
-                      ? ZimbaColors.accent
-                      : ZimbaColors.secondaryText,
-                ),
-              ),
+            Icon(
+              icon,
+              size: item.label == 'Novo' ? 28 : 21,
+              color: selected
+                  ? ZimbaColors.accent
+                  : item.label == 'Novo'
+                  ? ZimbaColors.foreground
+                  : ZimbaColors.secondaryText,
             ),
-            const SizedBox(height: 1),
+            const SizedBox(height: 3),
             Text(
               item.label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: selected
-                    ? ZimbaColors.foreground
+                    ? ZimbaColors.accent
                     : ZimbaColors.secondaryText,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
