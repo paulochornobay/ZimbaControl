@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 
 import 'src/data/local/app_database.dart';
 import 'src/presentation/dashboard_page.dart';
-import 'src/presentation/edit_transaction_page.dart';
-import 'src/presentation/family_structure_page.dart';
+import 'src/presentation/design/zimba_theme.dart';
+import 'src/presentation/design/zimba_ui.dart';
 import 'src/presentation/movements_page.dart';
+import 'src/presentation/new_transaction_page.dart';
+import 'src/presentation/onboarding_page.dart';
 import 'src/presentation/review_page.dart';
+import 'src/presentation/settings_home_page.dart';
 
 void main() {
   runApp(const ZimbaControlApp());
@@ -23,13 +26,14 @@ class ZimbaControlApp extends StatefulWidget {
 class _ZimbaControlAppState extends State<ZimbaControlApp> {
   late final AppDatabase database;
   late final bool ownsDatabase;
-  var selectedIndex = 0;
+  late Future<StartupState> startupFuture;
 
   @override
   void initState() {
     super.initState();
     database = widget.database ?? AppDatabase();
     ownsDatabase = widget.database == null;
+    startupFuture = database.getStartupState();
   }
 
   @override
@@ -40,130 +44,146 @@ class _ZimbaControlAppState extends State<ZimbaControlApp> {
     super.dispose();
   }
 
+  void refreshStartup() {
+    setState(() {
+      startupFuture = database.getStartupState();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'ZimbaControl',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0EA5E9),
-          brightness: Brightness.light,
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF7F8FA),
-        useMaterial3: true,
+      theme: ZimbaTheme.light,
+      builder: (context, child) =>
+          ZimbaViewport(child: child ?? const SizedBox.shrink()),
+      home: FutureBuilder<StartupState>(
+        future: startupFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const _StartupLoading();
+          }
+          if (snapshot.hasError || !snapshot.hasData) {
+            return _StartupError(onRetry: refreshStartup);
+          }
+          if (snapshot.data!.needsOnboarding) {
+            return OnboardingPage(
+              database: database,
+              onCompleted: refreshStartup,
+            );
+          }
+          return ZimbaHomeShell(
+            database: database,
+            onEnvironmentChanged: refreshStartup,
+          );
+        },
       ),
-      home: Scaffold(
-        body: IndexedStack(
-          index: selectedIndex,
-          children: [
-            DashboardPage(database: database),
-            ReviewPage(database: database),
-            NewDraftPage(database: database),
-            MovementsPage(database: database),
-            FamilyStructurePage(database: database),
-          ],
-        ),
-        bottomNavigationBar: NavigationBar(
+    );
+  }
+}
+
+class ZimbaHomeShell extends StatefulWidget {
+  const ZimbaHomeShell({
+    required this.database,
+    required this.onEnvironmentChanged,
+    super.key,
+  });
+
+  final AppDatabase database;
+  final VoidCallback onEnvironmentChanged;
+
+  @override
+  State<ZimbaHomeShell> createState() => _ZimbaHomeShellState();
+}
+
+class _ZimbaHomeShellState extends State<ZimbaHomeShell> {
+  var selectedIndex = 0;
+
+  void select(int index) {
+    setState(() => selectedIndex = index);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pages = [
+      DashboardPage(database: widget.database),
+      ReviewPage(database: widget.database),
+      NewTransactionPage(
+        database: widget.database,
+        onSaved: () => select(3),
+        onOpenSettings: () => select(4),
+      ),
+      MovementsPage(database: widget.database),
+      SettingsHomePage(
+        database: widget.database,
+        onEnvironmentChanged: widget.onEnvironmentChanged,
+      ),
+    ];
+
+    return Scaffold(
+      body: IndexedStack(index: selectedIndex, children: pages),
+      bottomNavigationBar: DecoratedBox(
+        decoration: const BoxDecoration(),
+        child: ZimbaBottomNavigation(
           selectedIndex: selectedIndex,
-          onDestinationSelected: (index) => setState(() {
-            selectedIndex = index;
-          }),
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              label: 'Resumo',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.inbox_outlined),
-              label: 'Revisao',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.add_circle_outline),
-              label: 'Novo',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.receipt_long_outlined),
-              label: 'Movs.',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              label: 'Ajustes',
-            ),
-          ],
+          onSelected: select,
         ),
       ),
     );
   }
 }
 
-class NewDraftPage extends StatelessWidget {
-  const NewDraftPage({required this.database, super.key});
+class _StartupLoading extends StatelessWidget {
+  const _StartupLoading();
 
-  final AppDatabase database;
-
-  Future<void> _createAndEdit(BuildContext context) async {
-    final id = await database.createManualDraft();
-    if (!context.mounted) {
-      return;
-    }
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) =>
-            EditTransactionPage(database: database, transactionId: id),
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: SizedBox(
+          width: 30,
+          height: 30,
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
       ),
     );
   }
+}
+
+class _StartupError extends StatelessWidget {
+  const _StartupError({required this.onRetry});
+
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Novo lancamento')),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(28),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.note_add_outlined, size: 48),
-              const SizedBox(height: 12),
+              const Icon(Icons.error_outline, size: 44),
+              const SizedBox(height: 14),
               Text(
-                'Criar e editar',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                'Não foi possível abrir seus dados',
+                style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 8),
-              Text(
-                'O rascunho abre direto na edicao completa e fica salvo localmente.',
+              const Text(
+                'Tente novamente. Nenhuma informação foi alterada.',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 18),
-              FilledButton.icon(
-                onPressed: () => _createAndEdit(context),
-                icon: const Icon(Icons.add),
-                label: const Text('Criar lancamento'),
+              FilledButton(
+                onPressed: onRetry,
+                child: const Text('Tentar novamente'),
               ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class PlaceholderPage extends StatelessWidget {
-  const PlaceholderPage({required this.title, super.key});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Text('Tela aguardando prototipo refinado no Lovable.'),
       ),
     );
   }

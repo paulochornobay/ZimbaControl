@@ -12,8 +12,7 @@
     "api:dev": "npm --workspace @zimbacontrol/api run dev",
     "api:test": "npm --workspace @zimbacontrol/api test",
     "mobile:test": "cd apps/mobile && flutter test",
-    "mobile:analyze": "cd apps/mobile && flutter analyze",
-    "lovable:dev": "cd prototypes/lovable && npm install && npm run dev"
+    "mobile:analyze": "cd apps/mobile && flutter analyze"
   },
   "engines": {
     "node": ">=20"

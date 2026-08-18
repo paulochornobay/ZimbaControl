@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../data/local/app_database.dart';
 import 'dashboard_page.dart';
+import 'design/zimba_theme.dart';
+import 'design/zimba_ui.dart';
 
 class CommitmentsPage extends StatefulWidget {
   const CommitmentsPage({required this.database, super.key});
@@ -629,12 +631,15 @@ class _CommitmentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    return ZimbaCard(
+      padding: EdgeInsets.zero,
       child: ListTile(
         onTap: onTap,
-        leading: CircleAvatar(child: Icon(icon, size: 20)),
+        leading: CircleAvatar(
+          backgroundColor: ZimbaColors.accentSoft,
+          foregroundColor: ZimbaColors.accent,
+          child: Icon(icon, size: 20),
+        ),
         title: Text(
           title,
           maxLines: 1,
@@ -691,15 +696,9 @@ class _CommitmentFormScaffold extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
         children: [
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(children: children),
-            ),
+          ZimbaCard(
+            padding: const EdgeInsets.all(14),
+            child: Column(children: children),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
@@ -791,30 +790,7 @@ class _EmptyCommitmentState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              body,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
-    );
+    return ZimbaStateMessage(icon: icon, title: title, body: body);
   }
 }
 

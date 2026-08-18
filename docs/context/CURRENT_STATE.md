@@ -6,7 +6,19 @@
 - Plano aprovado: Lovable como prototipo; Flutter como app final.
 - Toolchains detectadas localmente: Flutter, Dart, Node.js, npm e unzip.
 - PDF/DOCX de arquitetura analisado e resumido nos arquivos de contexto.
-- Prototipo Lovable extraido em `prototypes/lovable`.
+- O front Lovable duplicado foi removido do monorepo. A referencia visual vive
+  exclusivamente em `/Users/macbookair/Public/dev/pixel-perfect-pixels`.
+- O ciclo de recuperacao mobile usa `pixel-perfect-pixels@6a2d072` como
+  baseline visual.
+- A recuperacao do app local esta implementada: primeira abertura sem seed,
+  onboarding transacional com pessoa e conta reais, demonstracao apenas por
+  escolha explicita e lancamento manual sem IDs ficticios.
+- O Flutter tem tema proprio inspirado no baseline externo, com Inter
+  embutida, tokens compartilhados, cards, botoes, navegacao e formularios
+  consistentes. Nenhum componente React/Tailwind foi copiado.
+- A navegacao principal agora e Resumo, Revisao, Novo, Movimentacoes e
+  Ajustes. Ajustes mostra apenas jornadas funcionais; Regras, Google e Sync
+  ficam ocultos.
 - App Flutter criado em `apps/mobile`.
 - API Fastify criada em `apps/api`.
 - Contratos OpenAPI/JSON Schema criados em `packages/contracts`.
@@ -19,8 +31,9 @@
   de receita/despesa.
 - Mobile tem importacao local CSV/OFX do Marco 06: escolha de arquivo,
   parser CSV/OFX, hashes de arquivo/linha, staging, adapters Nubank/Mercado
-  Pago, resumo de lote, promocao para Caixa de Revisao e deteccao de
-  reimportacao duplicada.
+  Pago, deteccao e mapeamento visual de colunas, previa amigavel, resumo de
+  conflitos, promocao para Caixa de Revisao e deteccao de reimportacao
+  duplicada.
 - Mobile tem conciliacao financeira do Marco 07: candidatos de duplicidade,
   merge de fontes sem criar nova despesa, fatura como transferencia, parcelas
   de cartao em `installment_plans` e consorcio ligado ao plano do carro.
@@ -46,24 +59,16 @@
   `GOOGLE_OIDC_ENABLED=true`, e o mobile tem login Google opcional com
   `GOOGLE_WEB_CLIENT_ID`, armazenamento do token de sessao em secure storage e
   envio de bearer token no sync.
-- O app ainda chama `seedIfEmpty()` ao iniciar. Em uma instalacao limpa, isso
-  cria dados de exemplo/desenvolvimento para testar dashboard, revisao,
-  familia, consorcio e importacao. Para uso real, limpar dados do app no
-  Android remove esses lancamentos; depois devemos transformar a seed em uma
-  acao explicita de demo.
+- Uma instalacao limpa nao carrega seed automaticamente. Dados de demonstracao
+  sao uma escolha explicita no onboarding ou em Ajustes.
 - Para teste visual no Chrome, o banco usa Drift Web com `sql.js`; Android e
   desktop nativo continuam usando SQLite nativo.
 - API tem `/health`, `/sync/push`, `/sync/pull`, store MongoDB opcional e stubs
   dos demais endpoints do plano.
-- Novo projeto Lovable analisado em
-  `/Users/macbookair/Public/dev/pixel-perfect-pixels`. Ele e boa referencia
-  visual para revisao, edicao, duplicidades e parcelas, mas segue com dados
-  mockados e acoes nao persistentes.
-- A tentativa final de refinamento da Caixa de Revisao no Lovable compilou,
-  mas nao concluiu os pontos centrais do prompt. O Marco 04 foi implementado
-  diretamente no Flutter.
-- Plano reorganizado: Marcos 04 a 12 priorizam Android local util antes de
-  MongoDB, login, sync e publicacao.
+- A referencia Lovable e consultada somente no repositorio externo. O visual
+  e traduzido para widgets Flutter ligados ao Drift; os mocks e as acoes
+  React nao fazem parte do produto final.
+- APK debug da recuperacao: `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`.
 
 ## Comandos Uteis
 
@@ -110,18 +115,11 @@ npm test
 npm run build
 ```
 
-Lovable:
-
-```sh
-cd prototypes/lovable
-npm install
-npm run dev
-```
-
-Novo download Lovable analisado:
+Referencia Lovable externa:
 
 ```sh
 cd /Users/macbookair/Public/dev/pixel-perfect-pixels
+git fetch origin
 npm run build
 npm run lint
 npm run dev
@@ -145,32 +143,25 @@ Antes de continuar qualquer marco, leia:
 ## Problemas Abertos
 
 - Confirmar fixtures reais anonimizadas de Nubank e Mercado Pago.
-- Configurar MongoDB Atlas e `apps/api/.env` localmente para testar o Marco
-  11A com persistencia real; `.env` segue ignorado pelo Git.
-- Configurar Google Cloud para testar o Marco 11B em Android real: OAuth
-  consent screen em teste, email em test users, OAuth client Android com SHA-1
-  debug e package `br.com.zimbacontrol.zimba_control`, e OAuth client Web usado
-  em `GOOGLE_OIDC_AUDIENCE`/`GOOGLE_WEB_CLIENT_ID`.
-- Verificar limites atuais do provedor gratuito de deploy quando chegar no
-  Marco 11.
-- Implementar telas Flutter completas equivalentes ao Lovable conforme cada
-  marco avancar.
-- Validar Marco 08 em Android fisico com permissao real de notificacoes e apps
-  Nubank/Mercado Pago instalados.
-- Transformar a seed automatica em opcao explicita antes de uso real continuo.
+- Homologar o APK em Android fisico: instalacao limpa, uso offline, reinicio,
+  teclado real e permissao de notificacoes concedida/revogada.
+- Validar captura com notificacoes reais dos apps permitidos e confirmar
+  comportamento com uma lista extensa de eventos.
+- Revisar restauracao de backup em um segundo aparelho antes de tratar esta
+  build como versao pessoal definitiva.
 - Substituir armazenamento local simples por criptografia SQLCipher quando
   viavel no Marco 12.
 
 ## Proximo Marco
 
-Marco 11C - Dois Dispositivos.
+Homologacao Android local.
 
 Sequencia recomendada:
 
-1. Gerar e persistir `deviceId` por instalacao.
-2. Aplicar eventos remotos do pull no Drift local para entidades suportadas.
-3. Evitar reaplicar evento originado pelo proprio dispositivo.
-4. Mostrar conflitos financeiros pendentes vindos do backend na revisao.
-5. Testar dois bancos/dispositivos com o mesmo household.
-6. Garantir retry idempotente com o mesmo `opId`.
-7. Atualizar estes arquivos de contexto ao concluir o sub-marco.
+1. Desinstalar o APK anterior e instalar a build recuperada com banco limpo.
+2. Concluir o onboarding com dados reais, reiniciar e criar lancamentos.
+3. Exercitar revisao, importacao, captura, cadastros e backup sem internet.
+4. Revogar a permissao de notificacoes e verificar a orientacao do app.
+5. Restaurar o backup depois de limpar os dados locais.
+6. Registrar qualquer falha com modelo Android, versao do sistema e passos.
+7. So depois retomar Sync, Google ou Regras como jornadas publicas.

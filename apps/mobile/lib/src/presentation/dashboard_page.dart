@@ -41,13 +41,6 @@ class DashboardPage extends StatelessWidget {
                     ),
                   ],
                 ),
-                actions: [
-                  IconButton(
-                    tooltip: 'Criar lancamento local',
-                    onPressed: () => database.createManualDraft(),
-                    icon: const Icon(Icons.add_circle_outline),
-                  ),
-                ],
               ),
               body: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
@@ -56,56 +49,60 @@ class DashboardPage extends StatelessWidget {
                           ConnectionState.waiting &&
                       details.isEmpty)
                     const LinearProgressIndicator(),
-                  SummaryCard(summary: summary),
-                  const SizedBox(height: 12),
-                  OperationalCards(summary: summary),
-                  const SizedBox(height: 12),
-                  BreakdownSection(
-                    title: 'Por pessoa',
-                    icon: Icons.people_alt_outlined,
-                    items: summary.byPerson,
-                  ),
-                  const SizedBox(height: 12),
-                  BreakdownSection(
-                    title: 'Categorias',
-                    icon: Icons.category_outlined,
-                    items: summary.byCategory,
-                  ),
-                  const SizedBox(height: 12),
-                  BreakdownSection(
-                    title: 'Centros de custo',
-                    icon: Icons.account_tree_outlined,
-                    items: summary.byCostCenter,
-                  ),
-                  const SizedBox(height: 12),
-                  BreakdownSection(
-                    title: 'Origens',
-                    icon: Icons.hub_outlined,
-                    items: summary.bySource,
-                  ),
-                  const SizedBox(height: 12),
-                  UpcomingCommitmentsSection(structure: structure),
-                  const SizedBox(height: 12),
-                  _SectionHeader(
-                    title: 'Ultimas movimentacoes',
-                    icon: Icons.receipt_long_outlined,
-                  ),
-                  const SizedBox(height: 8),
-                  if (recent.isEmpty)
-                    const EmptyCompactState(
+                  if (details.isEmpty) ...[
+                    const _EmptyDashboardState(),
+                  ] else ...[
+                    SummaryCard(summary: summary),
+                    const SizedBox(height: 12),
+                    OperationalCards(summary: summary),
+                    const SizedBox(height: 12),
+                    BreakdownSection(
+                      title: 'Por pessoa',
+                      icon: Icons.people_alt_outlined,
+                      items: summary.byPerson,
+                    ),
+                    const SizedBox(height: 12),
+                    BreakdownSection(
+                      title: 'Categorias',
+                      icon: Icons.category_outlined,
+                      items: summary.byCategory,
+                    ),
+                    const SizedBox(height: 12),
+                    BreakdownSection(
+                      title: 'Centros de custo',
+                      icon: Icons.account_tree_outlined,
+                      items: summary.byCostCenter,
+                    ),
+                    const SizedBox(height: 12),
+                    BreakdownSection(
+                      title: 'Origens',
+                      icon: Icons.hub_outlined,
+                      items: summary.bySource,
+                    ),
+                    const SizedBox(height: 12),
+                    UpcomingCommitmentsSection(structure: structure),
+                    const SizedBox(height: 12),
+                    _SectionHeader(
+                      title: 'Ultimas movimentacoes',
                       icon: Icons.receipt_long_outlined,
-                      text: 'Nenhuma movimentacao local ainda.',
-                    )
-                  else
-                    for (final item in recent)
-                      TransactionTile(
-                        details: item,
-                        onConfirm: item.transaction.reviewStatus == 'pending'
-                            ? () => database.confirmTransaction(
-                                item.transaction.id,
-                              )
-                            : null,
-                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (recent.isEmpty)
+                      const EmptyCompactState(
+                        icon: Icons.receipt_long_outlined,
+                        text: 'Nenhuma movimentacao local ainda.',
+                      )
+                    else
+                      for (final item in recent)
+                        TransactionTile(
+                          details: item,
+                          onConfirm: item.transaction.reviewStatus == 'pending'
+                              ? () => database.confirmTransaction(
+                                  item.transaction.id,
+                                )
+                              : null,
+                        ),
+                  ],
                 ],
               ),
             );
@@ -181,7 +178,7 @@ class OperationalCards extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 8,
       crossAxisSpacing: 8,
-      childAspectRatio: 2.55,
+      childAspectRatio: 2.05,
       children: [
         CompactMetric(
           icon: Icons.inbox_outlined,
@@ -206,6 +203,43 @@ class OperationalCards extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _EmptyDashboardState extends StatelessWidget {
+  const _EmptyDashboardState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.secondaryContainer,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Icon(Icons.receipt_long_outlined, size: 28),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Seu resumo começa aqui',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 7),
+            Text(
+              'Adicione um lançamento na aba Novo ou importe um extrato em Ajustes.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -424,7 +458,7 @@ class TransactionTile extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
-          '${_kindLabel(transaction.kind)} · ${details.providerLabel} · ${transaction.reviewStatus}',
+          '${_kindLabel(transaction.kind)} · ${details.providerLabel} · ${_reviewStatusLabel(transaction.reviewStatus)}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
@@ -470,6 +504,16 @@ class TransactionTile extends StatelessWidget {
       ),
     );
   }
+}
+
+String _reviewStatusLabel(String status) {
+  return switch (status) {
+    'pending' => 'Em revisão',
+    'confirmed' => 'Confirmado',
+    'ignored' => 'Ignorado',
+    'duplicate' => 'Duplicado',
+    _ => status,
+  };
 }
 
 class EmptyCompactState extends StatelessWidget {

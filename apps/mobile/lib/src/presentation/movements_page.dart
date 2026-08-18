@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/local/app_database.dart';
 import 'dashboard_page.dart';
+import 'design/zimba_ui.dart';
 import 'import_page.dart';
 
 class MovementsPage extends StatefulWidget {
@@ -201,111 +202,102 @@ class MovementFilterPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          children: [
-            TextField(
-              controller: searchController,
-              onChanged: (_) => onSearchChanged(),
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Buscar descricao, pessoa, categoria...',
-                isDense: true,
-                border: OutlineInputBorder(),
+    return ZimbaCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        children: [
+          TextField(
+            controller: searchController,
+            onChanged: (_) => onSearchChanged(),
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search),
+              hintText: 'Buscar descricao, pessoa, categoria...',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SwitchListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Somente mes atual'),
+            value: currentMonthOnly,
+            onChanged: (value) => onChanged(monthOnly: value),
+          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilterChip(
+                label: const Text('Todos'),
+                selected: kindFilter == 'all',
+                onSelected: (_) => onChanged(kind: 'all'),
               ),
-            ),
-            const SizedBox(height: 10),
-            SwitchListTile(
-              dense: true,
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Somente mes atual'),
-              value: currentMonthOnly,
-              onChanged: (value) => onChanged(monthOnly: value),
-            ),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilterChip(
-                  label: const Text('Todos'),
-                  selected: kindFilter == 'all',
-                  onSelected: (_) => onChanged(kind: 'all'),
-                ),
-                FilterChip(
-                  label: const Text('Receitas'),
-                  selected: kindFilter == 'income',
-                  onSelected: (_) => onChanged(kind: 'income'),
-                ),
-                FilterChip(
-                  label: const Text('Despesas'),
-                  selected: kindFilter == 'expense',
-                  onSelected: (_) => onChanged(kind: 'expense'),
-                ),
-                FilterChip(
-                  label: const Text('Transfer.'),
-                  selected: kindFilter == 'transfer',
-                  onSelected: (_) => onChanged(kind: 'transfer'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: statusFilter,
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      labelText: 'Status',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 'all', child: Text('Todos')),
-                      DropdownMenuItem(
-                        value: 'pending',
-                        child: Text('Pendente'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'confirmed',
-                        child: Text('Confirmado'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'ignored',
-                        child: Text('Ignorado'),
-                      ),
-                    ],
-                    onChanged: (value) => onChanged(status: value),
+              FilterChip(
+                label: const Text('Receitas'),
+                selected: kindFilter == 'income',
+                onSelected: (_) => onChanged(kind: 'income'),
+              ),
+              FilterChip(
+                label: const Text('Despesas'),
+                selected: kindFilter == 'expense',
+                onSelected: (_) => onChanged(kind: 'expense'),
+              ),
+              FilterChip(
+                label: const Text('Transfer.'),
+                selected: kindFilter == 'transfer',
+                onSelected: (_) => onChanged(kind: 'transfer'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: statusFilter,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    labelText: 'Status',
+                    border: OutlineInputBorder(),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue: sourceFilter,
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      labelText: 'Origem',
-                      border: OutlineInputBorder(),
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('Todos')),
+                    DropdownMenuItem(value: 'pending', child: Text('Pendente')),
+                    DropdownMenuItem(
+                      value: 'confirmed',
+                      child: Text('Confirmado'),
                     ),
-                    items: const [
-                      DropdownMenuItem(value: 'all', child: Text('Todas')),
-                      DropdownMenuItem(
-                        value: 'notification',
-                        child: Text('Notif.'),
-                      ),
-                      DropdownMenuItem(value: 'csv', child: Text('CSV')),
-                      DropdownMenuItem(value: 'ofx', child: Text('OFX')),
-                      DropdownMenuItem(value: 'manual', child: Text('Manual')),
-                    ],
-                    onChanged: (value) => onChanged(source: value),
-                  ),
+                    DropdownMenuItem(value: 'ignored', child: Text('Ignorado')),
+                  ],
+                  onChanged: (value) => onChanged(status: value),
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  initialValue: sourceFilter,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    labelText: 'Origem',
+                    border: OutlineInputBorder(),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('Todas')),
+                    DropdownMenuItem(
+                      value: 'notification',
+                      child: Text('Notif.'),
+                    ),
+                    DropdownMenuItem(value: 'csv', child: Text('CSV')),
+                    DropdownMenuItem(value: 'ofx', child: Text('OFX')),
+                    DropdownMenuItem(value: 'manual', child: Text('Manual')),
+                  ],
+                  onChanged: (value) => onChanged(source: value),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -325,35 +317,32 @@ class MovementTotalsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Expanded(
-              child: MovementMetric(
-                icon: Icons.format_list_bulleted,
-                label: 'Itens',
-                value: count.toString(),
-              ),
+    return ZimbaCard(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Expanded(
+            child: MovementMetric(
+              icon: Icons.format_list_bulleted,
+              label: 'Itens',
+              value: count.toString(),
             ),
-            Expanded(
-              child: MovementMetric(
-                icon: Icons.trending_up,
-                label: 'Entradas',
-                value: formatBrl(incomeCents),
-              ),
+          ),
+          Expanded(
+            child: MovementMetric(
+              icon: Icons.trending_up,
+              label: 'Entradas',
+              value: formatBrl(incomeCents),
             ),
-            Expanded(
-              child: MovementMetric(
-                icon: Icons.trending_down,
-                label: 'Saidas',
-                value: formatBrl(expenseCents.abs()),
-              ),
+          ),
+          Expanded(
+            child: MovementMetric(
+              icon: Icons.trending_down,
+              label: 'Saidas',
+              value: formatBrl(expenseCents.abs()),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

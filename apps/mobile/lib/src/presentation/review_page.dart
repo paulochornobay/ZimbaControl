@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../data/local/app_database.dart';
+import 'design/zimba_theme.dart';
+import 'design/zimba_ui.dart';
 import 'dashboard_page.dart';
 import 'edit_transaction_page.dart';
 
@@ -87,7 +89,7 @@ class _ReviewPageState extends State<ReviewPage> {
                           'Novas notificacoes, importacoes e rascunhos manuais aparecem aqui.',
                     )
                   : ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
                       children: [
                         ReviewFilterBar(
                           selected: selectedFilter,
@@ -248,13 +250,24 @@ class ReviewScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 82,
+        titleSpacing: 20,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Revisao ($count)'),
             Text(
-              subtitle ?? 'Caixa financeira',
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
+              'Caixa de revisão',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(letterSpacing: -.5),
+            ),
+            const SizedBox(height: 3),
+            Text(
+              subtitle ?? '$count pendentes nesta visão',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: ZimbaColors.secondaryText,
+                fontWeight: FontWeight.w400,
+              ),
             ),
           ],
         ),
@@ -276,22 +289,54 @@ class ReviewFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemBuilder: (context, index) {
-          final filter = ReviewFilter.values[index];
-          return ChoiceChip(
-            label: Text(filter.label),
+    return ZimbaChipScroller(
+      children: [
+        for (final filter in ReviewFilter.values)
+          _ReviewFilterButton(
+            filter: filter,
             selected: selected == filter,
-            onSelected: (_) => onSelected(filter),
-            showCheckmark: false,
-            visualDensity: VisualDensity.compact,
-          );
-        },
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemCount: ReviewFilter.values.length,
+            onTap: () => onSelected(filter),
+          ),
+      ],
+    );
+  }
+}
+
+class _ReviewFilterButton extends StatelessWidget {
+  const _ReviewFilterButton({
+    required this.filter,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final ReviewFilter filter;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? ZimbaColors.foreground : ZimbaColors.surface,
+            border: Border.all(
+              color: selected ? ZimbaColors.foreground : ZimbaColors.border,
+            ),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            filter.label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: selected ? Colors.white : ZimbaColors.secondaryText,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -311,14 +356,18 @@ class ReviewQueueHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        color: ZimbaColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            const Icon(Icons.playlist_add_check, size: 18),
+            const Icon(
+              Icons.playlist_add_check,
+              size: 18,
+              color: ZimbaColors.secondaryText,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -357,12 +406,9 @@ class ReviewTransactionCard extends StatelessWidget {
     final isIncome = transaction.amountCents > 0;
     final scheme = Theme.of(context).colorScheme;
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(8),
-        side: BorderSide(color: _borderColor(scheme)),
-      ),
+    return ZimbaCard(
+      padding: EdgeInsets.zero,
+      borderColor: _borderColor(scheme),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -421,18 +467,13 @@ class ReviewTransactionCard extends StatelessWidget {
                   spacing: 6,
                   runSpacing: 6,
                   children: [
+                    ZimbaBadge(
+                      label: item.sourceLabel,
+                      tone: ZimbaTone.neutral,
+                    ),
                     ReviewChip(
                       icon: Icons.account_balance_wallet_outlined,
                       label: item.accountLabel,
-                    ),
-                    ReviewChip(
-                      icon: Icons.cloud_done_outlined,
-                      label: '${item.sourceLabel} · ${item.providerLabel}',
-                    ),
-                    ReviewChip(
-                      icon: Icons.auto_awesome_outlined,
-                      label:
-                          'Confianca ${(transaction.sourceConfidence * 100).round()}%',
                     ),
                   ],
                 ),
@@ -440,74 +481,79 @@ class ReviewTransactionCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: ReviewInfoTile(
+                      child: ZimbaSuggestionTile(
                         label: 'Categoria',
                         value: item.categoryLabel,
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: ReviewInfoTile(
-                        label: 'Centro',
+                      child: ZimbaSuggestionTile(
+                        label: 'Centro de custo',
                         value: item.costCenterLabel,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                BeneficiaryLine(people: item.beneficiaries),
-                const SizedBox(height: 10),
-                Column(
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: FilledButton.icon(
-                            onPressed: onConfirm,
-                            icon: const Icon(Icons.check, size: 18),
-                            label: const Text('Confirmar'),
-                            style: FilledButton.styleFrom(
-                              minimumSize: const Size(0, 38),
-                              visualDensity: VisualDensity.compact,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: onEdit,
-                            icon: const Icon(Icons.edit_outlined, size: 18),
-                            label: const Text('Editar'),
-                            style: OutlinedButton.styleFrom(
-                              minimumSize: const Size(0, 38),
-                              visualDensity: VisualDensity.compact,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          ),
-                        ),
-                      ],
+                    Expanded(
+                      child: ZimbaAvatarStack(
+                        names: [
+                          for (final person in item.beneficiaries)
+                            person.displayName,
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 2),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        ReviewIconAction(
-                          tooltip: 'Marcar duplicado',
-                          icon: Icons.content_copy_outlined,
-                          onPressed: onDuplicate,
-                        ),
-                        ReviewIconAction(
-                          tooltip: 'Converter em transferencia',
-                          icon: Icons.compare_arrows_outlined,
-                          onPressed: onTransfer,
-                        ),
-                        ReviewIconAction(
-                          tooltip: 'Ignorar',
-                          icon: Icons.visibility_off_outlined,
-                          onPressed: onIgnore,
-                        ),
-                      ],
+                    ZimbaBadge(
+                      label:
+                          '${transaction.sourceConfidence >= .8
+                              ? 'Alta'
+                              : transaction.sourceConfidence >= .55
+                              ? 'Média'
+                              : 'Baixa'} · ${(transaction.sourceConfidence * 100).round()}%',
+                      tone: transaction.sourceConfidence >= .8
+                          ? ZimbaTone.success
+                          : transaction.sourceConfidence >= .55
+                          ? ZimbaTone.warning
+                          : ZimbaTone.danger,
+                      icon: Icons.auto_awesome_outlined,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ZimbaActionGrid(
+                  items: [
+                    ZimbaActionItem(
+                      label: 'Confirmar',
+                      icon: Icons.check,
+                      tone: ZimbaTone.success,
+                      onPressed: onConfirm,
+                    ),
+                    ZimbaActionItem(
+                      label: 'Editar',
+                      icon: Icons.edit_outlined,
+                      onPressed: onEdit,
+                    ),
+                    ZimbaActionItem(
+                      label: item.suggestsTransfer
+                          ? 'Transferência'
+                          : 'Duplicado',
+                      icon: item.suggestsTransfer
+                          ? Icons.compare_arrows_outlined
+                          : Icons.content_copy_outlined,
+                      tone: item.suggestsTransfer
+                          ? ZimbaTone.accent
+                          : ZimbaTone.danger,
+                      onPressed: item.suggestsTransfer
+                          ? onTransfer
+                          : onDuplicate,
+                    ),
+                    ZimbaActionItem(
+                      label: 'Ignorar',
+                      icon: Icons.visibility_off_outlined,
+                      onPressed: onIgnore,
                     ),
                   ],
                 ),
@@ -552,7 +598,7 @@ class ReviewAlertStrip extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: alert.color.withValues(alpha: 0.12),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -625,7 +671,7 @@ class ReviewChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        color: ZimbaColors.surfaceMuted,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Padding(
@@ -646,99 +692,6 @@ class ReviewChip extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class ReviewInfoTile extends StatelessWidget {
-  const ReviewInfoTile({required this.label, required this.value, super.key});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: Theme.of(context).textTheme.labelSmall),
-            const SizedBox(height: 2),
-            Text(
-              value,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class BeneficiaryLine extends StatelessWidget {
-  const BeneficiaryLine({required this.people, super.key});
-
-  final List<PersonRow> people;
-
-  @override
-  Widget build(BuildContext context) {
-    if (people.isEmpty) {
-      return Text(
-        'Beneficiarios: nao definidos',
-        style: Theme.of(context).textTheme.bodySmall,
-      );
-    }
-
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        Text('Beneficiarios', style: Theme.of(context).textTheme.labelSmall),
-        for (final person in people)
-          Chip(
-            label: Text(person.displayName),
-            avatar: CircleAvatar(
-              child: Text(person.displayName.characters.first),
-            ),
-            visualDensity: VisualDensity.compact,
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            padding: EdgeInsets.zero,
-          ),
-      ],
-    );
-  }
-}
-
-class ReviewIconAction extends StatelessWidget {
-  const ReviewIconAction({
-    required this.tooltip,
-    required this.icon,
-    required this.onPressed,
-    super.key,
-  });
-
-  final String tooltip;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: tooltip,
-      onPressed: onPressed,
-      icon: Icon(icon, size: 20),
-      visualDensity: VisualDensity.compact,
     );
   }
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../data/local/app_database.dart';
+import 'design/zimba_theme.dart';
+import 'design/zimba_ui.dart';
 
 class RegistriesPage extends StatefulWidget {
   const RegistriesPage({required this.database, super.key});
@@ -19,7 +21,7 @@ class _RegistriesPageState extends State<RegistriesPage>
   @override
   void initState() {
     super.initState();
-    tabController = TabController(length: 4, vsync: this);
+    tabController = TabController(length: 5, vsync: this);
     snapshotFuture = widget.database.getRegistrySnapshot();
   }
 
@@ -43,15 +45,16 @@ class _RegistriesPageState extends State<RegistriesPage>
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => switch (tabController.index) {
-          0 => AccountFormPage(
+          0 => PersonFormPage(database: widget.database),
+          1 => AccountFormPage(
             database: widget.database,
             people: snapshot.people,
           ),
-          1 => CreditCardFormPage(
+          2 => CreditCardFormPage(
             database: widget.database,
             people: snapshot.people,
           ),
-          2 => CategoryFormPage(database: widget.database),
+          3 => CategoryFormPage(database: widget.database),
           _ => CostCenterFormPage(database: widget.database),
         },
       ),
@@ -79,6 +82,7 @@ class _RegistriesPageState extends State<RegistriesPage>
           controller: tabController,
           isScrollable: true,
           tabs: const [
+            Tab(text: 'Pessoas'),
             Tab(text: 'Contas'),
             Tab(text: 'Cartoes'),
             Tab(text: 'Categorias'),
@@ -109,6 +113,11 @@ class _RegistriesPageState extends State<RegistriesPage>
           return TabBarView(
             controller: tabController,
             children: [
+              _PersonList(
+                database: widget.database,
+                people: data.people,
+                onChanged: refresh,
+              ),
               _AccountList(
                 database: widget.database,
                 people: data.people,
@@ -135,6 +144,60 @@ class _RegistriesPageState extends State<RegistriesPage>
           );
         },
       ),
+    );
+  }
+}
+
+class _PersonList extends StatelessWidget {
+  const _PersonList({
+    required this.database,
+    required this.people,
+    required this.onChanged,
+  });
+
+  final AppDatabase database;
+  final List<PersonRow> people;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    if (people.isEmpty) {
+      return const _EmptyRegistryState(
+        icon: Icons.people_alt_outlined,
+        title: 'Nenhuma pessoa',
+        body: 'Cadastre quem participa das finanças da família.',
+      );
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+      itemCount: people.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final person = people[index];
+        return _RegistryTile(
+          icon: person.kind == 'child'
+              ? Icons.child_care_outlined
+              : Icons.person_outline,
+          title: person.displayName,
+          subtitle: person.kind == 'child' ? 'Dependente' : 'Adulto',
+          inactive: !person.active,
+          onTap: () async {
+            final result = await Navigator.of(context).push<bool>(
+              MaterialPageRoute(
+                builder: (_) =>
+                    PersonFormPage(database: database, person: person),
+              ),
+            );
+            if (result == true) {
+              onChanged();
+            }
+          },
+          onArchive: () async {
+            await database.archivePerson(person.id, active: !person.active);
+            onChanged();
+          },
+        );
+      },
     );
   }
 }
@@ -365,6 +428,78 @@ class _CostCenterList extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+class PersonFormPage extends StatefulWidget {
+  const PersonFormPage({required this.database, this.person, super.key});
+
+  final AppDatabase database;
+  final PersonRow? person;
+
+  @override
+  State<PersonFormPage> createState() => _PersonFormPageState();
+}
+
+class _PersonFormPageState extends State<PersonFormPage> {
+  late final TextEditingController nameController;
+  late String kind;
+
+  @override
+  void initState() {
+    super.initState();
+    nameController = TextEditingController(text: widget.person?.displayName);
+    kind = widget.person?.kind ?? 'adult';
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> save() async {
+    if (nameController.text.trim().isEmpty) {
+      return;
+    }
+    await widget.database.upsertPerson(
+      id: widget.person?.id,
+      displayName: nameController.text,
+      kind: kind,
+      active: widget.person?.active ?? true,
+    );
+    if (mounted) {
+      Navigator.of(context).pop(true);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _RegistryFormScaffold(
+      title: widget.person == null ? 'Nova pessoa' : 'Editar pessoa',
+      onSave: save,
+      children: [
+        TextField(
+          controller: nameController,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Nome',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SegmentedButton<String>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(value: 'adult', label: Text('Adulto')),
+            ButtonSegment(value: 'child', label: Text('Dependente')),
+            ButtonSegment(value: 'other', label: Text('Outro')),
+          ],
+          selected: {kind},
+          onSelectionChanged: (value) => setState(() => kind = value.first),
+        ),
+      ],
     );
   }
 }
@@ -899,15 +1034,9 @@ class _RegistryFormScaffold extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
         children: [
-          Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(children: children),
-            ),
+          ZimbaCard(
+            padding: const EdgeInsets.all(14),
+            child: Column(children: children),
           ),
           const SizedBox(height: 12),
           FilledButton.icon(
@@ -940,15 +1069,17 @@ class _RegistryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    return ZimbaCard(
+      padding: EdgeInsets.zero,
       child: ListTile(
         onTap: onTap,
         leading: CircleAvatar(
           backgroundColor: inactive
-              ? Theme.of(context).colorScheme.surfaceContainerHighest
-              : Theme.of(context).colorScheme.primaryContainer,
+              ? ZimbaColors.surfaceMuted
+              : ZimbaColors.accentSoft,
+          foregroundColor: inactive
+              ? ZimbaColors.secondaryText
+              : ZimbaColors.accent,
           child: Icon(icon, size: 20),
         ),
         title: Text(
@@ -989,38 +1120,17 @@ class _EmptyRegistryState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 46),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+    return ZimbaStateMessage(
+      icon: icon,
+      title: title,
+      body: body,
+      action: onRetry == null
+          ? null
+          : OutlinedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Tentar novamente'),
             ),
-            const SizedBox(height: 6),
-            Text(
-              body,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            if (onRetry != null) ...[
-              const SizedBox(height: 14),
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Tentar novamente'),
-              ),
-            ],
-          ],
-        ),
-      ),
     );
   }
 }

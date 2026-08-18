@@ -59,6 +59,69 @@ class CanonicalImportRecord {
       amountCents != null;
 }
 
+class CsvFileInspection {
+  const CsvFileInspection({
+    required this.columns,
+    required this.provider,
+    this.suggestedMapping,
+  });
+
+  final List<String> columns;
+  final String provider;
+  final CsvImportMapping? suggestedMapping;
+}
+
+CsvFileInspection inspectCsvFile({
+  required String fileName,
+  required List<int> bytes,
+}) {
+  final text = decodeStatementBytes(bytes);
+  final lines = const LineSplitter()
+      .convert(text)
+      .where((line) => line.trim().isNotEmpty)
+      .toList(growable: false);
+  if (lines.isEmpty) {
+    return const CsvFileInspection(columns: [], provider: 'unknown');
+  }
+
+  final delimiter = _detectDelimiter(lines.first);
+  final columns = _parseCsvLine(
+    lines.first,
+    delimiter,
+  ).map((column) => column.trim()).toList(growable: false);
+  final normalizedColumns = columns
+      .map(_normalizeHeader)
+      .toList(growable: false);
+  final detected = _CsvMapping.fromHeaders(normalizedColumns);
+  String? originalColumn(String? normalized) {
+    if (normalized == null) {
+      return null;
+    }
+    for (var index = 0; index < normalizedColumns.length; index += 1) {
+      if (normalizedColumns[index] == normalized) {
+        return columns[index];
+      }
+    }
+    return null;
+  }
+
+  final date = originalColumn(detected.date);
+  final description = originalColumn(detected.description);
+  final amount = originalColumn(detected.amount);
+  return CsvFileInspection(
+    columns: columns,
+    provider: _detectCsvProvider(fileName, normalizedColumns),
+    suggestedMapping: date == null || description == null || amount == null
+        ? null
+        : CsvImportMapping(
+            dateColumn: date,
+            descriptionColumn: description,
+            amountColumn: amount,
+            externalIdColumn: originalColumn(detected.externalId),
+          ),
+  );
+}
+
 ImportParseResult parseStatementFile({
   required String fileName,
   required List<int> bytes,

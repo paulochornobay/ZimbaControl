@@ -12,6 +12,8 @@ import 'commitments_page.dart';
 import 'dashboard_page.dart';
 import 'duplicates_page.dart';
 import 'registries_page.dart';
+import 'design/zimba_theme.dart';
+import 'design/zimba_ui.dart';
 
 class FamilyStructurePage extends StatefulWidget {
   const FamilyStructurePage({required this.database, super.key});
@@ -31,12 +33,6 @@ class _FamilyStructurePageState extends State<FamilyStructurePage> {
     snapshotFuture = widget.database.getFamilyStructureSnapshot();
   }
 
-  void refresh() {
-    setState(() {
-      snapshotFuture = widget.database.getFamilyStructureSnapshot();
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<FamilyStructureSnapshot>(
@@ -47,9 +43,9 @@ class _FamilyStructurePageState extends State<FamilyStructurePage> {
             title: const Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Ajustes'),
+                Text('Família'),
                 Text(
-                  'Estrutura familiar',
+                  'Pessoas, contas e compromissos',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
                 ),
               ],
@@ -65,7 +61,6 @@ class _FamilyStructurePageState extends State<FamilyStructurePage> {
             _ => FamilyStructureContent(
               database: widget.database,
               snapshot: snapshot.data!,
-              onEnvironmentChanged: refresh,
             ),
           },
         );
@@ -78,29 +73,17 @@ class FamilyStructureContent extends StatelessWidget {
   const FamilyStructureContent({
     required this.database,
     required this.snapshot,
-    required this.onEnvironmentChanged,
     super.key,
   });
 
   final AppDatabase database;
   final FamilyStructureSnapshot snapshot;
-  final VoidCallback onEnvironmentChanged;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
       children: [
-        _Section(
-          title: 'Ambiente',
-          children: [
-            EnvironmentPanel(
-              database: database,
-              onChanged: onEnvironmentChanged,
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
         _Section(
           title: 'Cadastros',
           children: [
@@ -218,29 +201,6 @@ class FamilyStructureContent extends StatelessWidget {
               ),
           ],
         ),
-        _Section(
-          title: 'Captura Android',
-          children: [NotificationCapturePanel(database: database)],
-        ),
-        _Section(
-          title: 'Sync opcional',
-          children: [SyncPanel(database: database)],
-        ),
-        _Section(
-          title: 'Backup e recuperacao',
-          children: [BackupPanel(database: database)],
-        ),
-        _Section(
-          title: 'Acesso futuro',
-          children: [
-            for (final user in snapshot.authUsers)
-              _InfoRow(
-                icon: Icons.verified_user_outlined,
-                title: user.email,
-                subtitle: '${user.provider} · allowlist local',
-              ),
-          ],
-        ),
       ],
     );
   }
@@ -259,6 +219,85 @@ class FamilyStructureContent extends StatelessWidget {
       'transfer' => 'Transferencia interna',
       _ => 'Despesa',
     };
+  }
+}
+
+class DataEnvironmentPage extends StatelessWidget {
+  const DataEnvironmentPage({
+    required this.database,
+    required this.onChanged,
+    super.key,
+  });
+
+  final AppDatabase database;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Dados locais')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          _Section(
+            title: 'Ambiente',
+            children: [
+              EnvironmentPanel(
+                database: database,
+                onChanged: () {
+                  Navigator.of(context).pop();
+                  onChanged();
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class NotificationSettingsPage extends StatelessWidget {
+  const NotificationSettingsPage({required this.database, super.key});
+
+  final AppDatabase database;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Captura Android')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          _Section(
+            title: 'Notificações financeiras',
+            children: [NotificationCapturePanel(database: database)],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class BackupSettingsPage extends StatelessWidget {
+  const BackupSettingsPage({required this.database, super.key});
+
+  final AppDatabase database;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Backup e recuperação')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          _Section(
+            title: 'Arquivo local',
+            children: [BackupPanel(database: database)],
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -379,7 +418,9 @@ class _EnvironmentPanelState extends State<EnvironmentPanel> {
               runSpacing: 8,
               children: [
                 FilledButton.icon(
-                  onPressed: loading ? null : loadDemo,
+                  onPressed: loading || status?.isEmpty != true
+                      ? null
+                      : loadDemo,
                   icon: const Icon(Icons.science_outlined),
                   label: const Text('Carregar demo'),
                 ),
@@ -937,29 +978,27 @@ class _Section extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+    return ZimbaCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title.toUpperCase(),
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: ZimbaColors.secondaryText,
+              letterSpacing: .7,
             ),
-            const SizedBox(height: 10),
-            if (children.isEmpty)
-              Text(
-                'Nada cadastrado.',
-                style: Theme.of(context).textTheme.bodySmall,
-              )
-            else
-              ...children,
-          ],
-        ),
+          ),
+          const SizedBox(height: 10),
+          if (children.isEmpty)
+            Text(
+              'Nada cadastrado.',
+              style: Theme.of(context).textTheme.bodySmall,
+            )
+          else
+            ...children,
+        ],
       ),
     );
   }
@@ -984,9 +1023,8 @@ class _InfoRow extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: Theme.of(
-              context,
-            ).colorScheme.primary.withValues(alpha: 0.09),
+            backgroundColor: ZimbaColors.accentSoft,
+            foregroundColor: ZimbaColors.accent,
             child: Icon(icon, size: 18),
           ),
           const SizedBox(width: 10),
@@ -1004,7 +1042,9 @@ class _InfoRow extends StatelessWidget {
                   subtitle,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.bodySmall,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: ZimbaColors.secondaryText,
+                  ),
                 ),
               ],
             ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../data/local/app_database.dart';
 import 'dashboard_page.dart';
+import 'design/zimba_theme.dart';
+import 'design/zimba_ui.dart';
 
 class DuplicatesPage extends StatefulWidget {
   const DuplicatesPage({required this.database, super.key});
@@ -119,74 +121,82 @@ class _DuplicateCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final candidate = details.candidate;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.content_copy_outlined, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '${(candidate.score * 100).round()}% · ${candidate.reason}',
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
+    return ZimbaCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.content_copy_outlined, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    Text(
+                      candidate.reason,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    ZimbaBadge(
+                      label: '${(candidate.score * 100).round()}% de confiança',
+                      tone: candidate.score >= .8
+                          ? ZimbaTone.warning
+                          : ZimbaTone.neutral,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              candidate.explanation,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            _CompareTile(
-              label: 'Lancamento principal',
-              title:
-                  details.primaryTransaction?.descriptionRaw ??
-                  'Nao encontrado',
-              amountCents: details.primaryTransaction?.amountCents,
-            ),
-            const SizedBox(height: 8),
-            _CompareTile(
-              label: 'Fonte candidata',
-              title:
-                  details.candidateTransaction?.descriptionRaw ??
-                  details.stagedRecord?.descriptionRaw ??
-                  'Registro em staging',
-              amountCents:
-                  details.candidateTransaction?.amountCents ??
-                  details.stagedRecord?.amountCents,
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                FilledButton.icon(
-                  onPressed: onMerge,
-                  icon: const Icon(Icons.merge_type_outlined),
-                  label: const Text('Mesclar'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: onKeep,
-                  icon: const Icon(Icons.call_split_outlined),
-                  label: const Text('Manter'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: onIgnore,
-                  icon: const Icon(Icons.visibility_off_outlined),
-                  label: const Text('Ignorar'),
-                ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            candidate.explanation,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 12),
+          _CompareTile(
+            label: 'Lancamento principal',
+            title:
+                details.primaryTransaction?.descriptionRaw ?? 'Nao encontrado',
+            amountCents: details.primaryTransaction?.amountCents,
+          ),
+          const SizedBox(height: 8),
+          _CompareTile(
+            label: 'Fonte candidata',
+            title:
+                details.candidateTransaction?.descriptionRaw ??
+                details.stagedRecord?.descriptionRaw ??
+                'Registro em staging',
+            amountCents:
+                details.candidateTransaction?.amountCents ??
+                details.stagedRecord?.amountCents,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.icon(
+                onPressed: onMerge,
+                icon: const Icon(Icons.merge_type_outlined),
+                label: const Text('Mesclar'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onKeep,
+                icon: const Icon(Icons.call_split_outlined),
+                label: const Text('Manter'),
+              ),
+              OutlinedButton.icon(
+                onPressed: onIgnore,
+                icon: const Icon(Icons.visibility_off_outlined),
+                label: const Text('Ignorar'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -207,8 +217,8 @@ class _CompareTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        color: ZimbaColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),

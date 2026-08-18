@@ -114,11 +114,31 @@ class Transactions extends Table {
   TextColumn get categoryId => text().nullable()();
   TextColumn get costCenterId => text().nullable()();
   TextColumn get payerId => text().nullable()();
+  TextColumn get appliedRuleId => text().nullable()();
   RealColumn get sourceConfidence => real().withDefault(const Constant(0))();
   IntColumn get baseVersion => integer().withDefault(const Constant(0))();
   IntColumn get serverVersion => integer().withDefault(const Constant(0))();
   DateTimeColumn get updatedAt => dateTime()();
   DateTimeColumn get deletedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('ClassificationRuleRow')
+class ClassificationRules extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get name => text()();
+  TextColumn get matchText => text()();
+  TextColumn get kind => text().nullable()();
+  TextColumn get categoryId => text().nullable()();
+  TextColumn get costCenterId => text().nullable()();
+  IntColumn get priority => integer().withDefault(const Constant(0))();
+  BoolColumn get active => boolean().withDefault(const Constant(true))();
+  IntColumn get usageCount => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -367,6 +387,7 @@ class RawNotificationEvents extends Table {
     ReviewInbox,
     TransactionBeneficiaries,
     TransactionSources,
+    ClassificationRules,
     SyncOutbox,
     AppPreferences,
     AuthUsers,
@@ -385,9 +406,13 @@ class AppDatabase extends _$AppDatabase {
 
   static const householdMain = 'household-main';
   static const reviewFilterPreferenceKey = 'review_filter';
+  static const onboardingCompletedPreferenceKey = 'onboarding_completed';
+  static const primaryPersonPreferenceKey = 'primary_person_id';
+  static const primaryAccountPreferenceKey = 'primary_account_id';
+  static const syncDeviceIdPreferenceKey = 'sync_device_id';
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 9;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -437,6 +462,10 @@ class AppDatabase extends _$AppDatabase {
         await migrator.addColumn(categories, categories.active);
         await migrator.addColumn(creditCards, creditCards.accountId);
       }
+      if (from < 9) {
+        await migrator.addColumn(transactions, transactions.appliedRuleId);
+        await migrator.createTable(classificationRules);
+      }
     },
   );
 
@@ -446,6 +475,69 @@ class AppDatabase extends _$AppDatabase {
       ..orderBy([(row) => OrderingTerm.desc(row.occurredAt)])
       ..limit(20);
     return query.watch();
+  }
+
+  Future<List<ClassificationRuleRow>> listClassificationRules({
+    bool includeInactive = true,
+  }) {
+    final query = select(classificationRules)
+      ..orderBy([
+        (row) => OrderingTerm.desc(row.priority),
+        (row) => OrderingTerm.asc(row.name),
+      ]);
+    if (!includeInactive) {
+      query.where((row) => row.active.equals(true));
+    }
+    return query.get();
+  }
+
+  Future<String> upsertClassificationRule({
+    String? id,
+    required String name,
+    required String matchText,
+    String? kind,
+    String? categoryId,
+    String? costCenterId,
+    required int priority,
+    bool active = true,
+  }) async {
+    final cleanName = name.trim();
+    final cleanMatch = matchText.trim();
+    if (cleanName.isEmpty || cleanMatch.isEmpty) {
+      throw ArgumentError('Nome e texto de correspondencia sao obrigatorios.');
+    }
+    if (categoryId == null && costCenterId == null) {
+      throw ArgumentError('Escolha uma categoria ou centro de custo.');
+    }
+    final now = DateTime.now();
+    final ruleId = id ?? 'rule-${now.microsecondsSinceEpoch}';
+    await into(classificationRules).insertOnConflictUpdate(
+      ClassificationRulesCompanion(
+        id: Value(ruleId),
+        householdId: const Value(householdMain),
+        name: Value(cleanName),
+        matchText: Value(cleanMatch),
+        kind: Value(kind),
+        categoryId: Value(categoryId),
+        costCenterId: Value(costCenterId),
+        priority: Value(priority),
+        active: Value(active),
+        createdAt: Value(now),
+        updatedAt: Value(now),
+      ),
+    );
+    return ruleId;
+  }
+
+  Future<void> archiveClassificationRule(String id, {bool active = false}) {
+    return (update(
+      classificationRules,
+    )..where((row) => row.id.equals(id))).write(
+      ClassificationRulesCompanion(
+        active: Value(active),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   Stream<List<FinanceTransaction>> watchAllTransactions() {
@@ -740,7 +832,7 @@ class AppDatabase extends _$AppDatabase {
             await _markOutboxAck(operation.opId);
           case 'conflict':
             conflicts += 1;
-            await _markOutboxConflict(operation.opId);
+            await _markOutboxConflict(operation);
           default:
             rejected += 1;
             await _markOutboxRejected(operation.opId);
@@ -779,6 +871,9 @@ class AppDatabase extends _$AppDatabase {
         await select(transactionBeneficiaries).get(),
       ),
       'transactionSources': _toJsonRows(await select(transactionSources).get()),
+      'classificationRules': _toJsonRows(
+        await select(classificationRules).get(),
+      ),
       'syncOutbox': _toJsonRows(await select(syncOutbox).get()),
       'appPreferences': _toJsonRows(await select(appPreferences).get()),
       'authUsers': _toJsonRows(await select(authUsers).get()),
@@ -852,6 +947,7 @@ class AppDatabase extends _$AppDatabase {
       await delete(syncOutbox).go();
       await delete(transactionSources).go();
       await delete(transactionBeneficiaries).go();
+      await delete(classificationRules).go();
       await delete(reviewInbox).go();
       await delete(transactions).go();
       await delete(merchants).go();
@@ -874,6 +970,7 @@ class AppDatabase extends _$AppDatabase {
         backup.transactionBeneficiaries,
       );
       await _insertBackupRows(transactionSources, backup.transactionSources);
+      await _insertBackupRows(classificationRules, backup.classificationRules);
       await _insertBackupRows(syncOutbox, backup.syncOutbox);
       await _insertBackupRows(appPreferences, backup.appPreferences);
       await _insertBackupRows(authUsers, backup.authUsers);
@@ -1016,6 +1113,10 @@ class AppDatabase extends _$AppDatabase {
         continue;
       }
 
+      final primaryPersonId = await _preferenceValue(
+        primaryPersonPreferenceKey,
+      );
+      final accountId = await _accountForProvider(parsed.provider);
       await into(transactions).insert(
         _transaction(
           id: txId,
@@ -1024,14 +1125,17 @@ class AppDatabase extends _$AppDatabase {
           duplicateStatus: match == null ? 'none' : 'probable',
           amountCents: parsed.amountCents!,
           description: parsed.description!,
-          accountId: _accountForProvider(parsed.provider),
+          accountId: accountId,
           occurredAt: parsed.occurredAt!,
           confidence: parsed.confidence,
+          payerPersonId: primaryPersonId,
         ),
       );
-      await into(
-        transactionBeneficiaries,
-      ).insert(_beneficiary(txId, 'eu', true));
+      if (primaryPersonId != null) {
+        await into(
+          transactionBeneficiaries,
+        ).insert(_beneficiary(txId, primaryPersonId, true));
+      }
       await into(reviewInbox).insert(
         _reviewItem(
           txId,
@@ -1264,6 +1368,9 @@ class AppDatabase extends _$AppDatabase {
       }
 
       final classification = await _classifyStagedRecord(row);
+      final primaryPersonId = await _preferenceValue(
+        primaryPersonPreferenceKey,
+      );
       await into(transactions).insert(
         _transaction(
           id: txId,
@@ -1282,11 +1389,14 @@ class AppDatabase extends _$AppDatabase {
           costCenterId: classification.costCenterId,
           occurredAt: row.occurredAt!,
           confidence: row.confidence,
+          payerPersonId: primaryPersonId,
         ),
       );
-      await into(
-        transactionBeneficiaries,
-      ).insert(_beneficiary(txId, 'eu', true));
+      if (primaryPersonId != null) {
+        await into(
+          transactionBeneficiaries,
+        ).insert(_beneficiary(txId, primaryPersonId, true));
+      }
       await into(
         reviewInbox,
       ).insert(_reviewItem(txId, classification.reviewReason, DateTime.now()));
@@ -1391,6 +1501,85 @@ class AppDatabase extends _$AppDatabase {
       categories: categoryRows,
       costCenters: costCenterRows,
     );
+  }
+
+  Future<StartupState> getStartupState() async {
+    final status = await getLocalDataStatus();
+    final completed =
+        await _preferenceValue(onboardingCompletedPreferenceKey) == 'true';
+    return StartupState(
+      onboardingCompleted: completed,
+      hasCoreSetup: status.people > 0 && status.accounts > 0,
+      isEmpty: status.isEmpty,
+      primaryPersonId: await _preferenceValue(primaryPersonPreferenceKey),
+      primaryAccountId: await _preferenceValue(primaryAccountPreferenceKey),
+    );
+  }
+
+  Future<void> saveInitialSetup(SetupInput input) async {
+    final personName = input.personName.trim();
+    final accountName = input.accountName.trim();
+    if (personName.isEmpty || accountName.isEmpty) {
+      throw ArgumentError('Pessoa e conta sao obrigatorias.');
+    }
+
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    final personId = 'person-$stamp';
+    final accountId = 'account-$stamp';
+
+    await transaction(() async {
+      await into(people).insert(
+        PeopleCompanion.insert(
+          id: personId,
+          householdId: householdMain,
+          displayName: personName,
+          kind: 'adult',
+        ),
+      );
+      await into(accounts).insert(
+        AccountsCompanion.insert(
+          id: accountId,
+          householdId: householdMain,
+          ownerPersonId: Value(personId),
+          provider: input.accountProvider.trim().isEmpty
+              ? 'manual'
+              : input.accountProvider.trim().toLowerCase().replaceAll(
+                  RegExp(r'\s+'),
+                  '_',
+                ),
+          name: accountName,
+          type: input.accountType,
+        ),
+      );
+
+      if (input.createStarterCategories) {
+        await batch((batch) {
+          batch.insertAll(categories, [
+            _category('starter-mercado', 'Mercado', 10),
+            _category('starter-saude', 'Saude', 20),
+            _category('starter-transporte', 'Transporte', 30),
+            _category('starter-casa', 'Casa', 40),
+            _category('starter-lazer', 'Lazer', 50),
+            _category('starter-renda', 'Renda', 60, kind: 'income'),
+          ]);
+          batch.insertAll(costCenters, [
+            _costCenter('starter-pessoal', 'Pessoal'),
+            _costCenter('starter-casa', 'Casa'),
+          ]);
+        });
+      }
+
+      await _setPreference(primaryPersonPreferenceKey, personId);
+      await _setPreference(primaryAccountPreferenceKey, accountId);
+      await _setPreference(onboardingCompletedPreferenceKey, 'true');
+    });
+  }
+
+  Future<void> completeDemoOnboarding() async {
+    await loadDemoData();
+    await _setPreference(primaryPersonPreferenceKey, 'eu');
+    await _setPreference(primaryAccountPreferenceKey, 'mp');
+    await _setPreference(onboardingCompletedPreferenceKey, 'true');
   }
 
   Future<void> seedIfEmpty() async {
@@ -2021,38 +2210,116 @@ class AppDatabase extends _$AppDatabase {
     await _enqueueOutbox(id, 'update');
   }
 
-  Future<String> createManualDraft() async {
+  Future<String> createManualTransaction(NewTransactionInput input) async {
+    final description = input.description.trim();
+    if (description.isEmpty || input.amountCents == 0) {
+      throw ArgumentError('Descricao e valor sao obrigatorios.');
+    }
+    final account = await (select(
+      accounts,
+    )..where((row) => row.id.equals(input.accountId))).getSingleOrNull();
+    if (account == null || !account.active) {
+      throw StateError('Escolha uma conta ativa.');
+    }
+
+    final appliedRule = input.kind == 'transfer'
+        ? null
+        : await _findMatchingClassificationRule(description, input.kind);
+    final categoryId = input.categoryId ?? appliedRule?.categoryId;
+    final costCenterId = input.costCenterId ?? appliedRule?.costCenterId;
     final now = DateTime.now();
     final id = 'tx-manual-${now.microsecondsSinceEpoch}';
-    await into(transactions).insert(
-      _transaction(
-        id: id,
-        kind: 'expense',
-        reviewStatus: 'pending',
-        duplicateStatus: 'none',
-        amountCents: -2450,
-        description: 'Lancamento manual',
-        accountId: 'mp',
-        occurredAt: now,
-        confidence: 0.4,
-      ),
-    );
-    await into(transactionBeneficiaries).insert(_beneficiary(id, 'eu', true));
-    await into(transactionSources).insert(
-      _source(
-        id: 'src-$id-manual',
-        transactionId: id,
-        sourceKind: 'manual',
-        provider: 'zimba_control',
-        confidence: 0.4,
-        occurredAt: now,
-      ),
-    );
-    await into(
-      reviewInbox,
-    ).insert(_reviewItem(id, 'manual_draft_needs_review', now));
+    final needsReview = input.kind != 'transfer' && categoryId == null;
+    final signedAmount = input.kind == 'expense'
+        ? -input.amountCents.abs()
+        : input.kind == 'income'
+        ? input.amountCents.abs()
+        : input.amountCents;
+
+    await transaction(() async {
+      await into(transactions).insert(
+        _transaction(
+          id: id,
+          kind: input.kind,
+          reviewStatus: needsReview ? 'pending' : 'confirmed',
+          duplicateStatus: 'none',
+          amountCents: signedAmount,
+          description: description,
+          accountId: input.accountId,
+          occurredAt: input.occurredAt ?? now,
+          confidence: 1,
+          categoryId: categoryId,
+          costCenterId: costCenterId,
+          payerPersonId: input.payerPersonId,
+          appliedRuleId: appliedRule?.id,
+        ),
+      );
+      if (appliedRule != null) {
+        await (update(
+          classificationRules,
+        )..where((row) => row.id.equals(appliedRule.id))).write(
+          ClassificationRulesCompanion(
+            usageCount: Value(appliedRule.usageCount + 1),
+            updatedAt: Value(now),
+          ),
+        );
+      }
+      final uniqueBeneficiaries = input.beneficiaryIds.toSet().toList();
+      if (uniqueBeneficiaries.isNotEmpty) {
+        await batch((batch) {
+          batch.insertAll(transactionBeneficiaries, [
+            for (final personId in uniqueBeneficiaries)
+              _beneficiary(id, personId, personId == uniqueBeneficiaries.first),
+          ]);
+        });
+      }
+      await into(transactionSources).insert(
+        _source(
+          id: 'src-$id-manual',
+          transactionId: id,
+          sourceKind: 'manual',
+          provider: 'zimba_control',
+          confidence: 1,
+          occurredAt: input.occurredAt ?? now,
+        ),
+      );
+      if (needsReview) {
+        await into(
+          reviewInbox,
+        ).insert(_reviewItem(id, 'manual_needs_classification', now));
+      }
+    });
     await _enqueueOutbox(id, 'create');
     return id;
+  }
+
+  Future<String> upsertPerson({
+    String? id,
+    required String displayName,
+    required String kind,
+    bool active = true,
+  }) async {
+    final name = displayName.trim();
+    if (name.isEmpty) {
+      throw ArgumentError('Nome da pessoa e obrigatorio.');
+    }
+    final personId = id ?? 'person-${DateTime.now().microsecondsSinceEpoch}';
+    await into(people).insertOnConflictUpdate(
+      PeopleCompanion.insert(
+        id: personId,
+        householdId: householdMain,
+        displayName: name,
+        kind: kind,
+        active: Value(active),
+      ),
+    );
+    return personId;
+  }
+
+  Future<void> archivePerson(String id, {bool active = false}) async {
+    await (update(people)..where((row) => row.id.equals(id))).write(
+      PeopleCompanion(active: Value(active)),
+    );
   }
 
   Future<String> upsertAccount({
@@ -2401,10 +2668,11 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> _enqueueOutbox(String entityId, String operationType) async {
     final now = DateTime.now();
+    final deviceId = await _deviceId();
     await into(syncOutbox).insert(
       SyncOutboxCompanion.insert(
         opId: 'op-${now.microsecondsSinceEpoch}',
-        deviceId: 'local-dev-device',
+        deviceId: deviceId,
         householdId: householdMain,
         entityType: 'transaction',
         entityId: entityId,
@@ -2413,6 +2681,16 @@ class AppDatabase extends _$AppDatabase {
         createdAt: now,
       ),
     );
+  }
+
+  Future<String> _deviceId() async {
+    final existing = await _preferenceValue(syncDeviceIdPreferenceKey);
+    if (existing != null && existing.isNotEmpty) {
+      return existing;
+    }
+    final generated = 'device-${DateTime.now().microsecondsSinceEpoch}';
+    await _setPreference(syncDeviceIdPreferenceKey, generated);
+    return generated;
   }
 
   Map<String, dynamic> _syncOperationJson(SyncOutboxRow operation) {
@@ -2456,12 +2734,31 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  Future<void> _markOutboxConflict(String opId) {
-    return (update(syncOutbox)..where((row) => row.opId.equals(opId))).write(
+  Future<void> _markOutboxConflict(SyncOutboxRow operation) async {
+    await (update(
+      syncOutbox,
+    )..where((row) => row.opId.equals(operation.opId))).write(
       SyncOutboxCompanion(
         sentAt: Value(DateTime.now()),
         status: const Value('conflict'),
       ),
+    );
+    if (operation.entityType != 'transaction') {
+      return;
+    }
+    final exists = await getTransaction(operation.entityId);
+    if (exists == null) {
+      return;
+    }
+    await into(reviewInbox).insert(
+      _reviewItem(
+        operation.entityId,
+        'sync_conflict',
+        DateTime.now(),
+        severity: 'high',
+        id: 'review-sync-${operation.opId}',
+      ),
+      mode: InsertMode.insertOrIgnore,
     );
   }
 
@@ -2581,6 +2878,11 @@ class AppDatabase extends _$AppDatabase {
         data,
         'transactionSources',
         TransactionSourceRow.fromJson,
+      ),
+      classificationRules: _decodeRows(
+        data,
+        'classificationRules',
+        ClassificationRuleRow.fromJson,
       ),
       syncOutbox: _decodeRows(data, 'syncOutbox', SyncOutboxRow.fromJson),
       appPreferences: _decodeRows(
@@ -2708,7 +3010,7 @@ class AppDatabase extends _$AppDatabase {
       return null;
     }
 
-    final providerAccountId = _accountForProvider(record.provider);
+    final providerAccountId = await _accountForProvider(record.provider);
     final recordTokens = _conciliationTokens(record.description ?? '');
     _ReconciliationMatch? best;
 
@@ -3020,7 +3322,7 @@ class AppDatabase extends _$AppDatabase {
   Future<_PromotedRecordClassification> _classifyStagedRecord(
     StagedSourceRecordRow row,
   ) async {
-    final accountId = _accountForProvider(row.provider);
+    final accountId = await _accountForProvider(row.provider);
     final description = row.descriptionRaw ?? '';
     if (_isInvoicePayment(description)) {
       final transferToAccountId = accountId == 'nu' ? null : 'nu';
@@ -3069,7 +3371,7 @@ class AppDatabase extends _$AppDatabase {
     _InstallmentHint installment,
   ) async {
     final occurredAt = row.occurredAt!;
-    final accountId = _accountForProvider(row.provider);
+    final accountId = await _accountForProvider(row.provider);
     final card = await _creditCardForAccountOrFirst(accountId);
     final label = _cleanInstallmentLabel(row.descriptionRaw ?? 'Compra');
     final invoiceMonth = card == null
@@ -3303,12 +3605,14 @@ class AppDatabase extends _$AppDatabase {
     return existing != null;
   }
 
-  String? _accountForProvider(String provider) {
-    return switch (provider) {
-      'nubank' => 'nu',
-      'mercado_pago' => 'mp',
-      _ => null,
-    };
+  Future<String?> _accountForProvider(String provider) async {
+    final account =
+        await (select(accounts)
+              ..where((row) => row.provider.equals(provider))
+              ..where((row) => row.active.equals(true))
+              ..limit(1))
+            .getSingleOrNull();
+    return account?.id;
   }
 
   Future<CreditCardRow?> _creditCardForAccountOrFirst(String? accountId) async {
@@ -3355,7 +3659,8 @@ class AppDatabase extends _$AppDatabase {
     String? merchantId,
     String? categoryId,
     String? costCenterId,
-    String payerPersonId = 'eu',
+    String? payerPersonId,
+    String? appliedRuleId,
   }) {
     final month =
         '${occurredAt.year.toString().padLeft(4, '0')}-'
@@ -3380,9 +3685,32 @@ class AppDatabase extends _$AppDatabase {
       categoryId: Value(categoryId),
       costCenterId: Value(costCenterId),
       payerId: Value(payerPersonId),
+      appliedRuleId: Value(appliedRuleId),
       sourceConfidence: Value(confidence),
       updatedAt: occurredAt,
     );
+  }
+
+  Future<ClassificationRuleRow?> _findMatchingClassificationRule(
+    String description,
+    String kind,
+  ) async {
+    final normalizedDescription = description.trim().toLowerCase();
+    if (normalizedDescription.isEmpty) {
+      return null;
+    }
+    final rules = await listClassificationRules(includeInactive: false);
+    for (final rule in rules) {
+      final normalizedMatch = rule.matchText.trim().toLowerCase();
+      if (normalizedMatch.isEmpty) {
+        continue;
+      }
+      if ((rule.kind == null || rule.kind == kind) &&
+          normalizedDescription.contains(normalizedMatch)) {
+        return rule;
+      }
+    }
+    return null;
   }
 
   CategoriesCompanion _category(
@@ -3424,13 +3752,16 @@ class AppDatabase extends _$AppDatabase {
   ReviewInboxCompanion _reviewItem(
     String transactionId,
     String reason,
-    DateTime createdAt,
-  ) {
+    DateTime createdAt, {
+    String? id,
+    String severity = 'medium',
+  }) {
     return ReviewInboxCompanion.insert(
-      id: 'review-$transactionId',
+      id: id ?? 'review-$transactionId',
       householdId: householdMain,
       transactionId: transactionId,
       reason: reason,
+      severity: Value(severity),
       createdAt: createdAt,
     );
   }
@@ -3763,6 +4094,64 @@ class RegistrySnapshot {
   final List<CostCenterRow> costCenters;
 }
 
+class StartupState {
+  const StartupState({
+    required this.onboardingCompleted,
+    required this.hasCoreSetup,
+    required this.isEmpty,
+    required this.primaryPersonId,
+    required this.primaryAccountId,
+  });
+
+  final bool onboardingCompleted;
+  final bool hasCoreSetup;
+  final bool isEmpty;
+  final String? primaryPersonId;
+  final String? primaryAccountId;
+
+  bool get needsOnboarding => !onboardingCompleted || !hasCoreSetup;
+}
+
+class SetupInput {
+  const SetupInput({
+    required this.personName,
+    required this.accountName,
+    required this.accountProvider,
+    this.accountType = 'account',
+    this.createStarterCategories = true,
+  });
+
+  final String personName;
+  final String accountName;
+  final String accountProvider;
+  final String accountType;
+  final bool createStarterCategories;
+}
+
+class NewTransactionInput {
+  const NewTransactionInput({
+    required this.kind,
+    required this.amountCents,
+    required this.description,
+    required this.accountId,
+    required this.payerPersonId,
+    this.categoryId,
+    this.costCenterId,
+    this.beneficiaryIds = const [],
+    this.occurredAt,
+  });
+
+  final String kind;
+  final int amountCents;
+  final String description;
+  final String accountId;
+  final String? payerPersonId;
+  final String? categoryId;
+  final String? costCenterId;
+  final List<String> beneficiaryIds;
+  final DateTime? occurredAt;
+}
+
 class LocalDataStatus {
   const LocalDataStatus({
     required this.people,
@@ -3904,6 +4293,7 @@ class _DecodedBackup {
     required this.reviewInbox,
     required this.transactionBeneficiaries,
     required this.transactionSources,
+    required this.classificationRules,
     required this.syncOutbox,
     required this.appPreferences,
     required this.authUsers,
@@ -3928,6 +4318,7 @@ class _DecodedBackup {
   final List<ReviewInboxRow> reviewInbox;
   final List<TransactionBeneficiaryRow> transactionBeneficiaries;
   final List<TransactionSourceRow> transactionSources;
+  final List<ClassificationRuleRow> classificationRules;
   final List<SyncOutboxRow> syncOutbox;
   final List<AppPreferenceRow> appPreferences;
   final List<AuthUserRow> authUsers;

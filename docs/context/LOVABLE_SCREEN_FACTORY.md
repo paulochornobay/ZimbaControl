@@ -19,32 +19,29 @@ Usar o Lovable tela por tela. Ele sera usado para revisao, cadastros
 familiares, importacao, painel e backup. Captura Android, banco, parsers, sync
 e seguranca devem ser implementados diretamente no app final.
 
-## Local do Prototipo
+## Local da Referencia
 
-O prototipo fica em:
+O front fica exclusivamente no repositorio externo:
 
 ```text
-prototypes/lovable
+/Users/macbookair/Public/dev/pixel-perfect-pixels
+https://github.com/paulochornobay/pixel-perfect-pixels
 ```
 
-Ele deve permanecer separado de:
+Ele nao deve ser copiado para:
 
 ```text
+ZimbaControl/prototypes
 apps/mobile
 apps/api
 packages/contracts
 ```
 
-Novo download analisado:
+Antes de cada ciclo, executar `git fetch origin` no repositorio externo e
+registrar o commit de `origin/main` usado como baseline. O codigo React e apenas
+referencia visual; o Flutter e sempre a fonte funcional.
 
-```text
-/Users/macbookair/Public/dev/pixel-perfect-pixels
-```
-
-Esse download e a referencia mais recente para Caixa de Revisao, edicao,
-duplicidades e parcelas. Ainda e mock visual. A tentativa final de refinamento
-da Caixa de Revisao com pouco credito nao concluiu o prompt; use o Flutter como
-fonte funcional do Marco 04 e Lovable apenas para proximas telas.
+Baseline do ciclo de recuperacao iniciado em julho de 2026: `6a2d072`.
 
 ## Rotas Existentes no Zip
 

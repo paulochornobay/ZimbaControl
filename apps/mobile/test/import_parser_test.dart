@@ -65,6 +65,25 @@ void main() {
     expect(result.records.single.externalId, 'linha-1');
   });
 
+  test('inspects CSV columns and suggests a complete mapping', () {
+    final csv = [
+      'Data;Descrição;Valor;Identificador',
+      '22/07/2026;Padaria;-18,40;linha-1',
+    ].join('\n');
+
+    final inspection = inspectCsvFile(
+      fileName: 'nubank.csv',
+      bytes: utf8.encode(csv),
+    );
+
+    expect(inspection.columns, ['Data', 'Descrição', 'Valor', 'Identificador']);
+    expect(inspection.provider, 'nubank');
+    expect(inspection.suggestedMapping?.dateColumn, 'Data');
+    expect(inspection.suggestedMapping?.descriptionColumn, 'Descrição');
+    expect(inspection.suggestedMapping?.amountColumn, 'Valor');
+    expect(inspection.suggestedMapping?.externalIdColumn, 'Identificador');
+  });
+
   test('parses OFX statement transactions', () {
     final ofx = '''
 OFXHEADER:100

@@ -11,9 +11,8 @@ sem MongoDB e sem login. O nucleo local, importacao, notificacoes,
 conciliacao e backup ja existem; sync em nuvem agora entra como caminho
 opcional e incremental.
 
-Durante desenvolvimento, o app ainda inicia com dados seed de exemplo quando o
-banco esta vazio. Antes do uso real continuo, essa seed deve virar opcao
-explicita ou ser removida do fluxo automatico de abertura.
+Dados de demonstracao so podem ser carregados por escolha explicita. Uma
+instalacao limpa deve abrir o onboarding e permanecer sem dados ficticios.
 
 O app ja possui caminho local de recuperacao: backup JSON versionado e
 restauracao sem MongoDB. Sync em nuvem deve continuar opcional e nunca deve
@@ -21,7 +20,9 @@ bloquear o uso local.
 
 ## Decisoes Fixas
 
-- O zip Lovable e a fonte visual oficial e fabrica de telas.
+- O projeto externo `/Users/macbookair/Public/dev/pixel-perfect-pixels`
+  (`paulochornobay/pixel-perfect-pixels`) e a referencia visual oficial.
+- Nenhum codigo React/Lovable deve ser copiado para este monorepo.
 - O app final sera Flutter, nao React.
 - A captura de notificacoes sera Android-only no MVP, via Kotlin
   `NotificationListenerService`.

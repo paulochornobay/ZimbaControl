@@ -28,6 +28,98 @@ void main() {
   });
 
   test(
+    'initial setup creates real defaults without demo transactions',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      await database.saveInitialSetup(
+        const SetupInput(
+          personName: 'Paulo',
+          accountName: 'Conta principal',
+          accountProvider: 'nubank',
+        ),
+      );
+
+      final startup = await database.getStartupState();
+      final registry = await database.getRegistrySnapshot();
+
+      expect(startup.needsOnboarding, isFalse);
+      expect(startup.primaryPersonId, isNotNull);
+      expect(startup.primaryAccountId, isNotNull);
+      expect(registry.people.single.displayName, 'Paulo');
+      expect(registry.accounts.single.account.name, 'Conta principal');
+      expect(registry.categories, isNotEmpty);
+      expect(await database.watchAllTransactions().first, isEmpty);
+    },
+  );
+
+  test('manual transaction rejects an account that does not exist', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+
+    expect(
+      () => database.createManualTransaction(
+        const NewTransactionInput(
+          kind: 'expense',
+          amountCents: 1000,
+          description: 'Teste',
+          accountId: 'mp',
+          payerPersonId: 'eu',
+        ),
+      ),
+      throwsA(isA<StateError>()),
+    );
+  });
+
+  test(
+    'active classification rule classifies a manual transaction by priority',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      await database.saveInitialSetup(
+        const SetupInput(
+          personName: 'Paulo',
+          accountName: 'Conta principal',
+          accountProvider: 'nubank',
+        ),
+      );
+      final startup = await database.getStartupState();
+      final categories = await database.listCategories();
+      final category = categories.firstWhere((item) => item.kind == 'expense');
+      final ruleId = await database.upsertClassificationRule(
+        name: 'Mercados',
+        matchText: 'mercado',
+        kind: 'expense',
+        categoryId: category.id,
+        costCenterId: null,
+        priority: 100,
+      );
+
+      final transactionId = await database.createManualTransaction(
+        NewTransactionInput(
+          kind: 'expense',
+          amountCents: 1890,
+          description: 'Mercado do bairro',
+          accountId: startup.primaryAccountId!,
+          payerPersonId: startup.primaryPersonId,
+        ),
+      );
+      final transaction = await database.getTransaction(transactionId);
+      final rule = (await database.listClassificationRules()).single;
+      final pending = await database.watchPendingReview().first;
+      final outbox = await database.listPendingSyncOutbox();
+
+      expect(transaction?.categoryId, category.id);
+      expect(transaction?.appliedRuleId, ruleId);
+      expect(transaction?.reviewStatus, 'confirmed');
+      expect(rule.usageCount, 1);
+      expect(pending.where((item) => item.id == transactionId), isEmpty);
+      expect(outbox.last.deviceId, startsWith('device-'));
+    },
+  );
+
+  test(
     'loadDemoData and clearLocalData control the local environment',
     () async {
       final database = AppDatabase.forTesting(NativeDatabase.memory());
@@ -231,7 +323,25 @@ void main() {
   test('backup export validates and restores into an empty database', () async {
     final source = AppDatabase.forTesting(NativeDatabase.memory());
     await source.seedIfEmpty();
-    await source.createManualDraft();
+    await source.upsertClassificationRule(
+      name: 'Mercado no backup',
+      matchText: 'mercado',
+      kind: 'expense',
+      categoryId: 'alimentacao',
+      costCenterId: null,
+      priority: 100,
+    );
+    await source.createManualTransaction(
+      const NewTransactionInput(
+        kind: 'expense',
+        amountCents: 2450,
+        description: 'Lancamento manual',
+        accountId: 'mp',
+        payerPersonId: 'eu',
+        categoryId: 'alimentacao',
+        beneficiaryIds: ['eu'],
+      ),
+    );
     final backup = await source.exportBackupFile();
     await source.close();
 
@@ -242,6 +352,7 @@ void main() {
     final restored = await target.restoreBackupBytes(backup.bytes);
     final restoredTransactions = await target.watchAllTransactions().first;
     final restoredPeople = await target.watchPeople().first;
+    final restoredRules = await target.listClassificationRules();
 
     expect(validation.valid, isTrue);
     expect(validation.transactionCount, 8);
@@ -251,6 +362,7 @@ void main() {
       restoredPeople.map((person) => person.displayName),
       contains('Sofia'),
     );
+    expect(restoredRules.single.name, 'Mercado no backup');
   });
 
   test(
@@ -278,7 +390,17 @@ void main() {
     addTearDown(database.close);
 
     await database.seedIfEmpty();
-    await database.createManualDraft();
+    await database.createManualTransaction(
+      const NewTransactionInput(
+        kind: 'expense',
+        amountCents: 2450,
+        description: 'Lancamento manual',
+        accountId: 'mp',
+        payerPersonId: 'eu',
+        categoryId: 'alimentacao',
+        beneficiaryIds: ['eu'],
+      ),
+    );
 
     final before = await database.listPendingSyncOutbox();
     final summary = await database.runSyncOnce(_FakeSyncApiClient());
@@ -289,6 +411,36 @@ void main() {
     expect(summary.pulled, 1);
     expect(summary.latestSeq, 7);
     expect(after, isEmpty);
+  });
+
+  test('sync conflict returns the local transaction to review', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    await database.seedIfEmpty();
+    final transactionId = await database.createManualTransaction(
+      const NewTransactionInput(
+        kind: 'expense',
+        amountCents: 2450,
+        description: 'Lancamento concorrente',
+        accountId: 'mp',
+        payerPersonId: 'eu',
+        categoryId: 'alimentacao',
+      ),
+    );
+
+    final summary = await database.runSyncOnce(_ConflictSyncApiClient());
+    final inbox = await database.watchOpenReviewInbox().first;
+
+    expect(summary.conflicts, greaterThan(0));
+    expect(
+      inbox.where(
+        (item) =>
+            item.transactionId == transactionId &&
+            item.reason == 'sync_conflict' &&
+            item.severity == 'high',
+      ),
+      isNotEmpty,
+    );
   });
 
   test('pension and school are tied to the child financial context', () async {
@@ -854,6 +1006,30 @@ class _FakeSyncApiClient implements SyncApiClient {
             result: 'applied',
             entityId: operation['entityId'] as String,
             seq: payload.operations.indexOf(operation) + 1,
+          ),
+      ],
+    );
+  }
+}
+
+class _ConflictSyncApiClient implements SyncApiClient {
+  @override
+  Future<SyncPullResponse> pull({
+    required String householdId,
+    required int sinceSeq,
+  }) async => const SyncPullResponse(events: [], latestSeq: 0);
+
+  @override
+  Future<SyncPushResponse> push(SyncPushPayload payload) async {
+    return SyncPushResponse(
+      latestSeq: 1,
+      results: [
+        for (final operation in payload.operations)
+          SyncOperationAck(
+            opId: operation['opId'] as String,
+            result: 'conflict',
+            entityId: operation['entityId'] as String,
+            seq: 1,
           ),
       ],
     );

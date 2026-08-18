@@ -15,6 +15,8 @@
 - Marco 10 - Backup e Recuperacao: concluido
 - Marco 11 - Sync e Acesso Opcional: em andamento; 11A e 11B concluidos
 - Marco 12 - Seguranca e Publicacao: planejado
+- Recuperacao visual e primeira abertura local: concluida no baseline
+  `pixel-perfect-pixels@6a2d072`; falta homologacao em Android fisico
 
 ## Direcao Atual
 
@@ -59,8 +61,9 @@ Criterio de aceite:
 
 - O prototipo roda localmente e esta claramente separado do app final.
 
-Status: concluido. Ha uma copia historica em `prototypes/lovable` e o novo
-download analisado em `/Users/macbookair/Public/dev/pixel-perfect-pixels`.
+Status: concluido. A referencia existe somente no repositorio externo
+`/Users/macbookair/Public/dev/pixel-perfect-pixels`; nao ha copia React dentro
+do monorepo Flutter.
 
 ## Marco 02 - Fundacao do Monorepo
 
@@ -161,9 +164,9 @@ Criterio de aceite:
 Status: concluido. O app mobile agora tem importacao local CSV/OFX com
 `file_picker`, parser CSV/OFX, hashes SHA-256 de arquivo e linha, tabelas
 `import_batches` e `staged_source_records`, adapters iniciais Nubank/Mercado
-Pago, API de mapeamento manual para CSV desconhecido, resumo de lote e promocao
-dos registros validos para a Caixa de Revisao. Reimportar o mesmo arquivo
-marca as linhas como duplicadas.
+  Pago, tela de deteccao e mapeamento manual para CSV desconhecido, previa,
+  resumo de lote e promocao dos registros validos para a Caixa de Revisao.
+  Reimportar o mesmo arquivo marca as linhas como duplicadas.
 
 ## Marco 07 - Conciliacao Financeira
 

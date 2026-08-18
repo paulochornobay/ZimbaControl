@@ -12,17 +12,33 @@ Antes de implementar novos marcos, leia estes arquivos:
 - `docs/context/ARCHITECTURE.md`
 - `docs/context/LOVABLE_SCREEN_FACTORY.md`
 
-O projeto usa o zip do Lovable como protótipo visual e fonte de telas. O app final
-sera Flutter + Drift/SQLite + Android Kotlin + backend Node.js/TypeScript +
-MongoDB Atlas.
+O projeto Flutter usa como referencia visual externa o projeto Lovable em
+`/Users/macbookair/Public/dev/pixel-perfect-pixels`
+(`paulochornobay/pixel-perfect-pixels`). Nenhum codigo React/Lovable e mantido
+neste monorepo.
 
 ## Estrutura
 
 - `apps/mobile`: app Flutter final.
 - `apps/api`: backend Node.js/TypeScript/Fastify.
 - `packages/contracts`: OpenAPI e JSON Schemas compartilhados.
-- `prototypes/lovable`: prototipo visual exportado do Lovable.
 - `docs/context`: memoria compacta do projeto.
+
+## Referencia visual
+
+Antes de portar ou revisar uma tela, atualize apenas o repositorio externo e
+registre o commit usado no ciclo:
+
+```sh
+cd /Users/macbookair/Public/dev/pixel-perfect-pixels
+git fetch origin
+git log -1 --oneline origin/main
+```
+
+Nao copie o front React para dentro deste repositorio e nao misture o historico
+Git dos dois projetos.
+
+Baseline visual da recuperacao mobile atual: `6a2d072`.
 
 ## Comandos
 
