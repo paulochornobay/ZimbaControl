@@ -139,7 +139,15 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Novo lançamento')),
+      appBar: AppBar(
+        toolbarHeight: 72,
+        title: Text(
+          'Novo lançamento',
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(letterSpacing: -.5),
+        ),
+      ),
       body: FutureBuilder<_NewTransactionData>(
         future: dataFuture,
         builder: (context, snapshot) {
@@ -173,7 +181,8 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      style: Theme.of(context).textTheme.headlineMedium,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.w700),
                       decoration: const InputDecoration(
                         prefixText: 'R\$ ',
                         filled: false,
@@ -183,32 +192,28 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
                         contentPadding: EdgeInsets.symmetric(vertical: 8),
                       ),
                     ),
-                    const SizedBox(height: 10),
-                    SegmentedButton<String>(
-                      showSelectedIcon: false,
-                      segments: const [
-                        ButtonSegment(value: 'expense', label: Text('Despesa')),
-                        ButtonSegment(value: 'income', label: Text('Receita')),
-                        ButtonSegment(
-                          value: 'transfer',
-                          label: Text('Transfer.'),
-                        ),
-                      ],
-                      selected: {kind},
-                      onSelectionChanged: (value) {
-                        setState(() => kind = value.first);
-                      },
+                    const SizedBox(height: 12),
+                    _TransactionKindPicker(
+                      selected: kind,
+                      onSelected: (value) => setState(() => kind = value),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
               const ZimbaSectionTitle('Descrição'),
-              TextField(
-                controller: descriptionController,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  hintText: 'Ex.: Padaria da esquina',
+              ZimbaCard(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: TextField(
+                  controller: descriptionController,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    hintText: 'Ex.: Padaria da esquina',
+                    filled: false,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),
@@ -216,11 +221,10 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
               _OptionWrap(
                 children: [
                   for (final item in registry.accounts)
-                    ChoiceChip(
-                      label: Text(item.account.name),
+                    _FormOption(
+                      label: item.account.name,
                       selected: accountId == item.account.id,
-                      onSelected: (_) =>
-                          setState(() => accountId = item.account.id),
+                      onTap: () => setState(() => accountId = item.account.id),
                     ),
                 ],
               ),
@@ -232,11 +236,13 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
                     for (final category in registry.categories.where(
                       (item) => item.kind == kind,
                     ))
-                      ChoiceChip(
-                        label: Text(category.name),
+                      _FormOption(
+                        label: category.name,
                         selected: categoryId == category.id,
-                        onSelected: (selected) => setState(
-                          () => categoryId = selected ? category.id : null,
+                        onTap: () => setState(
+                          () => categoryId = categoryId == category.id
+                              ? null
+                              : category.id,
                         ),
                       ),
                   ],
@@ -246,11 +252,13 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
                 _OptionWrap(
                   children: [
                     for (final center in registry.costCenters)
-                      ChoiceChip(
-                        label: Text(center.name),
+                      _FormOption(
+                        label: center.name,
                         selected: costCenterId == center.id,
-                        onSelected: (selected) => setState(
-                          () => costCenterId = selected ? center.id : null,
+                        onTap: () => setState(
+                          () => costCenterId = costCenterId == center.id
+                              ? null
+                              : center.id,
                         ),
                       ),
                   ],
@@ -261,12 +269,12 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
               _OptionWrap(
                 children: [
                   for (final person in registry.people)
-                    FilterChip(
-                      label: Text(person.displayName),
+                    _FormOption(
+                      label: person.displayName,
                       selected: beneficiaryIds.contains(person.id),
-                      onSelected: (selected) {
+                      onTap: () {
                         setState(() {
-                          if (selected) {
+                          if (!beneficiaryIds.contains(person.id)) {
                             beneficiaryIds.add(person.id);
                           } else {
                             beneficiaryIds.remove(person.id);
@@ -311,6 +319,148 @@ class _OptionWrap extends StatelessWidget {
     return ZimbaCard(
       padding: const EdgeInsets.all(12),
       child: Wrap(spacing: 8, runSpacing: 8, children: children),
+    );
+  }
+}
+
+class _TransactionKindPicker extends StatelessWidget {
+  const _TransactionKindPicker({
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    const options = [
+      ('expense', 'Despesa', ZimbaTone.danger),
+      ('income', 'Receita', ZimbaTone.success),
+      ('transfer', 'Transferência', ZimbaTone.accent),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final narrow = constraints.maxWidth < 380;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (var index = 0; index < options.length; index++)
+              SizedBox(
+                width: narrow && index == options.length - 1
+                    ? constraints.maxWidth
+                    : narrow
+                    ? (constraints.maxWidth - 8) / 2
+                    : (constraints.maxWidth - 16) / 3,
+                child: _KindButton(
+                  label: options[index].$2,
+                  selected: selected == options[index].$1,
+                  tone: options[index].$3,
+                  onTap: () => onSelected(options[index].$1),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _KindButton extends StatelessWidget {
+  const _KindButton({
+    required this.label,
+    required this.selected,
+    required this.tone,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final ZimbaTone tone;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = switch (tone) {
+      ZimbaTone.danger => (
+        ZimbaColors.destructiveSoft,
+        ZimbaColors.destructive,
+      ),
+      ZimbaTone.success => (ZimbaColors.successSoft, ZimbaColors.success),
+      _ => (ZimbaColors.accentSoft, ZimbaColors.accent),
+    };
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          height: 40,
+          decoration: BoxDecoration(
+            color: selected ? colors.$1 : ZimbaColors.surfaceMuted,
+            border: Border.all(
+              color: selected ? colors.$2 : Colors.transparent,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: selected ? colors.$2 : ZimbaColors.secondaryText,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FormOption extends StatelessWidget {
+  const _FormOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? ZimbaColors.accentSoft : ZimbaColors.surface,
+            border: Border.all(
+              color: selected ? ZimbaColors.accent : ZimbaColors.border,
+            ),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 260),
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: selected
+                    ? ZimbaColors.accent
+                    : ZimbaColors.secondaryText,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
