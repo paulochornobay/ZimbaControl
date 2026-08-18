@@ -50,13 +50,23 @@ class _DuplicatesPageState extends State<DuplicatesPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Column(
+        toolbarHeight: 82,
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Duplicidades'),
+            Text(
+              'Duplicidades',
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(letterSpacing: -.5),
+            ),
+            const SizedBox(height: 3),
             Text(
               'Comparar e resolver',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: ZimbaColors.secondaryText,
+                fontWeight: FontWeight.w400,
+              ),
             ),
           ],
         ),
@@ -73,7 +83,7 @@ class _DuplicatesPageState extends State<DuplicatesPage> {
             return const _EmptyDuplicatesState();
           }
           return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
             children: [
               if (loading) const LinearProgressIndicator(),
               for (final item in items) ...[
@@ -127,8 +137,22 @@ class _DuplicateCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(Icons.content_copy_outlined, size: 20),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: ZimbaColors.warningSoft,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(9),
+                  child: Icon(
+                    Icons.merge_type_outlined,
+                    size: 18,
+                    color: ZimbaColors.warning,
+                  ),
+                ),
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Wrap(
@@ -175,26 +199,10 @@ class _DuplicateCard extends StatelessWidget {
                 details.stagedRecord?.amountCents,
           ),
           const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FilledButton.icon(
-                onPressed: onMerge,
-                icon: const Icon(Icons.merge_type_outlined),
-                label: const Text('Mesclar'),
-              ),
-              OutlinedButton.icon(
-                onPressed: onKeep,
-                icon: const Icon(Icons.call_split_outlined),
-                label: const Text('Manter'),
-              ),
-              OutlinedButton.icon(
-                onPressed: onIgnore,
-                icon: const Icon(Icons.visibility_off_outlined),
-                label: const Text('Ignorar'),
-              ),
-            ],
+          _DuplicateActions(
+            onMerge: onMerge,
+            onKeep: onKeep,
+            onIgnore: onIgnore,
           ),
         ],
       ),
@@ -222,30 +230,86 @@ class _CompareTile extends StatelessWidget {
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: Theme.of(context).textTheme.labelSmall),
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ],
+            Text(
+              label.toUpperCase(),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: ZimbaColors.secondaryText,
+                letterSpacing: .45,
               ),
             ),
+            const SizedBox(height: 3),
+            Text(
+              title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
             if (amountCents != null)
-              Text(
-                formatBrl(amountCents!),
-                style: const TextStyle(fontWeight: FontWeight.w800),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  formatBrl(amountCents!),
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
               ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _DuplicateActions extends StatelessWidget {
+  const _DuplicateActions({
+    required this.onMerge,
+    required this.onKeep,
+    required this.onIgnore,
+  });
+
+  final VoidCallback onMerge;
+  final VoidCallback onKeep;
+  final VoidCallback onIgnore;
+
+  @override
+  Widget build(BuildContext context) {
+    final actions = [
+      ZimbaActionItem(
+        label: 'Mesclar',
+        icon: Icons.merge_type_outlined,
+        tone: ZimbaTone.success,
+        onPressed: onMerge,
+      ),
+      ZimbaActionItem(
+        label: 'Manter separados',
+        icon: Icons.call_split_outlined,
+        onPressed: onKeep,
+      ),
+      ZimbaActionItem(
+        label: 'Ignorar',
+        icon: Icons.visibility_off_outlined,
+        onPressed: onIgnore,
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 390) {
+          return Column(
+            children: [
+              for (var index = 0; index < actions.length; index++) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ZimbaActionGrid(items: [actions[index]]),
+                ),
+                if (index < actions.length - 1) const SizedBox(height: 8),
+              ],
+            ],
+          );
+        }
+        return ZimbaActionGrid(items: actions);
+      },
     );
   }
 }

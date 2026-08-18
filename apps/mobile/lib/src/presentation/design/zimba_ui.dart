@@ -468,6 +468,9 @@ class ZimbaActionGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (items.length == 1) {
+      return _ZimbaActionButton(item: items.single);
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final narrow = constraints.maxWidth < 390;
