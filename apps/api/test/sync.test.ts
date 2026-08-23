@@ -20,7 +20,7 @@ test("POST /sync/push applies an operation once and treats retry as duplicate", 
         entityId: "tx-1",
         operationType: "create",
         baseVersion: 0,
-        payload: { descriptionRaw: "Mercado Extra" },
+        payload: transactionPayload("tx-1", "Mercado Extra", -48732),
         createdAt: "2026-07-28T12:00:00.000Z",
       },
     ],
@@ -47,6 +47,37 @@ test("POST /sync/push applies an operation once and treats retry as duplicate", 
   await app.close();
 });
 
+test("POST /sync/push rejects legacy transaction payloads without a version", async () => {
+  const app = buildApp({ config: testConfig() });
+  await app.ready();
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/sync/push",
+    payload: {
+      deviceId: "device-local",
+      householdId: "household-main",
+      operations: [
+        {
+          opId: "op-legacy-payload",
+          deviceId: "device-local",
+          householdId: "household-main",
+          entityType: "transaction",
+          entityId: "tx-legacy",
+          operationType: "create",
+          baseVersion: 0,
+          payload: { entityId: "tx-legacy" },
+          createdAt: "2026-07-28T12:00:00.000Z",
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.json().error, "invalid_sync_push");
+  await app.close();
+});
+
 test("GET /sync/pull returns incremental events in order", async () => {
   const app = buildApp({ config: testConfig() });
   await app.ready();
@@ -60,7 +91,7 @@ test("GET /sync/pull returns incremental events in order", async () => {
       entityId: "tx-1",
       operationType: "create",
       baseVersion: 0,
-      payload: { descriptionRaw: "Mercado Extra" },
+      payload: transactionPayload("tx-1", "Mercado Extra", -48732),
       createdAt: "2026-07-28T12:00:00.000Z",
     },
     {
@@ -71,7 +102,7 @@ test("GET /sync/pull returns incremental events in order", async () => {
       entityId: "tx-2",
       operationType: "create",
       baseVersion: 0,
-      payload: { descriptionRaw: "Farmacia" },
+      payload: transactionPayload("tx-2", "Farmacia", -12000),
       createdAt: "2026-07-28T12:05:00.000Z",
     },
   ];
@@ -112,7 +143,7 @@ test("POST /sync/push returns conflict when base version is stale", async () => 
     entityId: "tx-conflict",
     operationType: "create",
     baseVersion: 0,
-    payload: { amountCents: -1000 },
+    payload: transactionPayload("tx-conflict", "Valor original", -1000),
     createdAt: "2026-07-28T12:00:00.000Z",
   };
   const staleUpdate = {
@@ -121,7 +152,7 @@ test("POST /sync/push returns conflict when base version is stale", async () => 
     deviceId: "device-b",
     operationType: "update",
     baseVersion: 0,
-    payload: { amountCents: -2000 },
+    payload: transactionPayload("tx-conflict", "Valor concorrente", -2000),
   };
 
   await app.inject({
@@ -252,4 +283,52 @@ class FakeGoogleVerifier implements GoogleTokenVerifier {
   async verify(): Promise<AuthenticatedUser> {
     return this.user;
   }
+}
+
+function transactionPayload(id: string, descriptionRaw: string, amountCents: number) {
+  return {
+    schemaVersion: 1,
+    transaction: {
+      id,
+      householdId: "household-main",
+      kind: "expense",
+      reviewStatus: "pending",
+      duplicateStatus: "none",
+      occurredAt: "2026-07-28T12:00:00.000Z",
+      postedAt: null,
+      competenceMonth: "2026-07",
+      amountCents,
+      currencyCode: "BRL",
+      descriptionRaw,
+      accountId: "mp",
+      transferFromAccountId: null,
+      transferToAccountId: null,
+      recurringScheduleId: null,
+      installmentPlanId: null,
+      merchantId: null,
+      categoryId: "alimentacao",
+      costCenterId: null,
+      payerId: "eu",
+      appliedRuleId: null,
+      sourceConfidence: 1,
+      updatedAt: "2026-07-28T12:00:00.000Z",
+      deletedAt: null,
+    },
+    beneficiaries: [],
+    sources: [
+      {
+        id: `src-${id}`,
+        transactionId: id,
+        sourceKind: "manual",
+        provider: "manual",
+        externalId: null,
+        fileHash: null,
+        rowHash: null,
+        notificationKey: null,
+        rawPayloadJson: null,
+        occurredAt: "2026-07-28T12:00:00.000Z",
+        confidence: 1,
+      },
+    ],
+  };
 }

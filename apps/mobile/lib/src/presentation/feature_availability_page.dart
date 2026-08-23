@@ -106,16 +106,27 @@ class _RulesList extends StatefulWidget {
 }
 
 class _RulesListState extends State<_RulesList> {
-  late Future<List<ClassificationRuleRow>> rulesFuture;
+  late Future<_RulesData> rulesFuture;
 
   @override
   void initState() {
     super.initState();
-    rulesFuture = widget.database.listClassificationRules();
+    rulesFuture = _load();
   }
 
   void refresh() {
-    setState(() => rulesFuture = widget.database.listClassificationRules());
+    setState(() => rulesFuture = _load());
+  }
+
+  Future<_RulesData> _load() async {
+    final results = await Future.wait<Object>([
+      widget.database.listClassificationRules(),
+      widget.database.getRegistrySnapshot(),
+    ]);
+    return _RulesData(
+      rules: results[0] as List<ClassificationRuleRow>,
+      registry: results[1] as RegistrySnapshot,
+    );
   }
 
   Future<void> openEditor([ClassificationRuleRow? rule]) async {
@@ -138,7 +149,7 @@ class _RulesListState extends State<_RulesList> {
         icon: const Icon(Icons.add, size: 18),
         label: const Text('Nova'),
       ),
-      child: FutureBuilder<List<ClassificationRuleRow>>(
+      child: FutureBuilder<_RulesData>(
         future: rulesFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -161,7 +172,8 @@ class _RulesListState extends State<_RulesList> {
               ),
             );
           }
-          final rules = snapshot.data ?? const <ClassificationRuleRow>[];
+          final data = snapshot.data;
+          final rules = data?.rules ?? const <ClassificationRuleRow>[];
           if (rules.isEmpty) {
             return ZimbaCard(
               child: Column(
@@ -192,47 +204,93 @@ class _RulesListState extends State<_RulesList> {
           return ZimbaRows(
             children: [
               for (final rule in rules)
-                ListTile(
+                _RuleTile(
+                  rule: rule,
+                  destination: _destinationFor(rule, data!.registry),
                   onTap: () => openEditor(rule),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 3,
-                  ),
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: rule.active
-                          ? ZimbaColors.accentSoft
-                          : ZimbaColors.surfaceMuted,
-                      borderRadius: BorderRadius.circular(13),
-                    ),
-                    child: Icon(
-                      Icons.rule_outlined,
-                      color: rule.active
-                          ? ZimbaColors.accent
-                          : ZimbaColors.secondaryText,
-                    ),
-                  ),
-                  title: Text(
-                    rule.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                  subtitle: Text(
-                    '“${rule.matchText}” · prioridade ${rule.priority} · ${rule.usageCount} uso(s)',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  trailing: ZimbaBadge(
-                    label: rule.active ? 'Ativa' : 'Pausada',
-                    tone: rule.active ? ZimbaTone.success : ZimbaTone.neutral,
-                  ),
                 ),
             ],
           );
         },
+      ),
+    );
+  }
+
+  String _destinationFor(
+    ClassificationRuleRow rule,
+    RegistrySnapshot registry,
+  ) {
+    final category = rule.categoryId == null
+        ? null
+        : registry.categories
+              .where((item) => item.id == rule.categoryId)
+              .firstOrNull;
+    final center = rule.costCenterId == null
+        ? null
+        : registry.costCenters
+              .where((item) => item.id == rule.costCenterId)
+              .firstOrNull;
+    final targets = <String>[
+      if (category != null) 'Categoria: ${category.name}',
+      if (center != null) 'Centro: ${center.name}',
+    ];
+    return targets.isEmpty
+        ? 'Destino indisponível'
+        : 'Destino: ${targets.join(' · ')}';
+  }
+}
+
+class _RulesData {
+  const _RulesData({required this.rules, required this.registry});
+
+  final List<ClassificationRuleRow> rules;
+  final RegistrySnapshot registry;
+}
+
+class _RuleTile extends StatelessWidget {
+  const _RuleTile({
+    required this.rule,
+    required this.destination,
+    required this.onTap,
+  });
+
+  final ClassificationRuleRow rule;
+  final String destination;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: rule.active
+              ? ZimbaColors.accentSoft
+              : ZimbaColors.surfaceMuted,
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: Icon(
+          Icons.rule_outlined,
+          color: rule.active ? ZimbaColors.accent : ZimbaColors.secondaryText,
+        ),
+      ),
+      title: Text(
+        rule.name,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.titleSmall,
+      ),
+      subtitle: Text(
+        '“${rule.matchText}” · prioridade ${rule.priority} · ${rule.usageCount} uso(s)\n$destination',
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: ZimbaBadge(
+        label: rule.active ? 'Ativa' : 'Pausada',
+        tone: rule.active ? ZimbaTone.success : ZimbaTone.neutral,
       ),
     );
   }
@@ -587,25 +645,31 @@ class _SyncPrivacyContentState extends State<_SyncPrivacyContent> {
                     ),
             ),
             ZimbaSection(
-              title: 'Próximo marco',
+              title: 'Estado técnico',
               child: const ZimbaRows(
                 children: [
                   _AvailabilityRow(
                     icon: Icons.sync_outlined,
                     title: 'Aplicar dados remotos',
                     subtitle:
-                        'Pull incremental para o banco local com deviceId.',
+                        'O pull incremental aplica snapshots no banco local por deviceId.',
+                    label: 'Disponível',
+                    tone: ZimbaTone.success,
                   ),
                   _AvailabilityRow(
                     icon: Icons.warning_amber_outlined,
                     title: 'Conflitos financeiros',
                     subtitle:
-                        'Casos concorrentes voltarão para a Caixa de Revisão.',
+                        'Casos concorrentes preservam os dois lados para revisão.',
+                    label: 'Disponível',
+                    tone: ZimbaTone.success,
                   ),
                   _AvailabilityRow(
-                    icon: Icons.privacy_tip_outlined,
-                    title: 'Payload de notificações',
-                    subtitle: 'Dados brutos não serão enviados por padrão.',
+                    icon: Icons.phonelink_setup_outlined,
+                    title: 'Homologação em dois aparelhos',
+                    subtitle:
+                        'Ainda depende de API configurada e duas instalações Android reais.',
+                    label: 'Pendente',
                   ),
                 ],
               ),

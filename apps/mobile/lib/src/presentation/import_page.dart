@@ -157,16 +157,35 @@ class _ImportPageState extends State<ImportPage> {
               ],
               if (errorMessage != null) ...[
                 const SizedBox(height: 16),
-                ZimbaCard(
-                  padding: EdgeInsets.zero,
-                  child: ListTile(
-                    leading: const Icon(Icons.error_outline),
-                    title: Text(errorMessage!),
+                ZimbaFeedbackBanner(
+                  icon: Icons.error_outline,
+                  title: 'Importação não concluída',
+                  body: errorMessage!,
+                  tone: ZimbaTone.danger,
+                  action: OutlinedButton.icon(
+                    onPressed: loading ? null : pickAndImport,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Tentar novamente'),
                   ),
                 ),
               ],
               const SizedBox(height: 16),
-              if (snapshot.connectionState == ConnectionState.waiting &&
+              if (snapshot.hasError)
+                ZimbaStateMessage(
+                  icon: Icons.error_outline,
+                  title: 'Não foi possível ler a importação',
+                  body:
+                      'Tente abrir a tela novamente. Nenhum dado foi alterado.',
+                  action: OutlinedButton.icon(
+                    onPressed: () => setState(
+                      () => latestFuture = widget.database
+                          .getLatestImportBatchDetails(),
+                    ),
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Atualizar'),
+                  ),
+                )
+              else if (snapshot.connectionState == ConnectionState.waiting &&
                   details == null)
                 const Center(child: CircularProgressIndicator())
               else if (details == null)

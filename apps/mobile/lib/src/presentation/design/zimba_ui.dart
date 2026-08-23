@@ -307,6 +307,66 @@ class ZimbaStateMessage extends StatelessWidget {
   }
 }
 
+/// Reusable inline feedback for recoverable loading, import and local-action
+/// failures. Screens provide the real operation and optional retry; this
+/// component only keeps the visual treatment consistent.
+class ZimbaFeedbackBanner extends StatelessWidget {
+  const ZimbaFeedbackBanner({
+    required this.icon,
+    required this.title,
+    required this.body,
+    super.key,
+    this.tone = ZimbaTone.neutral,
+    this.action,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+  final ZimbaTone tone;
+  final Widget? action;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = switch (tone) {
+      ZimbaTone.success => (ZimbaColors.successSoft, ZimbaColors.success),
+      ZimbaTone.warning => (ZimbaColors.warningSoft, ZimbaColors.warning),
+      ZimbaTone.danger => (
+        ZimbaColors.destructiveSoft,
+        ZimbaColors.destructive,
+      ),
+      ZimbaTone.accent => (ZimbaColors.accentSoft, ZimbaColors.accent),
+      ZimbaTone.info => (ZimbaColors.infoSoft, ZimbaColors.foreground),
+      ZimbaTone.neutral => (
+        ZimbaColors.surfaceMuted,
+        ZimbaColors.secondaryText,
+      ),
+    };
+    return ZimbaCard(
+      color: colors.$1,
+      borderColor: colors.$1,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: colors.$2),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 3),
+                Text(body, style: Theme.of(context).textTheme.bodySmall),
+                if (action != null) ...[const SizedBox(height: 10), action!],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Compact, semantic representation of people in list cards.  Names belong in
 /// the detail flow; the queue keeps the same avatar-stack language as the
 /// Lovable reference without risking a pale/truncated chip label.

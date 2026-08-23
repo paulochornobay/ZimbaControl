@@ -7,6 +7,7 @@ import 'package:zimba_control/main.dart';
 import 'package:zimba_control/src/application/import_parser.dart';
 import 'package:zimba_control/src/data/local/app_database.dart';
 import 'package:zimba_control/src/presentation/design/zimba_theme.dart';
+import 'package:zimba_control/src/presentation/edit_transaction_page.dart';
 import 'package:zimba_control/src/presentation/import_page.dart';
 import 'package:zimba_control/src/presentation/new_transaction_page.dart';
 import 'package:zimba_control/src/presentation/review_page.dart';
@@ -164,7 +165,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 800));
 
-      expect(find.text('Caixa de revisão'), findsOneWidget);
+    expect(find.text('Caixa de revisão'), findsOneWidget);
     expect(find.byType(ReviewTransactionCard), findsWidgets);
     expect(tester.takeException(), isNull);
 
@@ -179,4 +180,67 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1));
     await database.close();
   });
+
+  for (final size in const [Size(360, 800), Size(390, 844)]) {
+    testWidgets('transaction detail fits ${size.width.toInt()}px', (
+      tester,
+    ) async {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      tester.platformDispatcher.textScaleFactorTestValue = 1.15;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        tester.platformDispatcher.clearTextScaleFactorTestValue();
+      });
+
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      await database.saveInitialSetup(
+        const SetupInput(
+          personName: 'Beneficiário com nome muito comprido',
+          accountName: 'Conta com nome suficientemente comprido',
+          accountProvider: 'manual',
+        ),
+      );
+      final startup = await database.getStartupState();
+      final id = await database.createManualTransaction(
+        NewTransactionInput(
+          kind: 'expense',
+          amountCents: 999999999,
+          description:
+              'Descrição do lançamento longa para conferir a composição da tela',
+          accountId: startup.primaryAccountId!,
+          payerPersonId: startup.primaryPersonId,
+          beneficiaryIds: [startup.primaryPersonId!],
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ZimbaTheme.light,
+          home: EditTransactionPage(
+            database: database,
+            transactionId: id,
+            onNavigate: (_) {},
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+
+      expect(find.text('Lançamento'), findsOneWidget);
+      expect(find.text('CLASSIFICAÇÃO'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.drag(find.byType(ListView).first, const Offset(0, -900));
+      await tester.pump();
+      expect(find.text('BENEFICIÁRIOS'), findsOneWidget);
+      expect(find.text('ORIGEM & PARCELAMENTO'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      await database.close();
+    });
+  }
 }

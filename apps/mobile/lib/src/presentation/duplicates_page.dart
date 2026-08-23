@@ -79,6 +79,18 @@ class _DuplicatesPageState extends State<DuplicatesPage> {
               items.isEmpty) {
             return const Center(child: CircularProgressIndicator());
           }
+          if (snapshot.hasError) {
+            return ZimbaStateMessage(
+              icon: Icons.error_outline,
+              title: 'Não foi possível carregar duplicidades',
+              body: 'Tente atualizar. Nenhuma sugestão foi alterada.',
+              action: OutlinedButton.icon(
+                onPressed: refresh,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Atualizar'),
+              ),
+            );
+          }
           if (items.isEmpty) {
             return const _EmptyDuplicatesState();
           }

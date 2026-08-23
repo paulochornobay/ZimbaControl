@@ -22,6 +22,7 @@ class MainActivity : FlutterActivity() {
                             "permissionGranted" to isNotificationListenerEnabled(),
                             "allowedPackages" to NotificationCaptureStore.getAllowedPackages(this).toList(),
                             "recentEvents" to NotificationCaptureStore.getRecentEvents(this, 10),
+                            "queue" to NotificationCaptureStore.queueStatus(this),
                         )
                     )
                 }
@@ -37,6 +38,21 @@ class MainActivity : FlutterActivity() {
                 "getRecentEvents" -> {
                     val limit = call.argument<Int>("limit") ?: 50
                     result.success(NotificationCaptureStore.getRecentEvents(this, limit))
+                }
+                "drainPendingEvents" -> {
+                    val limit = call.argument<Int>("limit") ?: 50
+                    result.success(NotificationCaptureStore.drainPendingEvents(this, limit).toMap())
+                }
+                "acknowledgeDeliveredEvents" -> {
+                    val eventIds = call.argument<List<String>>("eventIds").orEmpty()
+                    NotificationCaptureStore.acknowledgeDeliveredEvents(this, eventIds)
+                    result.success(null)
+                }
+                "releaseEventsForRetry" -> {
+                    val eventIds = call.argument<List<String>>("eventIds").orEmpty()
+                    val error = call.argument<String>("error")
+                    NotificationCaptureStore.releaseEventsForRetry(this, eventIds, error)
+                    result.success(null)
                 }
                 "pruneRawEvents" -> {
                     val olderThanDays = call.argument<Int>("olderThanDays") ?: 30

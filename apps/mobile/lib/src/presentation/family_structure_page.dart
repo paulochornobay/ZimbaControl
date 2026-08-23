@@ -33,6 +33,12 @@ class _FamilyStructurePageState extends State<FamilyStructurePage> {
     snapshotFuture = widget.database.getFamilyStructureSnapshot();
   }
 
+  void refresh() {
+    setState(
+      () => snapshotFuture = widget.database.getFamilyStructureSnapshot(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<FamilyStructureSnapshot>(
@@ -50,17 +56,32 @@ class _FamilyStructurePageState extends State<FamilyStructurePage> {
                 ),
               ],
             ),
+            actions: [
+              IconButton(
+                tooltip: 'Atualizar',
+                onPressed: refresh,
+                icon: const Icon(Icons.refresh_outlined),
+              ),
+            ],
           ),
           body: switch (snapshot.connectionState) {
             ConnectionState.waiting => const Center(
               child: CircularProgressIndicator(),
             ),
-            _ when snapshot.hasError => const Center(
-              child: Text('Nao foi possivel carregar a estrutura familiar.'),
+            _ when snapshot.hasError => ZimbaStateMessage(
+              icon: Icons.error_outline,
+              title: 'Não foi possível carregar a família',
+              body: 'Tente atualizar. Nenhum cadastro foi alterado.',
+              action: OutlinedButton.icon(
+                onPressed: refresh,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Atualizar'),
+              ),
             ),
             _ => FamilyStructureContent(
               database: widget.database,
               snapshot: snapshot.data!,
+              onChanged: refresh,
             ),
           },
         );
@@ -73,17 +94,21 @@ class FamilyStructureContent extends StatelessWidget {
   const FamilyStructureContent({
     required this.database,
     required this.snapshot,
+    required this.onChanged,
     super.key,
   });
 
   final AppDatabase database;
   final FamilyStructureSnapshot snapshot;
+  final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
       children: [
+        _FamilyOverview(snapshot: snapshot),
+        const SizedBox(height: 14),
         _Section(
           title: 'Cadastros',
           children: [
@@ -95,11 +120,13 @@ class FamilyStructureContent extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             FilledButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(
-                  builder: (_) => RegistriesPage(database: database),
-                ),
-              ),
+              onPressed: () => Navigator.of(context)
+                  .push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => RegistriesPage(database: database),
+                    ),
+                  )
+                  .then((_) => onChanged()),
               icon: const Icon(Icons.edit_note_outlined),
               label: const Text('Abrir cadastros'),
             ),
@@ -114,20 +141,24 @@ class FamilyStructureContent extends StatelessWidget {
               runSpacing: 8,
               children: [
                 OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => DuplicatesPage(database: database),
-                    ),
-                  ),
+                  onPressed: () => Navigator.of(context)
+                      .push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => DuplicatesPage(database: database),
+                        ),
+                      )
+                      .then((_) => onChanged()),
                   icon: const Icon(Icons.content_copy_outlined),
                   label: const Text('Duplicidades'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => CommitmentsPage(database: database),
-                    ),
-                  ),
+                  onPressed: () => Navigator.of(context)
+                      .push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => CommitmentsPage(database: database),
+                        ),
+                      )
+                      .then((_) => onChanged()),
                   icon: const Icon(Icons.event_repeat_outlined),
                   label: const Text('Compromissos'),
                 ),
@@ -139,19 +170,14 @@ class FamilyStructureContent extends StatelessWidget {
         _Section(
           title: 'Pessoas',
           children: [
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final person in snapshot.people)
-                  Chip(
-                    label: Text(person.displayName),
-                    avatar: CircleAvatar(
-                      child: Text(person.displayName.characters.first),
-                    ),
-                  ),
-              ],
-            ),
+            for (final person in snapshot.people)
+              _InfoRow(
+                icon: person.kind == 'child'
+                    ? Icons.child_care_outlined
+                    : Icons.person_outline,
+                title: person.displayName,
+                subtitle: person.kind == 'child' ? 'Dependente' : 'Adulto',
+              ),
           ],
         ),
         _Section(
@@ -219,6 +245,54 @@ class FamilyStructureContent extends StatelessWidget {
       'transfer' => 'Transferencia interna',
       _ => 'Despesa',
     };
+  }
+}
+
+class _FamilyOverview extends StatelessWidget {
+  const _FamilyOverview({required this.snapshot});
+
+  final FamilyStructureSnapshot snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    return ZimbaCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 46,
+            height: 46,
+            decoration: BoxDecoration(
+              color: ZimbaColors.accentSoft,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.groups_2_outlined,
+              color: ZimbaColors.accent,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Estrutura da família',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${snapshot.people.length} pessoa(s), ${snapshot.accounts.length} conta(s) e ${snapshot.creditCards.length} cartão(ões).',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: ZimbaColors.secondaryText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -462,10 +536,13 @@ class _NotificationCapturePanelState extends State<NotificationCapturePanel> {
     final status = await service.loadStatus();
     final sync = await widget.database.syncNotificationCaptureEvents(service);
     final rawEvents = await widget.database.listRawNotificationEvents(limit: 3);
+    final diagnostics = await widget.database
+        .getNotificationCaptureDiagnostics();
     return _NotificationPanelState(
       status: status,
       sync: sync,
       rawEvents: rawEvents,
+      diagnostics: diagnostics,
     );
   }
 
@@ -473,6 +550,41 @@ class _NotificationCapturePanelState extends State<NotificationCapturePanel> {
     setState(() {
       stateFuture = _load();
     });
+  }
+
+  Future<void> _pruneDeliveredEvents(int retentionDays) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Expurgar eventos entregues?'),
+        content: Text(
+          'Somente notificacoes ja entregues ao banco local ha mais de '
+          '$retentionDays dias serao removidas. Eventos pendentes nao serao apagados.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Expurgar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    await widget.database.setNotificationCaptureRetentionDays(retentionDays);
+    final removed = await service.pruneRawEvents(olderThanDays: retentionDays);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$removed eventos entregues foram expurgados.')),
+    );
+    _refresh();
   }
 
   @override
@@ -497,6 +609,8 @@ class _NotificationCapturePanelState extends State<NotificationCapturePanel> {
 
         final data = snapshot.data!;
         final status = data.status;
+        final diagnostics = data.diagnostics;
+        final allowedApps = status.allowedPackages.length;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -508,9 +622,40 @@ class _NotificationCapturePanelState extends State<NotificationCapturePanel> {
                   ? 'Permissao concedida'
                   : 'Permissao ausente',
               subtitle: status.available
-                  ? 'Os dados ficam locais. Autorize apenas apps confiaveis.'
+                  ? allowedApps == 0
+                        ? 'Nenhum app permitido. Ative Nubank ou Mercado Pago abaixo.'
+                        : '$allowedApps app(s) permitido(s). Os dados ficam locais.'
                   : 'Captura real disponivel apenas no Android.',
             ),
+            const SizedBox(height: 8),
+            _InfoRow(
+              icon: status.queue.pending > 0
+                  ? Icons.pending_actions_outlined
+                  : Icons.cloud_done_outlined,
+              title: '${status.queue.pending} aguardando entrega Android',
+              subtitle:
+                  '${status.queue.delivered} entregues ao banco local · '
+                  'ultima drenagem ${_notificationDate(diagnostics.lastDrain)}',
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'No banco local: ${diagnostics.count('draft_created')} em revisao · '
+              '${diagnostics.count('merged')} conciliadas · '
+              '${diagnostics.count('duplicate')} duplicadas · '
+              '${diagnostics.count('ignored_no_amount')} sem valor.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            if ((data.sync.bridgeError ?? diagnostics.lastError ?? '')
+                .isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text(
+                data.sync.bridgeError ?? diagnostics.lastError!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 12,
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             for (final app in _KnownNotificationApp.values)
               SwitchListTile(
@@ -547,15 +692,46 @@ class _NotificationCapturePanelState extends State<NotificationCapturePanel> {
                 OutlinedButton.icon(
                   onPressed: _refresh,
                   icon: const Icon(Icons.sync),
-                  label: const Text('Sincronizar'),
+                  label: const Text('Tentar novamente'),
                 ),
               ],
             ),
             const SizedBox(height: 10),
             Text(
-              'Ultima sincronizacao: ${data.sync.recorded} eventos, '
-              '${data.sync.drafts} rascunhos.',
+              'Ultima tentativa: ${data.sync.fetched} recebidos, '
+              '${data.sync.recorded} novos no banco e ${data.sync.drafts} rascunhos.',
               style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              initialValue: diagnostics.retentionDays,
+              decoration: const InputDecoration(
+                labelText: 'Reter eventos brutos entregues por',
+              ),
+              items: const [
+                DropdownMenuItem(value: 7, child: Text('7 dias')),
+                DropdownMenuItem(value: 30, child: Text('30 dias')),
+                DropdownMenuItem(value: 90, child: Text('90 dias')),
+              ],
+              onChanged: status.available
+                  ? (days) async {
+                      if (days == null) {
+                        return;
+                      }
+                      await widget.database.setNotificationCaptureRetentionDays(
+                        days,
+                      );
+                      _refresh();
+                    }
+                  : null,
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: status.available
+                  ? () => _pruneDeliveredEvents(diagnostics.retentionDays)
+                  : null,
+              icon: const Icon(Icons.delete_sweep_outlined),
+              label: const Text('Expurgar eventos entregues'),
             ),
             const SizedBox(height: 8),
             if (data.rawEvents.isEmpty)
@@ -575,6 +751,15 @@ class _NotificationCapturePanelState extends State<NotificationCapturePanel> {
       },
     );
   }
+
+  String _notificationDate(DateTime? value) {
+    if (value == null) {
+      return 'ainda nao realizada';
+    }
+    final local = value.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}/${local.month.toString().padLeft(2, '0')} '
+        '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
 }
 
 class _NotificationPanelState {
@@ -582,11 +767,13 @@ class _NotificationPanelState {
     required this.status,
     required this.sync,
     required this.rawEvents,
+    required this.diagnostics,
   });
 
   final NotificationCaptureStatus status;
   final NotificationCaptureSyncResult sync;
   final List<RawNotificationEventRow> rawEvents;
+  final NotificationCaptureDiagnostics diagnostics;
 }
 
 enum _KnownNotificationApp {
@@ -719,7 +906,8 @@ class _SyncPanelState extends State<SyncPanel> {
         loading = false;
         message =
             '${summary.pushed} enviados, ${summary.duplicates} duplicados, '
-            '${summary.conflicts} conflitos, ${summary.pulled} recebidos. '
+            '${summary.conflicts + summary.remoteConflicts} conflitos, '
+            '${summary.applied}/${summary.pulled} recebidos aplicados. '
             'Seq ${summary.latestSeq}.';
       });
     } catch (_) {
@@ -803,8 +991,9 @@ class BackupPanel extends StatefulWidget {
 class _BackupPanelState extends State<BackupPanel> {
   var loading = false;
   String? message;
+  ZimbaTone messageTone = ZimbaTone.neutral;
 
-  Future<void> _run(Future<String?> Function() action) async {
+  Future<void> _run(Future<_BackupActionResult> Function() action) async {
     setState(() {
       loading = true;
       message = null;
@@ -816,7 +1005,8 @@ class _BackupPanelState extends State<BackupPanel> {
       }
       setState(() {
         loading = false;
-        message = result;
+        message = result.message;
+        messageTone = result.tone;
       });
     } catch (_) {
       if (!mounted) {
@@ -825,11 +1015,12 @@ class _BackupPanelState extends State<BackupPanel> {
       setState(() {
         loading = false;
         message = 'Nao foi possivel concluir a operacao de backup.';
+        messageTone = ZimbaTone.danger;
       });
     }
   }
 
-  Future<String?> _saveBackup() async {
+  Future<_BackupActionResult> _saveBackup() async {
     final backup = await widget.database.exportBackupFile();
     final path = await FilePicker.saveFile(
       dialogTitle: 'Salvar backup do ZimbaControl',
@@ -839,12 +1030,15 @@ class _BackupPanelState extends State<BackupPanel> {
       bytes: Uint8List.fromList(backup.bytes),
     );
     if (path == null) {
-      return 'Backup cancelado.';
+      return const _BackupActionResult('Backup cancelado.', ZimbaTone.neutral);
     }
-    return 'Backup salvo com ${backup.transactionCount} transacoes.';
+    return _BackupActionResult(
+      'Backup salvo com ${backup.transactionCount} transacoes.',
+      ZimbaTone.success,
+    );
   }
 
-  Future<String?> _shareBackup() async {
+  Future<_BackupActionResult> _shareBackup() async {
     final backup = await widget.database.exportBackupFile();
     await SharePlus.instance.share(
       ShareParams(
@@ -859,10 +1053,13 @@ class _BackupPanelState extends State<BackupPanel> {
         ],
       ),
     );
-    return 'Backup enviado para compartilhamento.';
+    return const _BackupActionResult(
+      'Backup enviado para compartilhamento.',
+      ZimbaTone.success,
+    );
   }
 
-  Future<String?> _saveCsv() async {
+  Future<_BackupActionResult> _saveCsv() async {
     final bytes = await widget.database.exportTransactionsCsvBytes();
     final path = await FilePicker.saveFile(
       dialogTitle: 'Exportar movimentacoes CSV',
@@ -872,12 +1069,18 @@ class _BackupPanelState extends State<BackupPanel> {
       bytes: Uint8List.fromList(bytes),
     );
     if (path == null) {
-      return 'Exportacao CSV cancelada.';
+      return const _BackupActionResult(
+        'Exportacao CSV cancelada.',
+        ZimbaTone.neutral,
+      );
     }
-    return 'CSV exportado para consulta externa.';
+    return const _BackupActionResult(
+      'CSV exportado para consulta externa.',
+      ZimbaTone.success,
+    );
   }
 
-  Future<String?> _restoreBackup() async {
+  Future<_BackupActionResult> _restoreBackup() async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: const ['json'],
@@ -886,12 +1089,15 @@ class _BackupPanelState extends State<BackupPanel> {
     final file = result?.files.single;
     final bytes = file?.bytes;
     if (file == null || bytes == null) {
-      return 'Restauracao cancelada.';
+      return const _BackupActionResult(
+        'Restauracao cancelada.',
+        ZimbaTone.neutral,
+      );
     }
 
     final validation = await widget.database.validateBackupBytes(bytes);
     if (!validation.valid || !mounted) {
-      return validation.message;
+      return _BackupActionResult(validation.message, ZimbaTone.danger);
     }
 
     final confirmed = await showDialog<bool>(
@@ -915,11 +1121,17 @@ class _BackupPanelState extends State<BackupPanel> {
       ),
     );
     if (confirmed != true) {
-      return 'Restauracao cancelada.';
+      return const _BackupActionResult(
+        'Restauracao cancelada.',
+        ZimbaTone.neutral,
+      );
     }
 
     final restored = await widget.database.restoreBackupBytes(bytes);
-    return 'Backup restaurado com ${restored.transactionCount} transacoes.';
+    return _BackupActionResult(
+      'Backup restaurado com ${restored.transactionCount} transacoes.',
+      ZimbaTone.success,
+    );
   }
 
   @override
@@ -933,10 +1145,51 @@ class _BackupPanelState extends State<BackupPanel> {
           subtitle: 'Sem MongoDB. Guarde o arquivo em local confiavel.',
         ),
         const SizedBox(height: 8),
+        ZimbaCard(
+          color: ZimbaColors.warningSoft,
+          borderColor: ZimbaColors.warningSoft,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.warning_amber_outlined,
+                color: ZimbaColors.warning,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Restaurar substitui todos os dados deste aparelho somente após a confirmação do arquivo válido.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: ZimbaColors.foreground,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
         if (loading) const LinearProgressIndicator(),
         if (message != null) ...[
           const SizedBox(height: 8),
-          Text(message!, style: Theme.of(context).textTheme.bodySmall),
+          Row(
+            children: [
+              ZimbaBadge(
+                label: switch (messageTone) {
+                  ZimbaTone.success => 'Concluído',
+                  ZimbaTone.danger => 'Falha',
+                  _ => 'Sem alteração',
+                },
+                tone: messageTone,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message!,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ],
+          ),
         ],
         const SizedBox(height: 8),
         Wrap(
@@ -968,6 +1221,13 @@ class _BackupPanelState extends State<BackupPanel> {
       ],
     );
   }
+}
+
+class _BackupActionResult {
+  const _BackupActionResult(this.message, this.tone);
+
+  final String message;
+  final ZimbaTone tone;
 }
 
 class _Section extends StatelessWidget {

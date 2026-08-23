@@ -6,9 +6,14 @@ import 'design/zimba_theme.dart';
 import 'design/zimba_ui.dart';
 
 class CommitmentsPage extends StatefulWidget {
-  const CommitmentsPage({required this.database, super.key});
+  const CommitmentsPage({
+    required this.database,
+    this.initialTabIndex = 0,
+    super.key,
+  }) : assert(initialTabIndex >= 0 && initialTabIndex < 2);
 
   final AppDatabase database;
+  final int initialTabIndex;
 
   @override
   State<CommitmentsPage> createState() => _CommitmentsPageState();
@@ -22,7 +27,11 @@ class _CommitmentsPageState extends State<CommitmentsPage>
   @override
   void initState() {
     super.initState();
-    tabController = TabController(length: 2, vsync: this);
+    tabController = TabController(
+      length: 2,
+      initialIndex: widget.initialTabIndex,
+      vsync: this,
+    );
     future = widget.database.getFamilyStructureSnapshot();
   }
 
@@ -70,7 +79,7 @@ class _CommitmentsPageState extends State<CommitmentsPage>
           children: [
             Text('Compromissos'),
             Text(
-              'Recorrencias e parcelas',
+              'Projecoes, recorrencias e parcelas',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
             ),
           ],
@@ -97,7 +106,17 @@ class _CommitmentsPageState extends State<CommitmentsPage>
           }
           final data = snapshot.data;
           if (data == null) {
-            return const Center(child: Text('Nao foi possivel carregar.'));
+            return ZimbaStateMessage(
+              icon: Icons.error_outline,
+              title: 'Não foi possível carregar compromissos',
+              body:
+                  'Tente atualizar. Nenhum plano ou recorrência foi alterado.',
+              action: OutlinedButton.icon(
+                onPressed: refresh,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Atualizar'),
+              ),
+            );
           }
           return TabBarView(
             controller: tabController,
@@ -106,11 +125,13 @@ class _CommitmentsPageState extends State<CommitmentsPage>
                 database: widget.database,
                 snapshot: data,
                 onChanged: refresh,
+                onCreate: openCreateForm,
               ),
               _InstallmentList(
                 database: widget.database,
                 snapshot: data,
                 onChanged: refresh,
+                onCreate: openCreateForm,
               ),
             ],
           );
@@ -125,28 +146,47 @@ class _RecurringList extends StatelessWidget {
     required this.database,
     required this.snapshot,
     required this.onChanged,
+    required this.onCreate,
   });
 
   final AppDatabase database;
   final FamilyStructureSnapshot snapshot;
   final VoidCallback onChanged;
+  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
     final items = snapshot.recurringSchedules;
     if (items.isEmpty) {
-      return const _EmptyCommitmentState(
+      return _EmptyCommitmentState(
         icon: Icons.event_repeat_outlined,
         title: 'Nenhuma recorrencia',
         body: 'Cadastre escola, pensao, ajuda familiar ou despesas fixas.',
+        actionLabel: 'Criar recorrencia',
+        onCreate: onCreate,
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-      itemCount: items.length,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
+      itemCount: items.length + 2,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
-        final item = items[index];
+        if (index == 0) {
+          return _CommitmentProjection(
+            eyebrow: 'Projecao mensal',
+            title: 'Recorrencias ativas',
+            amountCents: items
+                .where((item) => item.active)
+                .fold(0, (total, item) => total + item.amountCents),
+            detail:
+                '${items.where((item) => item.active).length} compromisso(s) entram nesta leitura.',
+            icon: Icons.event_repeat_outlined,
+          );
+        }
+        if (index == 1) {
+          return const ZimbaSectionTitle('Recorrencias cadastradas');
+        }
+        final item = items[index - 2];
         return _CommitmentTile(
           icon: Icons.event_repeat_outlined,
           title: item.label,
@@ -185,28 +225,47 @@ class _InstallmentList extends StatelessWidget {
     required this.database,
     required this.snapshot,
     required this.onChanged,
+    required this.onCreate,
   });
 
   final AppDatabase database;
   final FamilyStructureSnapshot snapshot;
   final VoidCallback onChanged;
+  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
     final items = snapshot.installmentPlans;
     if (items.isEmpty) {
-      return const _EmptyCommitmentState(
+      return _EmptyCommitmentState(
         icon: Icons.layers_outlined,
         title: 'Nenhuma parcela',
         body: 'Cadastre compras parceladas ou compromissos como consorcio.',
+        actionLabel: 'Criar parcela',
+        onCreate: onCreate,
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-      itemCount: items.length,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
+      itemCount: items.length + 2,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
-        final item = items[index];
+        if (index == 0) {
+          return _CommitmentProjection(
+            eyebrow: 'Projecao mensal',
+            title: 'Parcelas em aberto',
+            amountCents: -items
+                .where((item) => item.active)
+                .fold(0, (total, item) => total + item.installmentAmountCents),
+            detail:
+                '${items.where((item) => item.active).length} plano(s) ativos no proximo ciclo.',
+            icon: Icons.layers_outlined,
+          );
+        }
+        if (index == 1) {
+          return const ZimbaSectionTitle('Parcelas e planos');
+        }
+        final item = items[index - 2];
         return _CommitmentTile(
           icon: Icons.layers_outlined,
           title: item.label,
@@ -502,7 +561,7 @@ class _InstallmentPlanFormPageState extends State<InstallmentPlanFormPage> {
     await widget.database.upsertInstallmentPlan(
       id: widget.plan?.id,
       label: labelController.text,
-      planKind: 'credit_card_purchase',
+      planKind: widget.plan?.planKind ?? 'credit_card_purchase',
       ownerPersonId: ownerPersonId,
       totalAmountCents: installmentAmount * total,
       installmentAmountCents: installmentAmount,
@@ -633,36 +692,90 @@ class _CommitmentTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ZimbaCard(
       padding: EdgeInsets.zero,
-      child: ListTile(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(ZimbaLayout.cardRadius),
         onTap: onTap,
-        leading: CircleAvatar(
-          backgroundColor: ZimbaColors.accentSoft,
-          foregroundColor: ZimbaColors.accent,
-          child: Icon(icon, size: 20),
-        ),
-        title: Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-        subtitle: Text(inactive ? '$subtitle · arquivado' : subtitle),
-        trailing: Wrap(
-          spacing: 4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              formatBrl(amountCents),
-              style: const TextStyle(fontWeight: FontWeight.w800),
-            ),
-            IconButton(
-              tooltip: inactive ? 'Reativar' : 'Arquivar',
-              onPressed: onArchive,
-              icon: Icon(
-                inactive ? Icons.unarchive_outlined : Icons.archive_outlined,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 8, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: ZimbaColors.accentSoft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, size: 20, color: ZimbaColors.accent),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 116),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.topRight,
+                            child: Text(
+                              formatBrl(amountCents),
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: ZimbaColors.secondaryText,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Row(
+                      children: [
+                        ZimbaBadge(
+                          label: inactive ? 'Arquivado' : 'Ativo',
+                          tone: inactive
+                              ? ZimbaTone.neutral
+                              : ZimbaTone.success,
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          tooltip: inactive ? 'Reativar' : 'Arquivar',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: onArchive,
+                          icon: Icon(
+                            inactive
+                                ? Icons.unarchive_outlined
+                                : Icons.archive_outlined,
+                            size: 19,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -694,19 +807,21 @@ class _CommitmentFormScaffold extends StatelessWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           ZimbaCard(
             padding: const EdgeInsets.all(14),
             child: Column(children: children),
           ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: onSave,
-            icon: const Icon(Icons.save_outlined),
-            label: const Text('Salvar localmente'),
-          ),
         ],
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: FilledButton.icon(
+          onPressed: onSave,
+          icon: const Icon(Icons.save_outlined),
+          label: const Text('Salvar localmente'),
+        ),
       ),
     );
   }
@@ -729,6 +844,7 @@ class _PersonDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String?>(
       initialValue: value,
+      isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),
@@ -736,7 +852,14 @@ class _PersonDropdown extends StatelessWidget {
       items: [
         DropdownMenuItem(value: null, child: Text('Sem $label')),
         for (final person in people)
-          DropdownMenuItem(value: person.id, child: Text(person.displayName)),
+          DropdownMenuItem(
+            value: person.id,
+            child: Text(
+              person.displayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
       ],
       onChanged: onChanged,
     );
@@ -760,6 +883,7 @@ class _AccountDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String?>(
       initialValue: value,
+      isExpanded: true,
       decoration: InputDecoration(
         labelText: label,
         border: const OutlineInputBorder(),
@@ -769,7 +893,11 @@ class _AccountDropdown extends StatelessWidget {
         for (final item in accounts)
           DropdownMenuItem(
             value: item.account.id,
-            child: Text(item.account.name),
+            child: Text(
+              item.account.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
       ],
       onChanged: onChanged,
@@ -782,15 +910,101 @@ class _EmptyCommitmentState extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.body,
+    required this.actionLabel,
+    required this.onCreate,
   });
 
   final IconData icon;
   final String title;
   final String body;
+  final String actionLabel;
+  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
-    return ZimbaStateMessage(icon: icon, title: title, body: body);
+    return ZimbaStateMessage(
+      icon: icon,
+      title: title,
+      body: body,
+      action: FilledButton.icon(
+        onPressed: onCreate,
+        icon: const Icon(Icons.add),
+        label: Text(actionLabel),
+      ),
+    );
+  }
+}
+
+class _CommitmentProjection extends StatelessWidget {
+  const _CommitmentProjection({
+    required this.eyebrow,
+    required this.title,
+    required this.amountCents,
+    required this.detail,
+    required this.icon,
+  });
+
+  final String eyebrow;
+  final String title;
+  final int amountCents;
+  final String detail;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return ZimbaCard(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: ZimbaColors.accentSoft,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: ZimbaColors.accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  eyebrow.toUpperCase(),
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: ZimbaColors.secondaryText,
+                    letterSpacing: .7,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(title, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 3),
+                Text(
+                  detail,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: ZimbaColors.secondaryText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 88,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.topRight,
+              child: Text(
+                formatBrl(amountCents),
+                textAlign: TextAlign.end,
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

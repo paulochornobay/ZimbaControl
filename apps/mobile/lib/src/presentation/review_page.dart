@@ -30,9 +30,10 @@ enum ReviewFilter {
 }
 
 class ReviewPage extends StatefulWidget {
-  const ReviewPage({required this.database, super.key});
+  const ReviewPage({required this.database, super.key, this.onNavigate});
 
   final AppDatabase database;
+  final ValueChanged<int>? onNavigate;
 
   @override
   State<ReviewPage> createState() => _ReviewPageState();
@@ -193,6 +194,7 @@ class _ReviewPageState extends State<ReviewPage> {
         builder: (_) => EditTransactionPage(
           database: widget.database,
           transactionId: transactionId,
+          onNavigate: widget.onNavigate,
         ),
       ),
     );
@@ -476,6 +478,15 @@ class ReviewTransactionCard extends StatelessWidget {
                     ),
                   ],
                 ),
+                if (item.syncConflictSummary case final summary?) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    summary,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 16,
@@ -581,12 +592,16 @@ class ReviewTransactionCard extends StatelessWidget {
   }
 
   bool get _hasAlert =>
+      item.syncConflict != null ||
       item.hasLowConfidence ||
       item.isProbableDuplicate ||
       item.suggestsTransfer ||
       item.hasInstallmentHint;
 
   Color _borderColor(ColorScheme scheme) {
+    if (item.syncConflict != null) {
+      return scheme.error.withValues(alpha: 0.7);
+    }
     if (item.isProbableDuplicate) {
       return scheme.error.withValues(alpha: 0.45);
     }
@@ -639,6 +654,13 @@ class ReviewAlertStrip extends StatelessWidget {
   }
 
   _ReviewAlert _alertData(ColorScheme scheme) {
+    if (item.syncConflict != null) {
+      return _ReviewAlert(
+        Icons.sync_problem_outlined,
+        'Conflito entre aparelhos: escolha qual estado manter',
+        scheme.error,
+      );
+    }
     if (item.isProbableDuplicate) {
       return _ReviewAlert(
         Icons.content_copy_outlined,

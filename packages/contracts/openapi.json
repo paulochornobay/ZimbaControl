@@ -309,7 +309,7 @@
             "enum": ["create", "update", "delete", "resolve"]
           },
           "baseVersion": { "type": "integer", "minimum": 0 },
-          "payload": { "type": "object" },
+          "payload": { "$ref": "#/components/schemas/SyncTransactionPayload" },
           "createdAt": { "type": "string", "format": "date-time" }
         }
       },
@@ -325,6 +325,18 @@
           "entityId": { "type": "string" },
           "seq": { "type": "integer", "minimum": 0 }
         }
+      },
+      "SyncTransactionPayload": {
+        "type": "object",
+        "description": "Versioned full transaction snapshot. Version 1 carries canonical transaction fields, beneficiaries and source records.",
+        "required": ["schemaVersion", "transaction", "beneficiaries", "sources"],
+        "properties": {
+          "schemaVersion": { "const": 1 },
+          "transaction": { "type": "object" },
+          "beneficiaries": { "type": "array", "items": { "type": "object" } },
+          "sources": { "type": "array", "items": { "type": "object" } }
+        },
+        "additionalProperties": false
       },
       "SyncEvent": {
         "allOf": [

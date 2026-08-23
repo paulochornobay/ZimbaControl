@@ -36,7 +36,7 @@
       "format": "date-time"
     },
     "postedAt": {
-      "type": "string",
+      "type": ["string", "null"],
       "format": "date-time"
     },
     "competenceMonth": {
@@ -44,10 +44,19 @@
       "pattern": "^[0-9]{4}-[0-9]{2}$"
     },
     "descriptionRaw": { "type": "string" },
-    "merchantId": { "type": "string" },
-    "categoryId": { "type": "string" },
-    "costCenterId": { "type": "string" },
-    "payerId": { "type": "string" },
+    "merchantId": { "type": ["string", "null"] },
+    "categoryId": { "type": ["string", "null"] },
+    "costCenterId": { "type": ["string", "null"] },
+    "payerId": { "type": ["string", "null"] },
+    "accountId": { "type": ["string", "null"] },
+    "transferFromAccountId": { "type": ["string", "null"] },
+    "transferToAccountId": { "type": ["string", "null"] },
+    "recurringScheduleId": { "type": ["string", "null"] },
+    "installmentPlanId": { "type": ["string", "null"] },
+    "appliedRuleId": { "type": ["string", "null"] },
+    "sourceConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "deletedAt": { "type": ["string", "null"], "format": "date-time" },
     "beneficiaryIds": {
       "type": "array",
       "items": { "type": "string" }

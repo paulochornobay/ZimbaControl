@@ -361,11 +361,27 @@ class BreakdownRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          Text('${item.count}x', style: Theme.of(context).textTheme.bodySmall),
+          SizedBox(
+            width: 30,
+            child: Text(
+              '${item.count}x',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
           const SizedBox(width: 10),
-          Text(
-            formatBrl(item.amountCents),
-            style: TextStyle(color: color, fontWeight: FontWeight.w800),
+          SizedBox(
+            width: 100,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerRight,
+              child: Text(
+                formatBrl(item.amountCents),
+                style: TextStyle(color: color, fontWeight: FontWeight.w800),
+              ),
+            ),
           ),
         ],
       ),

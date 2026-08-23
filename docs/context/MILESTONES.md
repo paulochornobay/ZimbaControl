@@ -13,8 +13,20 @@
 - Marco 08 - Captura Android: concluido
 - Marco 09 - Painel e Movimentacoes: concluido
 - Marco 10 - Backup e Recuperacao: concluido
-- Marco 11 - Sync e Acesso Opcional: em andamento; 11A e 11B concluidos
+- Marco 11 - Sync e Acesso Opcional: em andamento; 11A, 11B e 11C
+  implementados tecnicamente; falta homologacao em dois aparelhos
 - Marco 12 - Seguranca e Publicacao: planejado
+- Marco A - Captura Android ponta a ponta: implementado tecnicamente; falta
+  homologacao em aparelho fisico e execucao dos testes instrumentados
+- Marco B - Sync de dois dispositivos: implementado tecnicamente; falta
+  homologacao com duas instalacoes Android e API configurada
+- Marco C - Migracao visual de Compromissos e Ajustes: implementado
+  tecnicamente; falta comparacao em aparelho Android fisico
+- Marco D - Migracao visual de familia, cadastros, backup e regras:
+  implementado tecnicamente; falta comparacao em aparelho Android fisico
+- Marco E - Estados transversais, regressao visual e homologacao: conteúdo
+  técnico implementado; falta repetir build release e executar o roteiro em
+  aparelho Android
 - Recuperacao visual e primeira abertura local: concluida no baseline
   `pixel-perfect-pixels@6a2d072`; falta homologacao em Android fisico
 
@@ -32,6 +44,109 @@ e uma referencia visual importante, especialmente para revisao, edicao,
 duplicidades e parcelas. A ultima tentativa com pouco credito nao concluiu o
 prompt: o projeto compilou, mas manteve "Tudo ok", navegacao antiga e acoes
 mockadas. O Marco 04 foi entao implementado diretamente no Flutter.
+
+## Marco A - Captura Android ponta a ponta e revisao de notificacoes
+
+Entregaveis tecnicos concluidos:
+
+- Fila SQLite nativa duravel com estados de entrega, tentativas, confirmacao
+  apos persistencia no Drift e leitura paginada de no maximo 100 eventos.
+- Drenagem automatica ao abrir ou retomar o app Flutter; WorkManager registra
+  um pedido duravel de entrega sem executar logica financeira no listener.
+- Idempotencia preservada pela chave da notificacao no Drift e por
+  `transaction_sources`; uma reentrega nao reabre nem duplica um evento ja
+  processado.
+- Ajustes mostra permissao, allowlist, fila Android, resultados reais no
+  Drift, erros recuperaveis, retencao configuravel e expurgo confirmado que
+  nunca remove evento pendente.
+- Testes Dart para backlog, idempotencia e falha de confirmacao; testes
+  instrumentados Android para fila e expurgo seguro foram adicionados.
+
+Homologacao pendente: executar os testes instrumentados e o roteiro em
+`docs/context/ANDROID_CAPTURE_HOMOLOGATION.md` com Nubank e Mercado Pago
+reais em aparelho Android. Ate isso, este marco nao deve ser marcado como
+aceito para release.
+
+## Marco C - Migracao visual de compromissos e ajustes
+
+Entregaveis tecnicos concluidos:
+
+- Compromissos ganhou projecao mensal, estados vazios com criacao real,
+  cartoes responsivos para recorrencias/parcelas e formularios com CTA fixo
+  seguro acima da safe area.
+- Ajustes passou a expor o estado local real de captura Android, sync e dos
+  dados que serao incluidos no backup; todos os atalhos preservam as jornadas
+  Drift existentes.
+- O baseline visual consultado foi `pixel-perfect-pixels@ac6bf30`. Nenhum
+  codigo React/Tailwind foi incorporado ao app Flutter.
+- Testes de widget cobrem 360×800 e 390×844 com nomes e valores longos, sem
+  overflow ou acao ficticia.
+
+Homologacao pendente: comparar as telas em aparelho Android fisico nos dois
+viewports de referencia e registrar diferencas visuais deliberadas antes de
+considerar a migracao aceita para release.
+
+## Marco D - Migracao visual de familia, cadastros, backup e regras
+
+Entregaveis tecnicos concluidos:
+
+- Familia apresenta resumo local, jornadas separadas e atualizacao depois de
+  editar cadastros, duplicidades ou compromissos; listas suportam nomes longos
+  sem cortar a acao disponivel.
+- Cadastros manteve todo o CRUD Drift para pessoas, contas, cartoes,
+  categorias e centros, com estados ativo/arquivado e formularios cuja acao de
+  salvar permanece acessivel acima da safe area.
+- Backup deixa evidente que a restauracao substitui dados apenas depois de
+  validar o arquivo e confirmar; cancelamento, falha e sucesso exibem retorno
+  real da operacao.
+- Regras mostra prioridade, ativacao, contador de uso e destino configurado
+  em categoria/centro, sem alegar que rateio ou automacao futura ja existem.
+- Testes de widget em 360×800 e 390×844 cobrem familia, cadastros, regras e
+  backup com dados extensos.
+
+Homologacao pendente: comparar as jornadas em aparelho Android fisico, com
+teclado e arquivo de backup real, antes da aceitacao visual para release.
+
+## Marco E - Estados transversais, regressao visual e homologacao
+
+Entregaveis tecnicos concluidos:
+
+- Feedbacks recuperaveis usam o mesmo padrão visual para falha, aviso e
+  tentativa novamente; uma falha de consulta não aparece mais como lista vazia
+  em Importacao, Duplicidades, Familia, Compromissos ou Ajustes.
+- A regressao de widgets cobre os viewports 360×800 e 390×844, textos longos,
+  valores grandes e as principais telas operacionais. Um overflow detectado no
+  Resumo foi corrigido antes da aprovacao automatizada.
+- O baseline visual e as diferencas deliberadas foram registrados em
+  `docs/context/MARCO_E_HOMOLOGATION.md`.
+
+Homologacao pendente: executar integralmente
+`docs/context/MARCO_E_HOMOLOGATION.md` em Android fisico. A aprovacao dos
+testes locais nao substitui permissao real, teclado, safe area, importacao,
+backup/restauracao ou sync em dois aparelhos. A build release tambem deve ser
+repetida: a tentativa deste marco travou no `gen_snapshot` AOT sem gerar uma
+APK release nova.
+
+## Marco 11C - Dois dispositivos e conflitos financeiros
+
+Entregaveis tecnicos concluidos:
+
+- A outbox de transacoes envia snapshot versionado completo, com relacoes,
+  beneficiarios e fontes, em vez de apenas `entityId`.
+- Eventos de `/sync/pull` sao aplicados no Drift em sequencia, com cursor
+  avancado somente apos aplicacao e deduplicacao local por `opId`.
+- Eventos do proprio aparelho apenas reconhecem a versao remota. Atualizacoes
+  externas seguras substituem o snapshot local de forma transacional.
+- Edicoes financeiras concorrentes preservam ambos os snapshots em
+  `sync_conflicts`, entram na Caixa de Revisao e exibem os valores/origens de
+  cada aparelho. Confirmar a decisao local gera uma nova versao para a API.
+- Testes cobrem dois bancos Drift independentes, reenvio idempotente, conflito
+  concorrente, aplicacao da decisao e os contratos/API validam o payload v1.
+
+Homologacao pendente: seguir
+`docs/context/SYNC_TWO_DEVICE_HOMOLOGATION.md` com duas instalacoes Android e
+API configurada. Ate isso, o Marco 11C nao deve ser marcado como aceito para
+release.
 
 ## Marco 00 - Bussola do Projeto
 
@@ -288,8 +403,10 @@ Sub-marcos:
   protege sync quando `GOOGLE_OIDC_ENABLED=true`. O mobile conecta Google com
   `GOOGLE_WEB_CLIENT_ID`, guarda o token de sessao em secure storage e envia
   bearer token no sync. Teste real exige Google Cloud configurado.
-- 11C - Dois Dispositivos: proximo. Aplicar eventos remotos no banco local,
-  gerar `deviceId` por instalacao e expor conflitos financeiros para revisao.
+- 11C - Dois Dispositivos: concluido tecnicamente. Eventos remotos sao
+  aplicados de forma idempotente no Drift, eventos proprios so reconhecem a
+  versao e conflitos preservam os dois snapshots para revisao. Falta a
+  homologacao com duas instalacoes Android e API configurada.
 
 ## Marco 12 - Seguranca e Publicacao
 

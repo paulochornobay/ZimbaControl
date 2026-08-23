@@ -41,6 +41,11 @@
   allowlist de apps, SQLite nativo para eventos brutos, WorkManager, ponte
   MethodChannel, tabela Drift `raw_notification_events`, parser local inicial e
   painel em Ajustes para permissao/status.
+- Marco A ampliou essa captura: a fila nativa confirma entrega somente depois
+  de persistir no Drift, pagina backlog, drena ao abrir/retomar o app e mostra
+  diagnosticos/retencao reais em Ajustes. Falta homologacao com notificacoes
+  reais em aparelho Android, cujo roteiro esta em
+  `docs/context/ANDROID_CAPTURE_HOMOLOGATION.md`.
 - Mobile tem painel e movimentacoes do Marco 09: Resumo operacional do mes,
   quebras por pessoa/categoria/centro/origem, compromissos futuros, projecao
   simples, ultimas movimentacoes e tela Movimentacoes com busca/filtros. A
@@ -59,6 +64,28 @@
   `GOOGLE_OIDC_ENABLED=true`, e o mobile tem login Google opcional com
   `GOOGLE_WEB_CLIENT_ID`, armazenamento do token de sessao em secure storage e
   envio de bearer token no sync.
+- Marco 11C foi implementado tecnicamente: o pull agora aplica snapshots de
+  transacao versionados no Drift, reconhece eventos proprios por `opId` e
+  preserva conflitos concorrentes em `sync_conflicts` para a Caixa de Revisao.
+  Falta homologacao em dois aparelhos Android, documentada em
+  `docs/context/SYNC_TWO_DEVICE_HOMOLOGATION.md`.
+- Marco C foi implementado tecnicamente com
+  `pixel-perfect-pixels@ac6bf30` como referencia visual: Compromissos agora
+  oferece projecao, estados vazios e formularios responsivos ligados ao Drift;
+  Ajustes mostra o estado real de captura, sync, backup e privacidade. O teste
+  de widget cobre 360×800 e 390×844 com textos/valores longos. Falta somente
+  a comparacao em aparelho Android fisico para aceitacao visual de release.
+- Marco D foi implementado tecnicamente: Familia, Cadastros, Backup e Regras
+  foram reorganizados sem mudar o CRUD ou a restauracao transacional. Backup
+  diferencia aviso, cancelamento, arquivo invalido, sucesso e falha; regras
+  expõem prioridade, estado, uso e destino local. O teste responsivo cobre
+  360×800 e 390×844. Falta a comparacao em aparelho Android fisico.
+- Marco E foi implementado tecnicamente: feedbacks recuperaveis foram
+  padronizados, a regressao automatizada agora inclui Resumo, Movimentacoes,
+  Duplicidades e Importacao, e um overflow de valores grandes no Resumo foi
+  corrigido. O roteiro fisico pendente esta em
+  `docs/context/MARCO_E_HOMOLOGATION.md`. A APK debug foi gerada; a tentativa
+  de APK release travou no `gen_snapshot` AOT e deve ser repetida.
 - Uma instalacao limpa nao carrega seed automaticamente. Dados de demonstracao
   sao uma escolha explicita no onboarding ou em Ajustes.
 - Para teste visual no Chrome, o banco usa Drift Web com `sql.js`; Android e
@@ -154,7 +181,10 @@ Antes de continuar qualquer marco, leia:
 
 ## Proximo Marco
 
-Homologacao Android local.
+Concluir Marco E — repetir a build release e executar a homologacao Android
+fisica em `MARCO_E_HOMOLOGATION.md`. Somente depois iniciar o Marco F. A
+homologacao Android local abaixo continua pendente em paralelo e e necessaria
+antes da aceitacao para release dos marcos tecnicos ja implementados.
 
 Sequencia recomendada:
 

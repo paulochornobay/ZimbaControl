@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zimbacontrol.local/schemas/sync-transaction-payload.schema.json",
+  "title": "SyncTransactionPayload",
+  "type": "object",
+  "required": ["schemaVersion", "transaction", "beneficiaries", "sources"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "transaction": {
+      "type": "object",
+      "description": "Canonical transaction snapshot, including financial relationships and local version metadata."
+    },
+    "beneficiaries": { "type": "array" },
+    "sources": { "type": "array" }
+  },
+  "additionalProperties": false
+}

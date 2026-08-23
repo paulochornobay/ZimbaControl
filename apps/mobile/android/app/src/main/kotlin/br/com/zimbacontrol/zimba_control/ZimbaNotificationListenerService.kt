@@ -34,6 +34,7 @@ class ZimbaNotificationListenerService : NotificationListenerService() {
 
         executor.execute {
             NotificationCaptureStore.insertEvent(this, event)
+            NotificationCaptureStore.requestDelivery(this, "listener")
             enqueueReprocess()
         }
     }

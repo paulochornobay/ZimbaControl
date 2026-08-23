@@ -23,10 +23,12 @@ class ZimbaControlApp extends StatefulWidget {
   State<ZimbaControlApp> createState() => _ZimbaControlAppState();
 }
 
-class _ZimbaControlAppState extends State<ZimbaControlApp> {
+class _ZimbaControlAppState extends State<ZimbaControlApp>
+    with WidgetsBindingObserver {
   late final AppDatabase database;
   late final bool ownsDatabase;
   late Future<StartupState> startupFuture;
+  bool drainingNotificationCapture = false;
 
   @override
   void initState() {
@@ -34,10 +36,13 @@ class _ZimbaControlAppState extends State<ZimbaControlApp> {
     database = widget.database ?? AppDatabase();
     ownsDatabase = widget.database == null;
     startupFuture = database.getStartupState();
+    WidgetsBinding.instance.addObserver(this);
+    _drainNotificationCaptureWhenReady();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (ownsDatabase) {
       database.close();
     }
@@ -48,6 +53,31 @@ class _ZimbaControlAppState extends State<ZimbaControlApp> {
     setState(() {
       startupFuture = database.getStartupState();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _drainNotificationCaptureWhenReady();
+    }
+  }
+
+  Future<void> _drainNotificationCaptureWhenReady() async {
+    if (drainingNotificationCapture) {
+      return;
+    }
+    drainingNotificationCapture = true;
+    try {
+      final startup = await database.getStartupState();
+      if (!startup.needsOnboarding) {
+        await database.syncNotificationCaptureEvents();
+      }
+    } catch (_) {
+      // The diagnostics screen keeps the failure recoverable; startup must not
+      // be blocked by an Android bridge that is temporarily unavailable.
+    } finally {
+      drainingNotificationCapture = false;
+    }
   }
 
   @override
@@ -108,7 +138,7 @@ class _ZimbaHomeShellState extends State<ZimbaHomeShell> {
   Widget build(BuildContext context) {
     final pages = [
       DashboardPage(database: widget.database),
-      ReviewPage(database: widget.database),
+      ReviewPage(database: widget.database, onNavigate: select),
       NewTransactionPage(
         database: widget.database,
         onSaved: () => select(3),

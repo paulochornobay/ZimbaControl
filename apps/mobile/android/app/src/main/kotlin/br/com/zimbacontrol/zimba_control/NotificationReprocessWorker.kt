@@ -9,10 +9,11 @@ class NotificationReprocessWorker(
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
-        // Flutter/Drift owns canonical parsing. This worker exists so captured
-        // events can be retried or reprocessed later without changing the
-        // notification listener contract.
-        NotificationCaptureStore.getRecentEvents(applicationContext, 1)
+        // Drift remains the financial source of truth, so this worker never
+        // parses or creates transactions. It does make recovery durable: a
+        // notification captured while Flutter is stopped is marked as a
+        // delivery request and stays pending until Flutter acknowledges it.
+        NotificationCaptureStore.requestDelivery(applicationContext, "workmanager")
         return Result.success()
     }
 }

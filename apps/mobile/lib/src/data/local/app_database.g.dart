@@ -7407,6 +7407,956 @@ class SyncOutboxCompanion extends UpdateCompanion<SyncOutboxRow> {
   }
 }
 
+class $SyncAppliedEventsTable extends SyncAppliedEvents
+    with TableInfo<$SyncAppliedEventsTable, SyncAppliedEventRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncAppliedEventsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _opIdMeta = const VerificationMeta('opId');
+  @override
+  late final GeneratedColumn<String> opId = GeneratedColumn<String>(
+    'op_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _householdIdMeta = const VerificationMeta(
+    'householdId',
+  );
+  @override
+  late final GeneratedColumn<String> householdId = GeneratedColumn<String>(
+    'household_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _seqMeta = const VerificationMeta('seq');
+  @override
+  late final GeneratedColumn<int> seq = GeneratedColumn<int>(
+    'seq',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _appliedAtMeta = const VerificationMeta(
+    'appliedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> appliedAt = GeneratedColumn<DateTime>(
+    'applied_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [opId, householdId, seq, appliedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_applied_events';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncAppliedEventRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('op_id')) {
+      context.handle(
+        _opIdMeta,
+        opId.isAcceptableOrUnknown(data['op_id']!, _opIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_opIdMeta);
+    }
+    if (data.containsKey('household_id')) {
+      context.handle(
+        _householdIdMeta,
+        householdId.isAcceptableOrUnknown(
+          data['household_id']!,
+          _householdIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_householdIdMeta);
+    }
+    if (data.containsKey('seq')) {
+      context.handle(
+        _seqMeta,
+        seq.isAcceptableOrUnknown(data['seq']!, _seqMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_seqMeta);
+    }
+    if (data.containsKey('applied_at')) {
+      context.handle(
+        _appliedAtMeta,
+        appliedAt.isAcceptableOrUnknown(data['applied_at']!, _appliedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_appliedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {opId};
+  @override
+  SyncAppliedEventRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncAppliedEventRow(
+      opId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}op_id'],
+      )!,
+      householdId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}household_id'],
+      )!,
+      seq: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}seq'],
+      )!,
+      appliedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}applied_at'],
+      )!,
+    );
+  }
+
+  @override
+  $SyncAppliedEventsTable createAlias(String alias) {
+    return $SyncAppliedEventsTable(attachedDatabase, alias);
+  }
+}
+
+class SyncAppliedEventRow extends DataClass
+    implements Insertable<SyncAppliedEventRow> {
+  final String opId;
+  final String householdId;
+  final int seq;
+  final DateTime appliedAt;
+  const SyncAppliedEventRow({
+    required this.opId,
+    required this.householdId,
+    required this.seq,
+    required this.appliedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['op_id'] = Variable<String>(opId);
+    map['household_id'] = Variable<String>(householdId);
+    map['seq'] = Variable<int>(seq);
+    map['applied_at'] = Variable<DateTime>(appliedAt);
+    return map;
+  }
+
+  SyncAppliedEventsCompanion toCompanion(bool nullToAbsent) {
+    return SyncAppliedEventsCompanion(
+      opId: Value(opId),
+      householdId: Value(householdId),
+      seq: Value(seq),
+      appliedAt: Value(appliedAt),
+    );
+  }
+
+  factory SyncAppliedEventRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncAppliedEventRow(
+      opId: serializer.fromJson<String>(json['opId']),
+      householdId: serializer.fromJson<String>(json['householdId']),
+      seq: serializer.fromJson<int>(json['seq']),
+      appliedAt: serializer.fromJson<DateTime>(json['appliedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'opId': serializer.toJson<String>(opId),
+      'householdId': serializer.toJson<String>(householdId),
+      'seq': serializer.toJson<int>(seq),
+      'appliedAt': serializer.toJson<DateTime>(appliedAt),
+    };
+  }
+
+  SyncAppliedEventRow copyWith({
+    String? opId,
+    String? householdId,
+    int? seq,
+    DateTime? appliedAt,
+  }) => SyncAppliedEventRow(
+    opId: opId ?? this.opId,
+    householdId: householdId ?? this.householdId,
+    seq: seq ?? this.seq,
+    appliedAt: appliedAt ?? this.appliedAt,
+  );
+  SyncAppliedEventRow copyWithCompanion(SyncAppliedEventsCompanion data) {
+    return SyncAppliedEventRow(
+      opId: data.opId.present ? data.opId.value : this.opId,
+      householdId: data.householdId.present
+          ? data.householdId.value
+          : this.householdId,
+      seq: data.seq.present ? data.seq.value : this.seq,
+      appliedAt: data.appliedAt.present ? data.appliedAt.value : this.appliedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncAppliedEventRow(')
+          ..write('opId: $opId, ')
+          ..write('householdId: $householdId, ')
+          ..write('seq: $seq, ')
+          ..write('appliedAt: $appliedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(opId, householdId, seq, appliedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncAppliedEventRow &&
+          other.opId == this.opId &&
+          other.householdId == this.householdId &&
+          other.seq == this.seq &&
+          other.appliedAt == this.appliedAt);
+}
+
+class SyncAppliedEventsCompanion extends UpdateCompanion<SyncAppliedEventRow> {
+  final Value<String> opId;
+  final Value<String> householdId;
+  final Value<int> seq;
+  final Value<DateTime> appliedAt;
+  final Value<int> rowid;
+  const SyncAppliedEventsCompanion({
+    this.opId = const Value.absent(),
+    this.householdId = const Value.absent(),
+    this.seq = const Value.absent(),
+    this.appliedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncAppliedEventsCompanion.insert({
+    required String opId,
+    required String householdId,
+    required int seq,
+    required DateTime appliedAt,
+    this.rowid = const Value.absent(),
+  }) : opId = Value(opId),
+       householdId = Value(householdId),
+       seq = Value(seq),
+       appliedAt = Value(appliedAt);
+  static Insertable<SyncAppliedEventRow> custom({
+    Expression<String>? opId,
+    Expression<String>? householdId,
+    Expression<int>? seq,
+    Expression<DateTime>? appliedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (opId != null) 'op_id': opId,
+      if (householdId != null) 'household_id': householdId,
+      if (seq != null) 'seq': seq,
+      if (appliedAt != null) 'applied_at': appliedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncAppliedEventsCompanion copyWith({
+    Value<String>? opId,
+    Value<String>? householdId,
+    Value<int>? seq,
+    Value<DateTime>? appliedAt,
+    Value<int>? rowid,
+  }) {
+    return SyncAppliedEventsCompanion(
+      opId: opId ?? this.opId,
+      householdId: householdId ?? this.householdId,
+      seq: seq ?? this.seq,
+      appliedAt: appliedAt ?? this.appliedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (opId.present) {
+      map['op_id'] = Variable<String>(opId.value);
+    }
+    if (householdId.present) {
+      map['household_id'] = Variable<String>(householdId.value);
+    }
+    if (seq.present) {
+      map['seq'] = Variable<int>(seq.value);
+    }
+    if (appliedAt.present) {
+      map['applied_at'] = Variable<DateTime>(appliedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncAppliedEventsCompanion(')
+          ..write('opId: $opId, ')
+          ..write('householdId: $householdId, ')
+          ..write('seq: $seq, ')
+          ..write('appliedAt: $appliedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $SyncConflictsTable extends SyncConflicts
+    with TableInfo<$SyncConflictsTable, SyncConflictRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SyncConflictsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _householdIdMeta = const VerificationMeta(
+    'householdId',
+  );
+  @override
+  late final GeneratedColumn<String> householdId = GeneratedColumn<String>(
+    'household_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _transactionIdMeta = const VerificationMeta(
+    'transactionId',
+  );
+  @override
+  late final GeneratedColumn<String> transactionId = GeneratedColumn<String>(
+    'transaction_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _remoteOpIdMeta = const VerificationMeta(
+    'remoteOpId',
+  );
+  @override
+  late final GeneratedColumn<String> remoteOpId = GeneratedColumn<String>(
+    'remote_op_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _remoteSeqMeta = const VerificationMeta(
+    'remoteSeq',
+  );
+  @override
+  late final GeneratedColumn<int> remoteSeq = GeneratedColumn<int>(
+    'remote_seq',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _localPayloadJsonMeta = const VerificationMeta(
+    'localPayloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> localPayloadJson = GeneratedColumn<String>(
+    'local_payload_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _remotePayloadJsonMeta = const VerificationMeta(
+    'remotePayloadJson',
+  );
+  @override
+  late final GeneratedColumn<String> remotePayloadJson =
+      GeneratedColumn<String>(
+        'remote_payload_json',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('pending_review'),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _resolvedAtMeta = const VerificationMeta(
+    'resolvedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> resolvedAt = GeneratedColumn<DateTime>(
+    'resolved_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    householdId,
+    transactionId,
+    remoteOpId,
+    remoteSeq,
+    localPayloadJson,
+    remotePayloadJson,
+    status,
+    createdAt,
+    resolvedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'sync_conflicts';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SyncConflictRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('household_id')) {
+      context.handle(
+        _householdIdMeta,
+        householdId.isAcceptableOrUnknown(
+          data['household_id']!,
+          _householdIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_householdIdMeta);
+    }
+    if (data.containsKey('transaction_id')) {
+      context.handle(
+        _transactionIdMeta,
+        transactionId.isAcceptableOrUnknown(
+          data['transaction_id']!,
+          _transactionIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_transactionIdMeta);
+    }
+    if (data.containsKey('remote_op_id')) {
+      context.handle(
+        _remoteOpIdMeta,
+        remoteOpId.isAcceptableOrUnknown(
+          data['remote_op_id']!,
+          _remoteOpIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_remoteOpIdMeta);
+    }
+    if (data.containsKey('remote_seq')) {
+      context.handle(
+        _remoteSeqMeta,
+        remoteSeq.isAcceptableOrUnknown(data['remote_seq']!, _remoteSeqMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_remoteSeqMeta);
+    }
+    if (data.containsKey('local_payload_json')) {
+      context.handle(
+        _localPayloadJsonMeta,
+        localPayloadJson.isAcceptableOrUnknown(
+          data['local_payload_json']!,
+          _localPayloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_localPayloadJsonMeta);
+    }
+    if (data.containsKey('remote_payload_json')) {
+      context.handle(
+        _remotePayloadJsonMeta,
+        remotePayloadJson.isAcceptableOrUnknown(
+          data['remote_payload_json']!,
+          _remotePayloadJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_remotePayloadJsonMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('resolved_at')) {
+      context.handle(
+        _resolvedAtMeta,
+        resolvedAt.isAcceptableOrUnknown(data['resolved_at']!, _resolvedAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  SyncConflictRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SyncConflictRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      householdId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}household_id'],
+      )!,
+      transactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}transaction_id'],
+      )!,
+      remoteOpId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remote_op_id'],
+      )!,
+      remoteSeq: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}remote_seq'],
+      )!,
+      localPayloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}local_payload_json'],
+      )!,
+      remotePayloadJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}remote_payload_json'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      resolvedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}resolved_at'],
+      ),
+    );
+  }
+
+  @override
+  $SyncConflictsTable createAlias(String alias) {
+    return $SyncConflictsTable(attachedDatabase, alias);
+  }
+}
+
+class SyncConflictRow extends DataClass implements Insertable<SyncConflictRow> {
+  final String id;
+  final String householdId;
+  final String transactionId;
+  final String remoteOpId;
+  final int remoteSeq;
+  final String localPayloadJson;
+  final String remotePayloadJson;
+  final String status;
+  final DateTime createdAt;
+  final DateTime? resolvedAt;
+  const SyncConflictRow({
+    required this.id,
+    required this.householdId,
+    required this.transactionId,
+    required this.remoteOpId,
+    required this.remoteSeq,
+    required this.localPayloadJson,
+    required this.remotePayloadJson,
+    required this.status,
+    required this.createdAt,
+    this.resolvedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['household_id'] = Variable<String>(householdId);
+    map['transaction_id'] = Variable<String>(transactionId);
+    map['remote_op_id'] = Variable<String>(remoteOpId);
+    map['remote_seq'] = Variable<int>(remoteSeq);
+    map['local_payload_json'] = Variable<String>(localPayloadJson);
+    map['remote_payload_json'] = Variable<String>(remotePayloadJson);
+    map['status'] = Variable<String>(status);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || resolvedAt != null) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt);
+    }
+    return map;
+  }
+
+  SyncConflictsCompanion toCompanion(bool nullToAbsent) {
+    return SyncConflictsCompanion(
+      id: Value(id),
+      householdId: Value(householdId),
+      transactionId: Value(transactionId),
+      remoteOpId: Value(remoteOpId),
+      remoteSeq: Value(remoteSeq),
+      localPayloadJson: Value(localPayloadJson),
+      remotePayloadJson: Value(remotePayloadJson),
+      status: Value(status),
+      createdAt: Value(createdAt),
+      resolvedAt: resolvedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(resolvedAt),
+    );
+  }
+
+  factory SyncConflictRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SyncConflictRow(
+      id: serializer.fromJson<String>(json['id']),
+      householdId: serializer.fromJson<String>(json['householdId']),
+      transactionId: serializer.fromJson<String>(json['transactionId']),
+      remoteOpId: serializer.fromJson<String>(json['remoteOpId']),
+      remoteSeq: serializer.fromJson<int>(json['remoteSeq']),
+      localPayloadJson: serializer.fromJson<String>(json['localPayloadJson']),
+      remotePayloadJson: serializer.fromJson<String>(json['remotePayloadJson']),
+      status: serializer.fromJson<String>(json['status']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      resolvedAt: serializer.fromJson<DateTime?>(json['resolvedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'householdId': serializer.toJson<String>(householdId),
+      'transactionId': serializer.toJson<String>(transactionId),
+      'remoteOpId': serializer.toJson<String>(remoteOpId),
+      'remoteSeq': serializer.toJson<int>(remoteSeq),
+      'localPayloadJson': serializer.toJson<String>(localPayloadJson),
+      'remotePayloadJson': serializer.toJson<String>(remotePayloadJson),
+      'status': serializer.toJson<String>(status),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'resolvedAt': serializer.toJson<DateTime?>(resolvedAt),
+    };
+  }
+
+  SyncConflictRow copyWith({
+    String? id,
+    String? householdId,
+    String? transactionId,
+    String? remoteOpId,
+    int? remoteSeq,
+    String? localPayloadJson,
+    String? remotePayloadJson,
+    String? status,
+    DateTime? createdAt,
+    Value<DateTime?> resolvedAt = const Value.absent(),
+  }) => SyncConflictRow(
+    id: id ?? this.id,
+    householdId: householdId ?? this.householdId,
+    transactionId: transactionId ?? this.transactionId,
+    remoteOpId: remoteOpId ?? this.remoteOpId,
+    remoteSeq: remoteSeq ?? this.remoteSeq,
+    localPayloadJson: localPayloadJson ?? this.localPayloadJson,
+    remotePayloadJson: remotePayloadJson ?? this.remotePayloadJson,
+    status: status ?? this.status,
+    createdAt: createdAt ?? this.createdAt,
+    resolvedAt: resolvedAt.present ? resolvedAt.value : this.resolvedAt,
+  );
+  SyncConflictRow copyWithCompanion(SyncConflictsCompanion data) {
+    return SyncConflictRow(
+      id: data.id.present ? data.id.value : this.id,
+      householdId: data.householdId.present
+          ? data.householdId.value
+          : this.householdId,
+      transactionId: data.transactionId.present
+          ? data.transactionId.value
+          : this.transactionId,
+      remoteOpId: data.remoteOpId.present
+          ? data.remoteOpId.value
+          : this.remoteOpId,
+      remoteSeq: data.remoteSeq.present ? data.remoteSeq.value : this.remoteSeq,
+      localPayloadJson: data.localPayloadJson.present
+          ? data.localPayloadJson.value
+          : this.localPayloadJson,
+      remotePayloadJson: data.remotePayloadJson.present
+          ? data.remotePayloadJson.value
+          : this.remotePayloadJson,
+      status: data.status.present ? data.status.value : this.status,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      resolvedAt: data.resolvedAt.present
+          ? data.resolvedAt.value
+          : this.resolvedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncConflictRow(')
+          ..write('id: $id, ')
+          ..write('householdId: $householdId, ')
+          ..write('transactionId: $transactionId, ')
+          ..write('remoteOpId: $remoteOpId, ')
+          ..write('remoteSeq: $remoteSeq, ')
+          ..write('localPayloadJson: $localPayloadJson, ')
+          ..write('remotePayloadJson: $remotePayloadJson, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('resolvedAt: $resolvedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    householdId,
+    transactionId,
+    remoteOpId,
+    remoteSeq,
+    localPayloadJson,
+    remotePayloadJson,
+    status,
+    createdAt,
+    resolvedAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SyncConflictRow &&
+          other.id == this.id &&
+          other.householdId == this.householdId &&
+          other.transactionId == this.transactionId &&
+          other.remoteOpId == this.remoteOpId &&
+          other.remoteSeq == this.remoteSeq &&
+          other.localPayloadJson == this.localPayloadJson &&
+          other.remotePayloadJson == this.remotePayloadJson &&
+          other.status == this.status &&
+          other.createdAt == this.createdAt &&
+          other.resolvedAt == this.resolvedAt);
+}
+
+class SyncConflictsCompanion extends UpdateCompanion<SyncConflictRow> {
+  final Value<String> id;
+  final Value<String> householdId;
+  final Value<String> transactionId;
+  final Value<String> remoteOpId;
+  final Value<int> remoteSeq;
+  final Value<String> localPayloadJson;
+  final Value<String> remotePayloadJson;
+  final Value<String> status;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> resolvedAt;
+  final Value<int> rowid;
+  const SyncConflictsCompanion({
+    this.id = const Value.absent(),
+    this.householdId = const Value.absent(),
+    this.transactionId = const Value.absent(),
+    this.remoteOpId = const Value.absent(),
+    this.remoteSeq = const Value.absent(),
+    this.localPayloadJson = const Value.absent(),
+    this.remotePayloadJson = const Value.absent(),
+    this.status = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.resolvedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SyncConflictsCompanion.insert({
+    required String id,
+    required String householdId,
+    required String transactionId,
+    required String remoteOpId,
+    required int remoteSeq,
+    required String localPayloadJson,
+    required String remotePayloadJson,
+    this.status = const Value.absent(),
+    required DateTime createdAt,
+    this.resolvedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       householdId = Value(householdId),
+       transactionId = Value(transactionId),
+       remoteOpId = Value(remoteOpId),
+       remoteSeq = Value(remoteSeq),
+       localPayloadJson = Value(localPayloadJson),
+       remotePayloadJson = Value(remotePayloadJson),
+       createdAt = Value(createdAt);
+  static Insertable<SyncConflictRow> custom({
+    Expression<String>? id,
+    Expression<String>? householdId,
+    Expression<String>? transactionId,
+    Expression<String>? remoteOpId,
+    Expression<int>? remoteSeq,
+    Expression<String>? localPayloadJson,
+    Expression<String>? remotePayloadJson,
+    Expression<String>? status,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? resolvedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (householdId != null) 'household_id': householdId,
+      if (transactionId != null) 'transaction_id': transactionId,
+      if (remoteOpId != null) 'remote_op_id': remoteOpId,
+      if (remoteSeq != null) 'remote_seq': remoteSeq,
+      if (localPayloadJson != null) 'local_payload_json': localPayloadJson,
+      if (remotePayloadJson != null) 'remote_payload_json': remotePayloadJson,
+      if (status != null) 'status': status,
+      if (createdAt != null) 'created_at': createdAt,
+      if (resolvedAt != null) 'resolved_at': resolvedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SyncConflictsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? householdId,
+    Value<String>? transactionId,
+    Value<String>? remoteOpId,
+    Value<int>? remoteSeq,
+    Value<String>? localPayloadJson,
+    Value<String>? remotePayloadJson,
+    Value<String>? status,
+    Value<DateTime>? createdAt,
+    Value<DateTime?>? resolvedAt,
+    Value<int>? rowid,
+  }) {
+    return SyncConflictsCompanion(
+      id: id ?? this.id,
+      householdId: householdId ?? this.householdId,
+      transactionId: transactionId ?? this.transactionId,
+      remoteOpId: remoteOpId ?? this.remoteOpId,
+      remoteSeq: remoteSeq ?? this.remoteSeq,
+      localPayloadJson: localPayloadJson ?? this.localPayloadJson,
+      remotePayloadJson: remotePayloadJson ?? this.remotePayloadJson,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+      resolvedAt: resolvedAt ?? this.resolvedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (householdId.present) {
+      map['household_id'] = Variable<String>(householdId.value);
+    }
+    if (transactionId.present) {
+      map['transaction_id'] = Variable<String>(transactionId.value);
+    }
+    if (remoteOpId.present) {
+      map['remote_op_id'] = Variable<String>(remoteOpId.value);
+    }
+    if (remoteSeq.present) {
+      map['remote_seq'] = Variable<int>(remoteSeq.value);
+    }
+    if (localPayloadJson.present) {
+      map['local_payload_json'] = Variable<String>(localPayloadJson.value);
+    }
+    if (remotePayloadJson.present) {
+      map['remote_payload_json'] = Variable<String>(remotePayloadJson.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (resolvedAt.present) {
+      map['resolved_at'] = Variable<DateTime>(resolvedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SyncConflictsCompanion(')
+          ..write('id: $id, ')
+          ..write('householdId: $householdId, ')
+          ..write('transactionId: $transactionId, ')
+          ..write('remoteOpId: $remoteOpId, ')
+          ..write('remoteSeq: $remoteSeq, ')
+          ..write('localPayloadJson: $localPayloadJson, ')
+          ..write('remotePayloadJson: $remotePayloadJson, ')
+          ..write('status: $status, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('resolvedAt: $resolvedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $AppPreferencesTable extends AppPreferences
     with TableInfo<$AppPreferencesTable, AppPreferenceRow> {
   @override
@@ -13936,6 +14886,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ClassificationRulesTable classificationRules =
       $ClassificationRulesTable(this);
   late final $SyncOutboxTable syncOutbox = $SyncOutboxTable(this);
+  late final $SyncAppliedEventsTable syncAppliedEvents =
+      $SyncAppliedEventsTable(this);
+  late final $SyncConflictsTable syncConflicts = $SyncConflictsTable(this);
   late final $AppPreferencesTable appPreferences = $AppPreferencesTable(this);
   late final $AuthUsersTable authUsers = $AuthUsersTable(this);
   late final $RecurringSchedulesTable recurringSchedules =
@@ -13967,6 +14920,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     transactionSources,
     classificationRules,
     syncOutbox,
+    syncAppliedEvents,
+    syncConflicts,
     appPreferences,
     authUsers,
     recurringSchedules,
@@ -17618,6 +18573,509 @@ typedef $$SyncOutboxTableProcessedTableManager =
       SyncOutboxRow,
       PrefetchHooks Function()
     >;
+typedef $$SyncAppliedEventsTableCreateCompanionBuilder =
+    SyncAppliedEventsCompanion Function({
+      required String opId,
+      required String householdId,
+      required int seq,
+      required DateTime appliedAt,
+      Value<int> rowid,
+    });
+typedef $$SyncAppliedEventsTableUpdateCompanionBuilder =
+    SyncAppliedEventsCompanion Function({
+      Value<String> opId,
+      Value<String> householdId,
+      Value<int> seq,
+      Value<DateTime> appliedAt,
+      Value<int> rowid,
+    });
+
+class $$SyncAppliedEventsTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncAppliedEventsTable> {
+  $$SyncAppliedEventsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get opId => $composableBuilder(
+    column: $table.opId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get seq => $composableBuilder(
+    column: $table.seq,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get appliedAt => $composableBuilder(
+    column: $table.appliedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncAppliedEventsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncAppliedEventsTable> {
+  $$SyncAppliedEventsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get opId => $composableBuilder(
+    column: $table.opId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get seq => $composableBuilder(
+    column: $table.seq,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get appliedAt => $composableBuilder(
+    column: $table.appliedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncAppliedEventsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncAppliedEventsTable> {
+  $$SyncAppliedEventsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get opId =>
+      $composableBuilder(column: $table.opId, builder: (column) => column);
+
+  GeneratedColumn<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get seq =>
+      $composableBuilder(column: $table.seq, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get appliedAt =>
+      $composableBuilder(column: $table.appliedAt, builder: (column) => column);
+}
+
+class $$SyncAppliedEventsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncAppliedEventsTable,
+          SyncAppliedEventRow,
+          $$SyncAppliedEventsTableFilterComposer,
+          $$SyncAppliedEventsTableOrderingComposer,
+          $$SyncAppliedEventsTableAnnotationComposer,
+          $$SyncAppliedEventsTableCreateCompanionBuilder,
+          $$SyncAppliedEventsTableUpdateCompanionBuilder,
+          (
+            SyncAppliedEventRow,
+            BaseReferences<
+              _$AppDatabase,
+              $SyncAppliedEventsTable,
+              SyncAppliedEventRow
+            >,
+          ),
+          SyncAppliedEventRow,
+          PrefetchHooks Function()
+        > {
+  $$SyncAppliedEventsTableTableManager(
+    _$AppDatabase db,
+    $SyncAppliedEventsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncAppliedEventsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncAppliedEventsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncAppliedEventsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> opId = const Value.absent(),
+                Value<String> householdId = const Value.absent(),
+                Value<int> seq = const Value.absent(),
+                Value<DateTime> appliedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncAppliedEventsCompanion(
+                opId: opId,
+                householdId: householdId,
+                seq: seq,
+                appliedAt: appliedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String opId,
+                required String householdId,
+                required int seq,
+                required DateTime appliedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => SyncAppliedEventsCompanion.insert(
+                opId: opId,
+                householdId: householdId,
+                seq: seq,
+                appliedAt: appliedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncAppliedEventsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncAppliedEventsTable,
+      SyncAppliedEventRow,
+      $$SyncAppliedEventsTableFilterComposer,
+      $$SyncAppliedEventsTableOrderingComposer,
+      $$SyncAppliedEventsTableAnnotationComposer,
+      $$SyncAppliedEventsTableCreateCompanionBuilder,
+      $$SyncAppliedEventsTableUpdateCompanionBuilder,
+      (
+        SyncAppliedEventRow,
+        BaseReferences<
+          _$AppDatabase,
+          $SyncAppliedEventsTable,
+          SyncAppliedEventRow
+        >,
+      ),
+      SyncAppliedEventRow,
+      PrefetchHooks Function()
+    >;
+typedef $$SyncConflictsTableCreateCompanionBuilder =
+    SyncConflictsCompanion Function({
+      required String id,
+      required String householdId,
+      required String transactionId,
+      required String remoteOpId,
+      required int remoteSeq,
+      required String localPayloadJson,
+      required String remotePayloadJson,
+      Value<String> status,
+      required DateTime createdAt,
+      Value<DateTime?> resolvedAt,
+      Value<int> rowid,
+    });
+typedef $$SyncConflictsTableUpdateCompanionBuilder =
+    SyncConflictsCompanion Function({
+      Value<String> id,
+      Value<String> householdId,
+      Value<String> transactionId,
+      Value<String> remoteOpId,
+      Value<int> remoteSeq,
+      Value<String> localPayloadJson,
+      Value<String> remotePayloadJson,
+      Value<String> status,
+      Value<DateTime> createdAt,
+      Value<DateTime?> resolvedAt,
+      Value<int> rowid,
+    });
+
+class $$SyncConflictsTableFilterComposer
+    extends Composer<_$AppDatabase, $SyncConflictsTable> {
+  $$SyncConflictsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remoteOpId => $composableBuilder(
+    column: $table.remoteOpId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get remoteSeq => $composableBuilder(
+    column: $table.remoteSeq,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get localPayloadJson => $composableBuilder(
+    column: $table.localPayloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get remotePayloadJson => $composableBuilder(
+    column: $table.remotePayloadJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SyncConflictsTableOrderingComposer
+    extends Composer<_$AppDatabase, $SyncConflictsTable> {
+  $$SyncConflictsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get remoteOpId => $composableBuilder(
+    column: $table.remoteOpId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get remoteSeq => $composableBuilder(
+    column: $table.remoteSeq,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get localPayloadJson => $composableBuilder(
+    column: $table.localPayloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get remotePayloadJson => $composableBuilder(
+    column: $table.remotePayloadJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SyncConflictsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SyncConflictsTable> {
+  $$SyncConflictsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get remoteOpId => $composableBuilder(
+    column: $table.remoteOpId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get remoteSeq =>
+      $composableBuilder(column: $table.remoteSeq, builder: (column) => column);
+
+  GeneratedColumn<String> get localPayloadJson => $composableBuilder(
+    column: $table.localPayloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get remotePayloadJson => $composableBuilder(
+    column: $table.remotePayloadJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get resolvedAt => $composableBuilder(
+    column: $table.resolvedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$SyncConflictsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SyncConflictsTable,
+          SyncConflictRow,
+          $$SyncConflictsTableFilterComposer,
+          $$SyncConflictsTableOrderingComposer,
+          $$SyncConflictsTableAnnotationComposer,
+          $$SyncConflictsTableCreateCompanionBuilder,
+          $$SyncConflictsTableUpdateCompanionBuilder,
+          (
+            SyncConflictRow,
+            BaseReferences<_$AppDatabase, $SyncConflictsTable, SyncConflictRow>,
+          ),
+          SyncConflictRow,
+          PrefetchHooks Function()
+        > {
+  $$SyncConflictsTableTableManager(_$AppDatabase db, $SyncConflictsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SyncConflictsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SyncConflictsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SyncConflictsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> householdId = const Value.absent(),
+                Value<String> transactionId = const Value.absent(),
+                Value<String> remoteOpId = const Value.absent(),
+                Value<int> remoteSeq = const Value.absent(),
+                Value<String> localPayloadJson = const Value.absent(),
+                Value<String> remotePayloadJson = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> resolvedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncConflictsCompanion(
+                id: id,
+                householdId: householdId,
+                transactionId: transactionId,
+                remoteOpId: remoteOpId,
+                remoteSeq: remoteSeq,
+                localPayloadJson: localPayloadJson,
+                remotePayloadJson: remotePayloadJson,
+                status: status,
+                createdAt: createdAt,
+                resolvedAt: resolvedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String householdId,
+                required String transactionId,
+                required String remoteOpId,
+                required int remoteSeq,
+                required String localPayloadJson,
+                required String remotePayloadJson,
+                Value<String> status = const Value.absent(),
+                required DateTime createdAt,
+                Value<DateTime?> resolvedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SyncConflictsCompanion.insert(
+                id: id,
+                householdId: householdId,
+                transactionId: transactionId,
+                remoteOpId: remoteOpId,
+                remoteSeq: remoteSeq,
+                localPayloadJson: localPayloadJson,
+                remotePayloadJson: remotePayloadJson,
+                status: status,
+                createdAt: createdAt,
+                resolvedAt: resolvedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SyncConflictsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SyncConflictsTable,
+      SyncConflictRow,
+      $$SyncConflictsTableFilterComposer,
+      $$SyncConflictsTableOrderingComposer,
+      $$SyncConflictsTableAnnotationComposer,
+      $$SyncConflictsTableCreateCompanionBuilder,
+      $$SyncConflictsTableUpdateCompanionBuilder,
+      (
+        SyncConflictRow,
+        BaseReferences<_$AppDatabase, $SyncConflictsTable, SyncConflictRow>,
+      ),
+      SyncConflictRow,
+      PrefetchHooks Function()
+    >;
 typedef $$AppPreferencesTableCreateCompanionBuilder =
     AppPreferencesCompanion Function({
       required String key,
@@ -20735,6 +22193,10 @@ class $AppDatabaseManager {
       $$ClassificationRulesTableTableManager(_db, _db.classificationRules);
   $$SyncOutboxTableTableManager get syncOutbox =>
       $$SyncOutboxTableTableManager(_db, _db.syncOutbox);
+  $$SyncAppliedEventsTableTableManager get syncAppliedEvents =>
+      $$SyncAppliedEventsTableTableManager(_db, _db.syncAppliedEvents);
+  $$SyncConflictsTableTableManager get syncConflicts =>
+      $$SyncConflictsTableTableManager(_db, _db.syncConflicts);
   $$AppPreferencesTableTableManager get appPreferences =>
       $$AppPreferencesTableTableManager(_db, _db.appPreferences);
   $$AuthUsersTableTableManager get authUsers =>

@@ -9,10 +9,12 @@ class EditTransactionPage extends StatefulWidget {
     required this.database,
     required this.transactionId,
     super.key,
+    this.onNavigate,
   });
 
   final AppDatabase database;
   final String transactionId;
+  final ValueChanged<int>? onNavigate;
 
   @override
   State<EditTransactionPage> createState() => _EditTransactionPageState();
@@ -24,10 +26,12 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
   final competenceController = TextEditingController();
 
   FinanceTransaction? transaction;
+  ReviewTransactionDetails? details;
   List<CategoryRow> categories = const [];
   List<CostCenterRow> costCenters = const [];
   List<AccountWithOwner> accounts = const [];
   List<PersonRow> people = const [];
+  List<InstallmentPlanRow> installmentPlans = const [];
   Set<String> beneficiaryIds = const {};
   String kind = 'expense';
   String? accountId;
@@ -53,40 +57,24 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
   }
 
   Future<void> load() async {
-    final loadedTransaction = await widget.database.getTransaction(
-      widget.transactionId,
-    );
-    final loadedCategories = await widget.database.listCategories(
-      includeInactive: true,
-    );
-    final loadedCostCenters = await widget.database.listCostCenters(
-      includeInactive: true,
-    );
-    final loadedAccounts = await widget.database.listAccountsWithOwners(
-      includeInactive: true,
-    );
-    final loadedPeople = await widget.database.watchPeople().first;
-    final loadedDetails = await widget.database
-        .watchAllTransactionDetails()
-        .first;
-    ReviewTransactionDetails? details;
-    for (final item in loadedDetails) {
-      if (item.transaction.id == widget.transactionId) {
-        details = item;
-        break;
-      }
-    }
+    final results = await Future.wait<Object?>([
+      widget.database.getTransaction(widget.transactionId),
+      widget.database.listCategories(includeInactive: true),
+      widget.database.listCostCenters(includeInactive: true),
+      widget.database.listAccountsWithOwners(includeInactive: true),
+      widget.database.listPeople(),
+      widget.database.listInstallmentPlans(),
+    ]);
+    final loadedTransaction = results[0] as FinanceTransaction?;
 
-    if (!mounted) {
-      return;
-    }
-
+    if (!mounted) return;
     setState(() {
       transaction = loadedTransaction;
-      categories = loadedCategories;
-      costCenters = loadedCostCenters;
-      accounts = loadedAccounts;
-      people = loadedPeople;
+      categories = results[1] as List<CategoryRow>;
+      costCenters = results[2] as List<CostCenterRow>;
+      accounts = results[3] as List<AccountWithOwner>;
+      people = results[4] as List<PersonRow>;
+      installmentPlans = results[5] as List<InstallmentPlanRow>;
       descriptionController.text = loadedTransaction?.descriptionRaw ?? '';
       amountController.text = loadedTransaction == null
           ? ''
@@ -100,29 +88,41 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
       competenceController.text =
           loadedTransaction?.competenceMonth ?? monthKey(occurredAt);
       beneficiaryIds = {
-        for (final person in details?.beneficiaries ?? const <PersonRow>[])
-          person.id,
+        if (loadedTransaction?.payerId != null) loadedTransaction!.payerId!,
       };
       loading = false;
     });
+    _loadDetails();
   }
 
-  Future<void> save({bool closeAfterSave = true}) async {
-    final parsedCents = parseBrlInput(amountController.text);
+  Future<void> _loadDetails() async {
+    final allDetails = await widget.database.watchAllTransactionDetails().first;
+    final loadedDetail = allDetails
+        .where((item) => item.transaction.id == widget.transactionId)
+        .firstOrNull;
+    if (!mounted || loadedDetail == null) return;
+    setState(() {
+      details = loadedDetail;
+      beneficiaryIds = {
+        for (final person in loadedDetail.beneficiaries) person.id,
+      };
+    });
+  }
+
+  Future<void> save({bool closeAfterSave = false}) async {
     final fallbackPayerId =
         payerId ?? (people.isEmpty ? null : people.first.id);
     final selectedBeneficiaries =
         beneficiaryIds.isEmpty && fallbackPayerId != null
         ? [fallbackPayerId]
         : beneficiaryIds.toList();
-
     setState(() => saving = true);
     await widget.database.updateTransactionDetails(
       id: widget.transactionId,
       description: descriptionController.text.trim().isEmpty
           ? 'Lancamento sem descricao'
           : descriptionController.text.trim(),
-      amountCents: parsedCents,
+      amountCents: parseBrlInput(amountController.text),
       kind: kind,
       occurredAt: occurredAt,
       competenceMonth: competenceController.text.trim().isEmpty
@@ -134,18 +134,12 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
       payerId: fallbackPayerId,
       beneficiaryIds: selectedBeneficiaries,
     );
-
-    if (!mounted) {
-      return;
-    }
-
+    if (!mounted) return;
     setState(() => saving = false);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Lancamento salvo localmente.')),
     );
-    if (closeAfterSave) {
-      Navigator.of(context).pop();
-    }
+    if (closeAfterSave) Navigator.of(context).pop();
   }
 
   Future<void> pickDate() async {
@@ -155,13 +149,30 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
       firstDate: DateTime(2020),
       lastDate: DateTime(2035),
     );
-    if (selected == null) {
-      return;
-    }
+    if (selected == null || !mounted) return;
     setState(() {
       occurredAt = selected;
       competenceController.text = monthKey(selected);
     });
+  }
+
+  Future<void> pickValue({
+    required String title,
+    required List<_PickerOption> options,
+    required String? selectedId,
+    required ValueChanged<String?> onSelected,
+  }) async {
+    final value = await showModalBottomSheet<_PickedValue>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => _PickerSheet(
+        title: title,
+        options: options,
+        selectedId: selectedId,
+        onSelected: (value) => Navigator.of(sheetContext).pop(value),
+      ),
+    );
+    if (value != null && mounted) onSelected(value.id);
   }
 
   @override
@@ -169,14 +180,14 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
     if (loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-
     if (transaction == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Editar lancamento')),
-        body: const Center(child: Text('Lancamento nao encontrado')),
+        appBar: AppBar(title: const Text('Lançamento')),
+        body: const Center(child: Text('Lançamento não encontrado')),
       );
     }
 
+    final current = transaction!;
     final visibleAccounts = accounts
         .where((item) => item.account.active || item.account.id == accountId)
         .toList(growable: false);
@@ -186,364 +197,603 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
     final visibleCostCenters = costCenters
         .where((item) => item.active || item.id == costCenterId)
         .toList(growable: false);
+    final selectedPlan = installmentPlans
+        .where((item) => item.id == current.installmentPlanId)
+        .firstOrNull;
+    final accountName =
+        visibleAccounts
+            .where((item) => item.account.id == accountId)
+            .map((item) => item.account.name)
+            .firstOrNull ??
+        'Conta não definida';
+    final categoryName =
+        visibleCategories
+            .where((item) => item.id == categoryId)
+            .map((item) => item.name)
+            .firstOrNull ??
+        'Sem categoria';
+    final costCenterName =
+        visibleCostCenters
+            .where((item) => item.id == costCenterId)
+            .map((item) => item.name)
+            .firstOrNull ??
+        'Sem centro';
+    final payerName =
+        people
+            .where((item) => item.id == payerId)
+            .map((item) => item.displayName)
+            .firstOrNull ??
+        'Sem pagador';
 
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 82,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Editar lançamento',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(letterSpacing: -.5),
+      appBar: _DetailAppBar(onBack: () => Navigator.of(context).pop()),
+      bottomNavigationBar: widget.onNavigate == null
+          ? null
+          : ZimbaBottomNavigation(
+              selectedIndex: 1,
+              onSelected: (index) {
+                Navigator.of(context).pop();
+                widget.onNavigate!(index);
+              },
             ),
-            const SizedBox(height: 3),
-            Text(
-              'Classificação completa',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: ZimbaColors.secondaryText,
-                fontWeight: FontWeight.w400,
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        children: [
+          _TransactionSummaryCard(
+            descriptionController: descriptionController,
+            amountController: amountController,
+            status: _reviewStatusLabel(current.reviewStatus),
+            provider: details?.providerLabel ?? 'ZimbaControl',
+            date: _formatDetailDate(occurredAt),
+            currency: current.currencyCode,
+            isIncome: kind == 'income',
+            showSuggestion:
+                current.reviewStatus == 'pending' &&
+                categoryId == null &&
+                kind != 'transfer',
+            onAcceptSuggestion: () => pickValue(
+              title: 'Categoria',
+              selectedId: categoryId,
+              options: [
+                const _PickerOption(null, 'Sem categoria'),
+                for (final item in visibleCategories)
+                  _PickerOption(item.id, item.name),
+              ],
+              onSelected: (value) => setState(() => categoryId = value),
+            ),
+          ),
+          const SizedBox(height: 28),
+          const ZimbaSectionTitle('Classificação'),
+          ZimbaRows(
+            children: [
+              _DetailSelectRow(
+                label: 'Tipo do lançamento',
+                value: _kindLabel(kind),
+                onTap: () => pickValue(
+                  title: 'Tipo do lançamento',
+                  selectedId: kind,
+                  options: const [
+                    _PickerOption('expense', 'Despesa'),
+                    _PickerOption('income', 'Receita'),
+                    _PickerOption('transfer', 'Transferência'),
+                  ],
+                  onSelected: (value) => setState(() => kind = value ?? kind),
+                ),
               ),
+              _DetailSelectRow(
+                label: 'Categoria',
+                value: kind == 'transfer' ? 'Não se aplica' : categoryName,
+                enabled: kind != 'transfer',
+                onTap: () => pickValue(
+                  title: 'Categoria',
+                  selectedId: categoryId,
+                  options: [
+                    const _PickerOption(null, 'Sem categoria'),
+                    for (final item in visibleCategories)
+                      _PickerOption(item.id, item.name),
+                  ],
+                  onSelected: (value) => setState(() => categoryId = value),
+                ),
+              ),
+              _DetailSelectRow(
+                label: 'Centro de custo',
+                value: kind == 'transfer' ? 'Não se aplica' : costCenterName,
+                enabled: kind != 'transfer',
+                onTap: () => pickValue(
+                  title: 'Centro de custo',
+                  selectedId: costCenterId,
+                  options: [
+                    const _PickerOption(null, 'Sem centro de custo'),
+                    for (final item in visibleCostCenters)
+                      _PickerOption(item.id, item.name),
+                  ],
+                  onSelected: (value) => setState(() => costCenterId = value),
+                ),
+              ),
+              _DetailSelectRow(
+                label: 'Conta / Cartão',
+                value: accountName,
+                onTap: () => pickValue(
+                  title: 'Conta / Cartão',
+                  selectedId: accountId,
+                  options: [
+                    const _PickerOption(null, 'Conta não definida'),
+                    for (final item in visibleAccounts)
+                      _PickerOption(item.account.id, item.account.name),
+                  ],
+                  onSelected: (value) => setState(() => accountId = value),
+                ),
+              ),
+              _DetailInputRow(
+                label: 'Competência',
+                controller: competenceController,
+                prefixIcon: Icons.calendar_today_outlined,
+                onTap: pickDate,
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          const ZimbaSectionTitle('Beneficiários'),
+          ZimbaCard(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final person in people)
+                      _BeneficiaryChip(
+                        label: person.displayName,
+                        selected: beneficiaryIds.contains(person.id),
+                        onTap: () => setState(() {
+                          final next = beneficiaryIds.toSet();
+                          next.contains(person.id)
+                              ? next.remove(person.id)
+                              : next.add(person.id);
+                          beneficiaryIds = next;
+                        }),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: ZimbaColors.surfaceMuted,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Rateio automático em partes iguais entre ${beneficiaryIds.length} ${beneficiaryIds.length == 1 ? 'pessoa' : 'pessoas'}.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: ZimbaColors.secondaryText,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Salvar',
-            onPressed: saving ? null : save,
-            icon: const Icon(Icons.check),
+          ),
+          const SizedBox(height: 24),
+          const ZimbaSectionTitle('Origem & parcelamento'),
+          ZimbaRows(
+            children: [
+              _DetailStaticRow(
+                label: 'Fonte do dado',
+                value: _sourceDescription(details?.sourceLabel),
+              ),
+              _DetailStaticRow(
+                label: 'Parcelamento',
+                value: selectedPlan == null
+                    ? 'À vista'
+                    : '${selectedPlan.currentInstallment} de ${selectedPlan.totalInstallments}',
+                icon: Icons.layers_outlined,
+              ),
+              _DetailSelectRow(
+                label: 'Pagador',
+                value: payerName,
+                onTap: () => pickValue(
+                  title: 'Pagador',
+                  selectedId: payerId,
+                  options: [
+                    const _PickerOption(null, 'Sem pagador'),
+                    for (final person in people)
+                      _PickerOption(person.id, person.displayName),
+                  ],
+                  onSelected: (value) => setState(() => payerId = value),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 48,
+            child: FilledButton(
+              onPressed: saving ? null : save,
+              child: saving
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Salvar alterações'),
+            ),
           ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+    );
+  }
+}
+
+class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const _DetailAppBar({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(82);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      toolbarHeight: 82,
+      leadingWidth: 126,
+      leading: TextButton.icon(
+        onPressed: onBack,
+        icon: const Icon(Icons.arrow_back, size: 22),
+        label: const Text('Voltar'),
+        style: TextButton.styleFrom(
+          foregroundColor: ZimbaColors.accent,
+          textStyle: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
+        ),
+      ),
+      title: Text(
+        'Lançamento',
+        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          letterSpacing: -.6,
+        ),
+      ),
+      bottom: const PreferredSize(
+        preferredSize: Size.fromHeight(1),
+        child: Divider(height: 1, color: ZimbaColors.border),
+      ),
+    );
+  }
+}
+
+class _TransactionSummaryCard extends StatelessWidget {
+  const _TransactionSummaryCard({
+    required this.descriptionController,
+    required this.amountController,
+    required this.status,
+    required this.provider,
+    required this.date,
+    required this.currency,
+    required this.isIncome,
+    required this.showSuggestion,
+    required this.onAcceptSuggestion,
+  });
+
+  final TextEditingController descriptionController;
+  final TextEditingController amountController;
+  final String status;
+  final String provider;
+  final String date;
+  final String currency;
+  final bool isIncome;
+  final bool showSuggestion;
+  final VoidCallback onAcceptSuggestion;
+
+  @override
+  Widget build(BuildContext context) {
+    return ZimbaCard(
+      borderRadius: 24,
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionCard(
-            title: 'Valor',
-            icon: Icons.payments_outlined,
-            child: Column(
-              children: [
-                TextField(
+          Row(
+            children: [
+              ZimbaBadge(label: status, tone: ZimbaTone.info),
+              const Spacer(),
+              Flexible(
+                child: Text(
+                  '$provider · $date',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: ZimbaColors.secondaryText,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: descriptionController,
+            maxLines: 2,
+            minLines: 1,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontSize: 22,
+              height: 1.2,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -.45,
+            ),
+            decoration: const InputDecoration(
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+              filled: false,
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Expanded(
+                child: TextField(
                   controller: amountController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                    fontSize: 32,
+                    height: 1,
+                    fontWeight: FontWeight.w600,
+                    color: isIncome
+                        ? ZimbaColors.success
+                        : ZimbaColors.foreground,
+                    letterSpacing: -.9,
                   ),
                   decoration: const InputDecoration(
-                    prefixText: 'R\$ ',
-                    helperText: 'Ex.: 487,32 ou -48732',
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
                     filled: false,
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
                   ),
                 ),
-                const SizedBox(height: 12),
-                _EditKindPicker(
-                  selected: kind,
-                  onSelected: (value) => setState(() => kind = value),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                currency,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: ZimbaColors.secondaryText,
                 ),
-              ],
+              ),
+            ],
+          ),
+          if (showSuggestion) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: ZimbaColors.accentSoft,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.auto_awesome_outlined,
+                    color: ZimbaColors.accent,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Escolha uma categoria para completar a classificação.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: onAcceptSuggestion,
+                    style: TextButton.styleFrom(
+                      backgroundColor: ZimbaColors.accent,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(0, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text('Escolher'),
+                  ),
+                ],
+              ),
             ),
-          ),
-          _SectionCard(
-            title: 'Descricao e data',
-            icon: Icons.edit_note_outlined,
-            child: Column(
-              children: [
-                TextField(
-                  controller: descriptionController,
-                  decoration: const InputDecoration(
-                    labelText: 'Descricao',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: pickDate,
-                        icon: const Icon(Icons.calendar_today_outlined),
-                        label: Text(formatInputDate(occurredAt)),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: competenceController,
-                        decoration: const InputDecoration(
-                          labelText: 'Competencia',
-                          helperText: 'AAAA-MM',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          _SectionCard(
-            title: 'Conta e responsaveis',
-            icon: Icons.account_balance_wallet_outlined,
-            child: Column(
-              children: [
-                DropdownButtonFormField<String?>(
-                  initialValue: accountId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Conta / cartao',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('Sem conta definida'),
-                    ),
-                    for (final item in visibleAccounts)
-                      DropdownMenuItem(
-                        value: item.account.id,
-                        child: Text(
-                          '${item.account.name} · ${_accountTypeLabel(item.account.type)}',
-                        ),
-                      ),
-                  ],
-                  onChanged: (value) => setState(() => accountId = value),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String?>(
-                  initialValue: payerId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Pagador',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('Sem pagador'),
-                    ),
-                    for (final person in people)
-                      DropdownMenuItem(
-                        value: person.id,
-                        child: Text(person.displayName),
-                      ),
-                  ],
-                  onChanged: (value) => setState(() => payerId = value),
-                ),
-              ],
-            ),
-          ),
-          _SectionCard(
-            title: 'Classificacao',
-            icon: Icons.category_outlined,
-            child: Column(
-              children: [
-                DropdownButtonFormField<String?>(
-                  initialValue: categoryId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Categoria',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('Sem categoria'),
-                    ),
-                    for (final category in visibleCategories)
-                      DropdownMenuItem(
-                        value: category.id,
-                        child: Text(
-                          category.active
-                              ? category.name
-                              : '${category.name} (arquivada)',
-                        ),
-                      ),
-                  ],
-                  onChanged: kind == 'transfer'
-                      ? null
-                      : (value) => setState(() => categoryId = value),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String?>(
-                  initialValue: costCenterId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Centro de custo',
-                    border: OutlineInputBorder(),
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('Sem centro de custo'),
-                    ),
-                    for (final costCenter in visibleCostCenters)
-                      DropdownMenuItem(
-                        value: costCenter.id,
-                        child: Text(
-                          costCenter.active
-                              ? costCenter.name
-                              : '${costCenter.name} (arquivado)',
-                        ),
-                      ),
-                  ],
-                  onChanged: kind == 'transfer'
-                      ? null
-                      : (value) => setState(() => costCenterId = value),
-                ),
-              ],
-            ),
-          ),
-          _SectionCard(
-            title: 'Beneficiarios',
-            icon: Icons.people_alt_outlined,
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final person in people)
-                  _EditChoice(
-                    label: person.displayName,
-                    selected: beneficiaryIds.contains(person.id),
-                    onTap: () {
-                      setState(() {
-                        final next = beneficiaryIds.toSet();
-                        if (!next.contains(person.id)) {
-                          next.add(person.id);
-                        } else {
-                          next.remove(person.id);
-                        }
-                        beneficiaryIds = next;
-                      });
-                    },
-                  ),
-              ],
-            ),
-          ),
-          if (saving) const LinearProgressIndicator(),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: saving ? null : save,
-            icon: const Icon(Icons.save_outlined),
-            label: const Text('Salvar localmente'),
-          ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _EditKindPicker extends StatelessWidget {
-  const _EditKindPicker({required this.selected, required this.onSelected});
+class _DetailSelectRow extends StatelessWidget {
+  const _DetailSelectRow({
+    required this.label,
+    required this.value,
+    required this.onTap,
+    this.enabled = true,
+  });
 
-  final String selected;
-  final ValueChanged<String> onSelected;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+  final bool enabled;
 
   @override
-  Widget build(BuildContext context) {
-    const options = [
-      ('expense', 'Despesa', Icons.trending_down, ZimbaTone.danger),
-      ('income', 'Receita', Icons.trending_up, ZimbaTone.success),
-      ('transfer', 'Transferência', Icons.compare_arrows, ZimbaTone.accent),
-    ];
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final narrow = constraints.maxWidth < 380;
-        return Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (var index = 0; index < options.length; index++)
-              SizedBox(
-                width: narrow && index == options.length - 1
-                    ? constraints.maxWidth
-                    : narrow
-                    ? (constraints.maxWidth - 8) / 2
-                    : (constraints.maxWidth - 16) / 3,
-                child: _EditKindButton(
-                  label: options[index].$2,
-                  icon: options[index].$3,
-                  selected: selected == options[index].$1,
-                  tone: options[index].$4,
-                  onTap: () => onSelected(options[index].$1),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
+  Widget build(BuildContext context) => _DetailRow(
+    label: label,
+    value: value,
+    enabled: enabled,
+    onTap: enabled ? onTap : null,
+  );
 }
 
-class _EditKindButton extends StatelessWidget {
-  const _EditKindButton({
+class _DetailStaticRow extends StatelessWidget {
+  const _DetailStaticRow({required this.label, required this.value, this.icon});
+
+  final String label;
+  final String value;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) =>
+      _DetailRow(label: label, value: value, icon: icon);
+}
+
+class _DetailInputRow extends StatelessWidget {
+  const _DetailInputRow({
     required this.label,
-    required this.icon,
-    required this.selected,
-    required this.tone,
+    required this.controller,
+    required this.prefixIcon,
     required this.onTap,
   });
 
   final String label;
-  final IconData icon;
-  final bool selected;
-  final ZimbaTone tone;
+  final TextEditingController controller;
+  final IconData prefixIcon;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final colors = switch (tone) {
-      ZimbaTone.danger => (
-        ZimbaColors.destructiveSoft,
-        ZimbaColors.destructive,
-      ),
-      ZimbaTone.success => (ZimbaColors.successSoft, ZimbaColors.success),
-      _ => (ZimbaColors.accentSoft, ZimbaColors.accent),
-    };
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Ink(
-          height: 40,
-          decoration: BoxDecoration(
-            color: selected ? colors.$1 : ZimbaColors.surfaceMuted,
-            border: Border.all(
-              color: selected ? colors.$2 : Colors.transparent,
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: ZimbaColors.secondaryText,
+                fontSize: 12,
+              ),
             ),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 16,
-                color: selected ? colors.$2 : ZimbaColors.secondaryText,
-              ),
-              const SizedBox(width: 5),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: selected ? colors.$2 : ZimbaColors.secondaryText,
-                  fontWeight: FontWeight.w700,
+            const SizedBox(height: 3),
+            Row(
+              children: [
+                Icon(prefixIcon, size: 16, color: ZimbaColors.secondaryText),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    maxLines: 1,
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
+                    decoration: const InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                    ),
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 20,
+                  color: Color(0xFF94A3B8),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _EditChoice extends StatelessWidget {
-  const _EditChoice({
+class _DetailRow extends StatelessWidget {
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    this.onTap,
+    this.icon,
+    this.enabled = true,
+  });
+
+  final String label;
+  final String value;
+  final VoidCallback? onTap;
+  final IconData? icon;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: enabled
+                        ? ZimbaColors.secondaryText
+                        : ZimbaColors.secondaryText.withValues(alpha: .55),
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    if (icon != null) ...[
+                      Icon(icon, size: 16, color: ZimbaColors.secondaryText),
+                      const SizedBox(width: 6),
+                    ],
+                    Expanded(
+                      child: Text(
+                        value,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: enabled
+                              ? ZimbaColors.foreground
+                              : ZimbaColors.secondaryText,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (onTap != null)
+            const Icon(Icons.chevron_right, size: 20, color: Color(0xFF94A3B8)),
+        ],
+      ),
+    );
+    return onTap == null ? content : InkWell(onTap: onTap, child: content);
+  }
+}
+
+class _BeneficiaryChip extends StatelessWidget {
+  const _BeneficiaryChip({
     required this.label,
     required this.selected,
     required this.onTap,
@@ -561,7 +811,7 @@ class _EditChoice extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(999),
         child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             color: selected ? ZimbaColors.accentSoft : ZimbaColors.surface,
             border: Border.all(
@@ -569,18 +819,28 @@ class _EditChoice extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(999),
           ),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 260),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: selected
-                    ? ZimbaColors.accent
-                    : ZimbaColors.secondaryText,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (selected) ...[
+                const Icon(Icons.check, size: 14, color: ZimbaColors.accent),
+                const SizedBox(width: 5),
+              ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 180),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: selected
+                        ? ZimbaColors.accent
+                        : ZimbaColors.secondaryText,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -588,40 +848,81 @@ class _EditChoice extends StatelessWidget {
   }
 }
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({
+class _PickerOption {
+  const _PickerOption(this.id, this.label);
+
+  final String? id;
+  final String label;
+}
+
+class _PickedValue {
+  const _PickedValue(this.id);
+
+  final String? id;
+}
+
+class _PickerSheet extends StatelessWidget {
+  const _PickerSheet({
     required this.title,
-    required this.icon,
-    required this.child,
+    required this.options,
+    required this.selectedId,
+    required this.onSelected,
   });
 
   final String title;
-  final IconData icon;
-  final Widget child;
+  final List<_PickerOption> options;
+  final String? selectedId;
+  final ValueChanged<_PickedValue> onSelected;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: ZimbaCard(
-        padding: const EdgeInsets.all(14),
+    return SafeArea(
+      top: false,
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 520),
+        decoration: const BoxDecoration(
+          color: ZimbaColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Icon(icon, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  title,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
-                ),
-              ],
+            const SizedBox(height: 10),
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: ZimbaColors.border,
+                borderRadius: BorderRadius.circular(99),
+              ),
             ),
-            const SizedBox(height: 12),
-            child,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+            ),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: options.length,
+                itemBuilder: (context, index) {
+                  final option = options[index];
+                  final selected = option.id == selectedId;
+                  return ListTile(
+                    onTap: () => onSelected(_PickedValue(option.id)),
+                    title: Text(option.label),
+                    trailing: selected
+                        ? const Icon(Icons.check, color: ZimbaColors.accent)
+                        : null,
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -629,51 +930,60 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
+String _reviewStatusLabel(String status) => switch (status) {
+  'pending' => 'Sugerido',
+  'confirmed' => 'Revisado',
+  'ignored' => 'Ignorado',
+  _ => 'Lançamento',
+};
+
+String _sourceDescription(String? label) => switch (label) {
+  'Notificacao' => 'Notificação Android',
+  'CSV' => 'Importação CSV',
+  'OFX' => 'Importação OFX',
+  'Manual' => 'Cadastro manual',
+  _ => 'Cadastro local',
+};
+
+String _formatDetailDate(DateTime value) {
+  final now = DateTime.now();
+  final isToday =
+      value.year == now.year &&
+      value.month == now.month &&
+      value.day == now.day;
+  final time =
+      '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+  return isToday
+      ? 'Hoje · $time'
+      : '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')} · $time';
+}
+
+String _kindLabel(String kind) => switch (kind) {
+  'income' => 'Receita',
+  'transfer' => 'Transferência',
+  _ => 'Despesa',
+};
+
+String monthKey(DateTime value) =>
+    '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}';
+
 String centsToInput(int cents) {
   final sign = cents < 0 ? '-' : '';
   final value = cents.abs();
-  final reais = value ~/ 100;
-  final centavos = (value % 100).toString().padLeft(2, '0');
-  return '$sign$reais,$centavos';
+  return '$sign${value ~/ 100},${(value % 100).toString().padLeft(2, '0')}';
 }
 
 int parseBrlInput(String input) {
   final normalized = input.trim();
-  if (normalized.isEmpty) {
-    return 0;
-  }
-
+  if (normalized.isEmpty) return 0;
   if (!normalized.contains(',') && !normalized.contains('.')) {
     return int.tryParse(normalized) ?? 0;
   }
-
   final sign = normalized.startsWith('-') ? -1 : 1;
   final digits = normalized.replaceAll(RegExp(r'[^0-9]'), '');
-  if (digits.isEmpty) {
-    return 0;
-  }
-
+  if (digits.isEmpty) return 0;
   final padded = digits.padLeft(3, '0');
   final reais = int.parse(padded.substring(0, padded.length - 2));
-  final centavos = int.parse(padded.substring(padded.length - 2));
-  return sign * ((reais * 100) + centavos);
-}
-
-String monthKey(DateTime date) {
-  return '${date.year.toString().padLeft(4, '0')}-'
-      '${date.month.toString().padLeft(2, '0')}';
-}
-
-String formatInputDate(DateTime date) {
-  return '${date.day.toString().padLeft(2, '0')}/'
-      '${date.month.toString().padLeft(2, '0')}/'
-      '${date.year}';
-}
-
-String _accountTypeLabel(String type) {
-  return switch (type) {
-    'credit_card' => 'Cartao',
-    'account' => 'Conta',
-    _ => type,
-  };
+  final cents = int.parse(padded.substring(padded.length - 2));
+  return sign * ((reais * 100) + cents);
 }

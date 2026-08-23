@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 
 import '../../application/import_parser.dart';
@@ -211,6 +212,35 @@ class SyncOutbox extends Table {
   Set<Column> get primaryKey => {opId};
 }
 
+@DataClassName('SyncAppliedEventRow')
+class SyncAppliedEvents extends Table {
+  TextColumn get opId => text()();
+  TextColumn get householdId => text()();
+  IntColumn get seq => integer()();
+  DateTimeColumn get appliedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {opId};
+}
+
+@DataClassName('SyncConflictRow')
+class SyncConflicts extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get transactionId => text()();
+  TextColumn get remoteOpId => text()();
+  IntColumn get remoteSeq => integer()();
+  TextColumn get localPayloadJson => text()();
+  TextColumn get remotePayloadJson => text()();
+  TextColumn get status =>
+      text().withDefault(const Constant('pending_review'))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get resolvedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DataClassName('AppPreferenceRow')
 class AppPreferences extends Table {
   TextColumn get key => text()();
@@ -389,6 +419,8 @@ class RawNotificationEvents extends Table {
     TransactionSources,
     ClassificationRules,
     SyncOutbox,
+    SyncAppliedEvents,
+    SyncConflicts,
     AppPreferences,
     AuthUsers,
     RecurringSchedules,
@@ -410,9 +442,15 @@ class AppDatabase extends _$AppDatabase {
   static const primaryPersonPreferenceKey = 'primary_person_id';
   static const primaryAccountPreferenceKey = 'primary_account_id';
   static const syncDeviceIdPreferenceKey = 'sync_device_id';
+  static const notificationCaptureLastDrainPreferenceKey =
+      'notification_capture_last_drain_at';
+  static const notificationCaptureLastErrorPreferenceKey =
+      'notification_capture_last_error';
+  static const notificationCaptureRetentionDaysPreferenceKey =
+      'notification_capture_retention_days';
 
   @override
-  int get schemaVersion => 9;
+  int get schemaVersion => 10;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -465,6 +503,10 @@ class AppDatabase extends _$AppDatabase {
       if (from < 9) {
         await migrator.addColumn(transactions, transactions.appliedRuleId);
         await migrator.createTable(classificationRules);
+      }
+      if (from < 10) {
+        await migrator.createTable(syncAppliedEvents);
+        await migrator.createTable(syncConflicts);
       }
     },
   );
@@ -553,7 +595,7 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<FinanceTransaction>> watchPendingReview() {
     final query = select(transactions)
-      ..where((row) => row.reviewStatus.equals('pending'))
+      ..where((row) => row.reviewStatus.isIn(['pending', 'conflict']))
       ..orderBy([(row) => OrderingTerm.desc(row.occurredAt)]);
     return query.watch();
   }
@@ -583,6 +625,15 @@ class AppDatabase extends _$AppDatabase {
       ..where((row) => row.active.equals(true))
       ..orderBy([(row) => OrderingTerm.asc(row.displayName)]);
     return query.watch();
+  }
+
+  Future<List<PersonRow>> listPeople({bool includeInactive = false}) {
+    final query = select(people)
+      ..orderBy([(row) => OrderingTerm.asc(row.displayName)]);
+    if (!includeInactive) {
+      query.where((row) => row.active.equals(true));
+    }
+    return query.get();
   }
 
   Stream<List<ReviewInboxRow>> watchOpenReviewInbox() {
@@ -788,6 +839,41 @@ class AppDatabase extends _$AppDatabase {
     return query.watch();
   }
 
+  Future<NotificationCaptureDiagnostics>
+  getNotificationCaptureDiagnostics() async {
+    final events = await select(rawNotificationEvents).get();
+    final counts = <String, int>{};
+    for (final event in events) {
+      counts.update(event.status, (count) => count + 1, ifAbsent: () => 1);
+    }
+    final retentionDays =
+        int.tryParse(
+          await _preferenceValue(
+                notificationCaptureRetentionDaysPreferenceKey,
+              ) ??
+              '',
+        ) ??
+        30;
+    final lastDrain = DateTime.tryParse(
+      await _preferenceValue(notificationCaptureLastDrainPreferenceKey) ?? '',
+    );
+    return NotificationCaptureDiagnostics(
+      counts: counts,
+      retentionDays: retentionDays.clamp(1, 365).toInt(),
+      lastDrain: lastDrain,
+      lastError: await _preferenceValue(
+        notificationCaptureLastErrorPreferenceKey,
+      ),
+    );
+  }
+
+  Future<void> setNotificationCaptureRetentionDays(int days) {
+    return _setPreference(
+      notificationCaptureRetentionDaysPreferenceKey,
+      days.clamp(1, 365).toString(),
+    );
+  }
+
   Future<List<SyncOutboxRow>> listPendingSyncOutbox({int limit = 50}) {
     final query = select(syncOutbox)
       ..where((row) => row.status.isIn(['pending', 'failed']))
@@ -796,10 +882,18 @@ class AppDatabase extends _$AppDatabase {
     return query.get();
   }
 
+  Future<List<SyncConflictRow>> listSyncConflicts(String transactionId) {
+    final query = select(syncConflicts)
+      ..where((row) => row.transactionId.equals(transactionId))
+      ..orderBy([(row) => OrderingTerm.desc(row.createdAt)]);
+    return query.get();
+  }
+
   Future<SyncRunSummary> runSyncOnce(SyncApiClient client) async {
     final operations = await listPendingSyncOutbox();
     final sinceSeq =
         int.tryParse(await _preferenceValue('sync_pull_since_seq') ?? '0') ?? 0;
+    final localDeviceId = await _deviceId();
     var pushed = 0;
     var duplicates = 0;
     var conflicts = 0;
@@ -826,10 +920,10 @@ class AppDatabase extends _$AppDatabase {
         switch (ack.result) {
           case 'applied':
             pushed += 1;
-            await _markOutboxAck(operation.opId);
+            await _markOutboxAck(operation);
           case 'duplicate':
             duplicates += 1;
-            await _markOutboxAck(operation.opId);
+            await _markOutboxAck(operation);
           case 'conflict':
             conflicts += 1;
             await _markOutboxConflict(operation);
@@ -844,7 +938,11 @@ class AppDatabase extends _$AppDatabase {
       householdId: householdMain,
       sinceSeq: sinceSeq,
     );
-    await _setPreference('sync_pull_since_seq', pulled.latestSeq.toString());
+    final pullSummary = await _applyPulledSyncEvents(
+      pulled.events,
+      sinceSeq: sinceSeq,
+      localDeviceId: localDeviceId,
+    );
 
     return SyncRunSummary(
       pushed: pushed,
@@ -852,8 +950,241 @@ class AppDatabase extends _$AppDatabase {
       conflicts: conflicts,
       rejected: rejected,
       pulled: pulled.events.length,
-      latestSeq: pulled.latestSeq,
+      applied: pullSummary.applied,
+      remoteConflicts: pullSummary.conflicts,
+      latestSeq: pullSummary.latestSeq,
     );
+  }
+
+  Future<_PullApplySummary> _applyPulledSyncEvents(
+    List<Map<String, dynamic>> events, {
+    required int sinceSeq,
+    required String localDeviceId,
+  }) async {
+    var latestSeq = sinceSeq;
+    var applied = 0;
+    var conflicts = 0;
+    final ordered = [...events]
+      ..sort(
+        (left, right) => _syncEventSeq(left).compareTo(_syncEventSeq(right)),
+      );
+
+    for (final event in ordered) {
+      final seq = _syncEventSeq(event);
+      if (seq <= latestSeq) {
+        continue;
+      }
+      final result = await transaction(() async {
+        final opId = _requiredSyncString(event, 'opId');
+        final alreadyApplied = await (select(
+          syncAppliedEvents,
+        )..where((row) => row.opId.equals(opId))).getSingleOrNull();
+        if (alreadyApplied != null) {
+          return const _RemoteApplyResult();
+        }
+
+        _RemoteApplyResult result;
+        if (_requiredSyncString(event, 'deviceId') == localDeviceId) {
+          await _acknowledgeOwnPulledEvent(event);
+          result = const _RemoteApplyResult();
+        } else if (_requiredSyncString(event, 'entityType') == 'transaction') {
+          result = await _applyRemoteTransactionEvent(event);
+        } else {
+          throw FormatException(
+            'Entidade de sync nao suportada: ${event['entityType']}',
+          );
+        }
+        await into(syncAppliedEvents).insert(
+          SyncAppliedEventsCompanion.insert(
+            opId: opId,
+            householdId: householdMain,
+            seq: seq,
+            appliedAt: DateTime.now(),
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+        return result;
+      });
+      latestSeq = seq;
+      applied += 1;
+      conflicts += result.conflict ? 1 : 0;
+    }
+
+    await _setPreference('sync_pull_since_seq', latestSeq.toString());
+    return _PullApplySummary(
+      applied: applied,
+      conflicts: conflicts,
+      latestSeq: latestSeq,
+    );
+  }
+
+  Future<void> _acknowledgeOwnPulledEvent(Map<String, dynamic> event) async {
+    if (_requiredSyncString(event, 'entityType') != 'transaction') {
+      return;
+    }
+    final transactionId = _requiredSyncString(event, 'entityId');
+    final local = await getTransaction(transactionId);
+    if (local == null) {
+      return;
+    }
+    final remoteVersion = _syncEventBaseVersion(event) + 1;
+    if (remoteVersion <= local.serverVersion) {
+      return;
+    }
+    await (update(
+      transactions,
+    )..where((row) => row.id.equals(transactionId))).write(
+      TransactionsCompanion(
+        baseVersion: Value(remoteVersion),
+        serverVersion: Value(remoteVersion),
+      ),
+    );
+  }
+
+  Future<_RemoteApplyResult> _applyRemoteTransactionEvent(
+    Map<String, dynamic> event,
+  ) async {
+    final remote = _SyncTransactionPayload.fromEvent(event);
+    final local = await getTransaction(remote.transaction.id);
+    final remoteVersion = _syncEventBaseVersion(event) + 1;
+    if (local == null) {
+      await _replaceRemoteTransaction(remote, remoteVersion);
+      return const _RemoteApplyResult();
+    }
+
+    final hasLocalChanges = await _hasUnsyncedLocalChanges(local.id);
+    if (local.serverVersion >= remoteVersion && !hasLocalChanges) {
+      return const _RemoteApplyResult();
+    }
+    if (!hasLocalChanges && local.serverVersion == remoteVersion - 1) {
+      await _replaceRemoteTransaction(remote, remoteVersion);
+      return const _RemoteApplyResult();
+    }
+
+    final now = DateTime.now();
+    final opId = _requiredSyncString(event, 'opId');
+    await into(syncConflicts).insert(
+      SyncConflictsCompanion.insert(
+        id: 'sync-conflict-$opId',
+        householdId: householdMain,
+        transactionId: local.id,
+        remoteOpId: opId,
+        remoteSeq: _syncEventSeq(event),
+        localPayloadJson: jsonEncode(await _syncTransactionPayload(local.id)),
+        remotePayloadJson: jsonEncode(_syncMap(event['payload'], 'payload')),
+        createdAt: now,
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+    await (update(transactions)..where((row) => row.id.equals(local.id))).write(
+      TransactionsCompanion(
+        reviewStatus: const Value('conflict'),
+        baseVersion: Value(remoteVersion),
+        serverVersion: Value(remoteVersion),
+        updatedAt: Value(now),
+      ),
+    );
+    await into(reviewInbox).insert(
+      _reviewItem(
+        local.id,
+        'sync_remote_conflict',
+        now,
+        severity: 'high',
+        id: 'review-sync-remote-$opId',
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+    return const _RemoteApplyResult(conflict: true);
+  }
+
+  Future<void> _replaceRemoteTransaction(
+    _SyncTransactionPayload remote,
+    int remoteVersion,
+  ) async {
+    final value = remote.transaction;
+    if (remote.operationType == 'delete') {
+      await (update(
+        transactions,
+      )..where((row) => row.id.equals(value.id))).write(
+        TransactionsCompanion(
+          deletedAt: Value(remote.serverAt),
+          baseVersion: Value(remoteVersion),
+          serverVersion: Value(remoteVersion),
+          updatedAt: Value(remote.serverAt),
+        ),
+      );
+      return;
+    }
+    await into(transactions).insertOnConflictUpdate(
+      TransactionsCompanion.insert(
+        id: value.id,
+        householdId: value.householdId,
+        kind: value.kind,
+        reviewStatus: value.reviewStatus,
+        duplicateStatus: value.duplicateStatus,
+        occurredAt: value.occurredAt,
+        postedAt: Value(value.postedAt),
+        competenceMonth: value.competenceMonth,
+        amountCents: value.amountCents,
+        currencyCode: Value(value.currencyCode),
+        descriptionRaw: value.descriptionRaw,
+        accountId: Value(value.accountId),
+        transferFromAccountId: Value(value.transferFromAccountId),
+        transferToAccountId: Value(value.transferToAccountId),
+        recurringScheduleId: Value(value.recurringScheduleId),
+        installmentPlanId: Value(value.installmentPlanId),
+        merchantId: Value(value.merchantId),
+        categoryId: Value(value.categoryId),
+        costCenterId: Value(value.costCenterId),
+        payerId: Value(value.payerId),
+        appliedRuleId: Value(value.appliedRuleId),
+        sourceConfidence: Value(value.sourceConfidence),
+        baseVersion: Value(remoteVersion),
+        serverVersion: Value(remoteVersion),
+        updatedAt: value.updatedAt,
+        deletedAt: Value(value.deletedAt),
+      ),
+    );
+    await (delete(
+      transactionBeneficiaries,
+    )..where((row) => row.transactionId.equals(value.id))).go();
+    await (delete(
+      transactionSources,
+    )..where((row) => row.transactionId.equals(value.id))).go();
+    if (remote.beneficiaries.isNotEmpty) {
+      await batch((batch) {
+        batch.insertAll(transactionBeneficiaries, remote.beneficiaries);
+      });
+    }
+    if (remote.sources.isNotEmpty) {
+      await batch((batch) {
+        batch.insertAll(transactionSources, remote.sources);
+      });
+    }
+    if (value.reviewStatus == 'pending') {
+      await into(reviewInbox).insert(
+        _reviewItem(
+          value.id,
+          'sync_remote_pending',
+          value.updatedAt,
+          id: 'review-sync-remote-${value.id}',
+        ),
+        mode: InsertMode.insertOrIgnore,
+      );
+    }
+  }
+
+  Future<bool> _hasUnsyncedLocalChanges(String transactionId) async {
+    final row =
+        await (select(syncOutbox)
+              ..where((item) => item.entityType.equals('transaction'))
+              ..where((item) => item.entityId.equals(transactionId))
+              ..where(
+                (item) => item.status.isIn(['pending', 'failed', 'conflict']),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    return row != null;
   }
 
   Future<ZimbaBackupFile> exportBackupFile() async {
@@ -875,6 +1206,8 @@ class AppDatabase extends _$AppDatabase {
         await select(classificationRules).get(),
       ),
       'syncOutbox': _toJsonRows(await select(syncOutbox).get()),
+      'syncAppliedEvents': _toJsonRows(await select(syncAppliedEvents).get()),
+      'syncConflicts': _toJsonRows(await select(syncConflicts).get()),
       'appPreferences': _toJsonRows(await select(appPreferences).get()),
       'authUsers': _toJsonRows(await select(authUsers).get()),
       'recurringSchedules': _toJsonRows(await select(recurringSchedules).get()),
@@ -936,6 +1269,8 @@ class AppDatabase extends _$AppDatabase {
   Future<BackupValidationResult> restoreBackupBytes(List<int> bytes) async {
     final backup = _decodeBackup(bytes);
     await transaction(() async {
+      await delete(syncConflicts).go();
+      await delete(syncAppliedEvents).go();
       await delete(rawNotificationEvents).go();
       await delete(duplicateCandidates).go();
       await delete(stagedSourceRecords).go();
@@ -972,6 +1307,8 @@ class AppDatabase extends _$AppDatabase {
       await _insertBackupRows(transactionSources, backup.transactionSources);
       await _insertBackupRows(classificationRules, backup.classificationRules);
       await _insertBackupRows(syncOutbox, backup.syncOutbox);
+      await _insertBackupRows(syncAppliedEvents, backup.syncAppliedEvents);
+      await _insertBackupRows(syncConflicts, backup.syncConflicts);
       await _insertBackupRows(appPreferences, backup.appPreferences);
       await _insertBackupRows(authUsers, backup.authUsers);
       await _insertBackupRows(recurringSchedules, backup.recurringSchedules);
@@ -1025,26 +1362,84 @@ class AppDatabase extends _$AppDatabase {
   Future<NotificationCaptureSyncResult> syncNotificationCaptureEvents([
     NotificationCaptureService service = const NotificationCaptureService(),
   ]) async {
-    final events = await service.getRecentEvents();
+    var fetched = 0;
     var recorded = 0;
-    for (final event in events) {
-      await recordRawNotificationEvent(event);
-      recorded += 1;
+    String? bridgeError;
+
+    try {
+      while (true) {
+        final drain = await service.drainPendingEvents();
+        if (!drain.available || drain.events.isEmpty) {
+          break;
+        }
+        fetched += drain.events.length;
+        final ids = drain.events
+            .map((event) => event.id)
+            .toList(growable: false);
+        try {
+          for (final event in drain.events) {
+            if (await recordRawNotificationEvent(event)) {
+              recorded += 1;
+            }
+          }
+          await service.acknowledgeDeliveredEvents(ids);
+        } catch (error) {
+          bridgeError = 'Falha ao gravar a captura no banco local: $error';
+          await service.releaseEventsForRetry(ids, error: bridgeError);
+          break;
+        }
+        if (!drain.hasMore) {
+          break;
+        }
+      }
+    } catch (error) {
+      bridgeError = 'Falha de comunicacao com a captura Android: $error';
     }
-    final drafts = await processPendingRawNotificationEvents();
-    return NotificationCaptureSyncResult(recorded: recorded, drafts: drafts);
+
+    var drafts = 0;
+    while (true) {
+      final pending = await _countRawNotificationsWithStatus('captured');
+      if (pending == 0) {
+        break;
+      }
+      drafts += await processPendingRawNotificationEvents(limit: 100);
+      if (pending <= 100) {
+        break;
+      }
+    }
+    await _setPreference(
+      notificationCaptureLastDrainPreferenceKey,
+      DateTime.now().toIso8601String(),
+    );
+    await _setPreference(
+      notificationCaptureLastErrorPreferenceKey,
+      bridgeError ?? '',
+    );
+    return NotificationCaptureSyncResult(
+      fetched: fetched,
+      recorded: recorded,
+      drafts: drafts,
+      bridgeError: bridgeError,
+    );
   }
 
-  Future<void> recordRawNotificationEvent(
+  Future<bool> recordRawNotificationEvent(
     CapturedNotificationEvent event,
   ) async {
     if (event.id.trim().isEmpty) {
-      return;
+      return false;
     }
 
-    await into(rawNotificationEvents).insertOnConflictUpdate(
+    final rawId = 'raw-notif-${sha256.convert(utf8.encode(event.id))}';
+    final existing = await (select(
+      rawNotificationEvents,
+    )..where((row) => row.platformEventId.equals(event.id))).getSingleOrNull();
+    if (existing != null) {
+      return false;
+    }
+    final inserted = await into(rawNotificationEvents).insert(
       RawNotificationEventsCompanion.insert(
-        id: 'raw-notif-${_compactId(event.id)}',
+        id: rawId,
         householdId: householdMain,
         platformEventId: event.id,
         packageName: event.packageName,
@@ -1058,14 +1453,17 @@ class AppDatabase extends _$AppDatabase {
         capturedAt: event.capturedAt,
         rawPayloadJson: Value(event.rawPayloadJson),
       ),
+      mode: InsertMode.insertOrIgnore,
     );
+    return inserted > 0;
   }
 
-  Future<int> processPendingRawNotificationEvents() async {
+  Future<int> processPendingRawNotificationEvents({int limit = 100}) async {
     final rows =
         await (select(rawNotificationEvents)
               ..where((row) => row.status.equals('captured'))
-              ..orderBy([(row) => OrderingTerm.asc(row.capturedAt)]))
+              ..orderBy([(row) => OrderingTerm.asc(row.capturedAt)])
+              ..limit(limit.clamp(1, 100).toInt()))
             .get();
     var drafts = 0;
 
@@ -2083,6 +2481,7 @@ class AppDatabase extends _$AppDatabase {
       ),
     );
     await _resolveReviewItem(id);
+    await _resolveSyncConflicts(id, 'keep_local');
     await _enqueueOutbox(id, 'update');
   }
 
@@ -2094,6 +2493,7 @@ class AppDatabase extends _$AppDatabase {
       ),
     );
     await _resolveReviewItem(id);
+    await _resolveSyncConflicts(id, 'ignore_local');
     await _enqueueOutbox(id, 'update');
   }
 
@@ -2116,6 +2516,7 @@ class AppDatabase extends _$AppDatabase {
       ),
     );
     await _resolveReviewItem(id);
+    await _resolveSyncConflicts(id, 'mark_duplicate');
     await _enqueueOutbox(id, 'update');
   }
 
@@ -2131,6 +2532,7 @@ class AppDatabase extends _$AppDatabase {
       ),
     );
     await _resolveReviewItem(id);
+    await _resolveSyncConflicts(id, 'convert_transfer');
     await _enqueueOutbox(id, 'update');
   }
 
@@ -2666,9 +3068,32 @@ class AppDatabase extends _$AppDatabase {
         .write(ReviewInboxCompanion(resolvedAt: Value(DateTime.now())));
   }
 
+  Future<void> _resolveSyncConflicts(String transactionId, String resolution) {
+    return (update(syncConflicts)
+          ..where((row) => row.transactionId.equals(transactionId))
+          ..where((row) => row.status.equals('pending_review')))
+        .write(
+          SyncConflictsCompanion(
+            status: Value(resolution),
+            resolvedAt: Value(DateTime.now()),
+          ),
+        );
+  }
+
   Future<void> _enqueueOutbox(String entityId, String operationType) async {
+    final transaction = await getTransaction(entityId);
+    if (transaction == null) {
+      return;
+    }
     final now = DateTime.now();
     final deviceId = await _deviceId();
+    final queued =
+        await (select(syncOutbox)
+              ..where((row) => row.entityType.equals('transaction'))
+              ..where((row) => row.entityId.equals(entityId))
+              ..where((row) => row.status.isIn(['pending', 'failed'])))
+            .get();
+    final baseVersion = transaction.serverVersion + queued.length;
     await into(syncOutbox).insert(
       SyncOutboxCompanion.insert(
         opId: 'op-${now.microsecondsSinceEpoch}',
@@ -2677,7 +3102,8 @@ class AppDatabase extends _$AppDatabase {
         entityType: 'transaction',
         entityId: entityId,
         operationType: operationType,
-        payloadJson: '{"entityId":"$entityId"}',
+        baseVersion: Value(baseVersion),
+        payloadJson: jsonEncode(await _syncTransactionPayload(entityId)),
         createdAt: now,
       ),
     );
@@ -2711,13 +3137,102 @@ class AppDatabase extends _$AppDatabase {
     };
   }
 
-  Future<void> _markOutboxAck(String opId) {
+  Future<Map<String, dynamic>> _syncTransactionPayload(
+    String transactionId,
+  ) async {
+    final transaction = await getTransaction(transactionId);
+    if (transaction == null) {
+      throw StateError('Transacao $transactionId nao existe para sincronizar.');
+    }
+    final beneficiaries = await (select(
+      transactionBeneficiaries,
+    )..where((row) => row.transactionId.equals(transactionId))).get();
+    final sources = await listTransactionSources(transactionId);
+    return {
+      'schemaVersion': 1,
+      'transaction': {
+        'id': transaction.id,
+        'householdId': transaction.householdId,
+        'kind': transaction.kind,
+        'reviewStatus': transaction.reviewStatus,
+        'duplicateStatus': transaction.duplicateStatus,
+        'occurredAt': transaction.occurredAt.toIso8601String(),
+        'postedAt': transaction.postedAt?.toIso8601String(),
+        'competenceMonth': transaction.competenceMonth,
+        'amountCents': transaction.amountCents,
+        'currencyCode': transaction.currencyCode,
+        'descriptionRaw': transaction.descriptionRaw,
+        'accountId': transaction.accountId,
+        'transferFromAccountId': transaction.transferFromAccountId,
+        'transferToAccountId': transaction.transferToAccountId,
+        'recurringScheduleId': transaction.recurringScheduleId,
+        'installmentPlanId': transaction.installmentPlanId,
+        'merchantId': transaction.merchantId,
+        'categoryId': transaction.categoryId,
+        'costCenterId': transaction.costCenterId,
+        'payerId': transaction.payerId,
+        'appliedRuleId': transaction.appliedRuleId,
+        'sourceConfidence': transaction.sourceConfidence,
+        'updatedAt': transaction.updatedAt.toIso8601String(),
+        'deletedAt': transaction.deletedAt?.toIso8601String(),
+      },
+      'beneficiaries': [
+        for (final beneficiary in beneficiaries)
+          {
+            'id': beneficiary.id,
+            'transactionId': beneficiary.transactionId,
+            'personId': beneficiary.personId,
+            'allocationMode': beneficiary.allocationMode,
+            'allocatedAmountCents': beneficiary.allocatedAmountCents,
+            'allocatedPercent': beneficiary.allocatedPercent,
+            'isPrimary': beneficiary.isPrimary,
+          },
+      ],
+      'sources': [
+        for (final source in sources)
+          {
+            'id': source.id,
+            'transactionId': source.transactionId,
+            'sourceKind': source.sourceKind,
+            'provider': source.provider,
+            'externalId': source.externalId,
+            'fileHash': source.fileHash,
+            'rowHash': source.rowHash,
+            'notificationKey': source.notificationKey,
+            'rawPayloadJson': source.rawPayloadJson,
+            'occurredAt': source.occurredAt?.toIso8601String(),
+            'confidence': source.confidence,
+          },
+      ],
+    };
+  }
+
+  Future<void> _markOutboxAck(SyncOutboxRow operation) async {
     final now = DateTime.now();
-    return (update(syncOutbox)..where((row) => row.opId.equals(opId))).write(
+    await (update(
+      syncOutbox,
+    )..where((row) => row.opId.equals(operation.opId))).write(
       SyncOutboxCompanion(
         sentAt: Value(now),
         ackAt: Value(now),
         status: const Value('acked'),
+      ),
+    );
+    if (operation.entityType != 'transaction') {
+      return;
+    }
+    final transaction = await getTransaction(operation.entityId);
+    final acknowledgedVersion = operation.baseVersion + 1;
+    if (transaction == null ||
+        transaction.serverVersion >= acknowledgedVersion) {
+      return;
+    }
+    await (update(
+      transactions,
+    )..where((row) => row.id.equals(operation.entityId))).write(
+      TransactionsCompanion(
+        baseVersion: Value(acknowledgedVersion),
+        serverVersion: Value(acknowledgedVersion),
       ),
     );
   }
@@ -2885,6 +3400,16 @@ class AppDatabase extends _$AppDatabase {
         ClassificationRuleRow.fromJson,
       ),
       syncOutbox: _decodeRows(data, 'syncOutbox', SyncOutboxRow.fromJson),
+      syncAppliedEvents: _decodeRows(
+        data,
+        'syncAppliedEvents',
+        SyncAppliedEventRow.fromJson,
+      ),
+      syncConflicts: _decodeRows(
+        data,
+        'syncConflicts',
+        SyncConflictRow.fromJson,
+      ),
       appPreferences: _decodeRows(
         data,
         'appPreferences',
@@ -2992,6 +3517,16 @@ class AppDatabase extends _$AppDatabase {
               ..limit(1))
             .getSingleOrNull();
     return exact?.transactionId;
+  }
+
+  Future<int> _countRawNotificationsWithStatus(String status) async {
+    final count = rawNotificationEvents.id.count();
+    final row =
+        await (selectOnly(rawNotificationEvents)
+              ..addColumns([count])
+              ..where(rawNotificationEvents.status.equals(status)))
+            .getSingle();
+    return row.read(count) ?? 0;
   }
 
   Future<_ReconciliationMatch?> _findLikelyTransactionMatch(
@@ -3893,6 +4428,11 @@ class AppDatabase extends _$AppDatabase {
               ..where((row) => row.transactionId.isIn(transactionIds))
               ..where((row) => row.resolvedAt.isNull()))
             .get();
+    final conflictRows =
+        await (select(syncConflicts)
+              ..where((row) => row.transactionId.isIn(transactionIds))
+              ..where((row) => row.status.equals('pending_review')))
+            .get();
 
     final personIds = beneficiaryRows.map((row) => row.personId).toSet();
     final personRows = personIds.isEmpty
@@ -3907,6 +4447,9 @@ class AppDatabase extends _$AppDatabase {
     final beneficiariesByTransaction = <String, List<PersonRow>>{};
     final sourcesByTransaction = <String, List<TransactionSourceRow>>{};
     final inboxByTransaction = <String, List<ReviewInboxRow>>{};
+    final conflictByTransaction = <String, SyncConflictRow>{
+      for (final row in conflictRows) row.transactionId: row,
+    };
 
     for (final row in beneficiaryRows) {
       final person = peopleById[row.personId];
@@ -3941,6 +4484,7 @@ class AppDatabase extends _$AppDatabase {
           beneficiaries: beneficiariesByTransaction[tx.id] ?? const [],
           sources: sourcesByTransaction[tx.id] ?? const [],
           inboxItems: inboxByTransaction[tx.id] ?? const [],
+          syncConflict: conflictByTransaction[tx.id],
         ),
     ];
   }
@@ -3956,6 +4500,7 @@ class ReviewTransactionDetails {
     required this.beneficiaries,
     required this.sources,
     required this.inboxItems,
+    this.syncConflict,
   });
 
   final FinanceTransaction transaction;
@@ -3966,6 +4511,7 @@ class ReviewTransactionDetails {
   final List<PersonRow> beneficiaries;
   final List<TransactionSourceRow> sources;
   final List<ReviewInboxRow> inboxItems;
+  final SyncConflictRow? syncConflict;
 
   String get displayMerchant =>
       merchant?.displayName ?? transaction.descriptionRaw;
@@ -4030,6 +4576,30 @@ class ReviewTransactionDetails {
       final value => value.replaceAll('_', ' '),
     };
   }
+
+  String? get syncConflictSummary {
+    final conflict = syncConflict;
+    if (conflict == null) {
+      return null;
+    }
+    try {
+      final local = _syncConflictTransaction(conflict.localPayloadJson);
+      final remote = _syncConflictTransaction(conflict.remotePayloadJson);
+      return 'Neste aparelho: ${local.$1} (${local.$2} centavos) · '
+          'outro aparelho: ${remote.$1} (${remote.$2} centavos).';
+    } catch (_) {
+      return 'Os dois estados foram preservados para decisao manual.';
+    }
+  }
+}
+
+(String, int) _syncConflictTransaction(String payloadJson) {
+  final payload = jsonDecode(payloadJson) as Map<String, dynamic>;
+  final transaction = payload['transaction'] as Map<String, dynamic>;
+  return (
+    transaction['descriptionRaw'] as String? ?? 'Sem descricao',
+    transaction['amountCents'] as int? ?? 0,
+  );
 }
 
 class ReviewActionSnapshot {
@@ -4211,12 +4781,32 @@ class ImportBatchDetails {
 
 class NotificationCaptureSyncResult {
   const NotificationCaptureSyncResult({
+    required this.fetched,
     required this.recorded,
     required this.drafts,
+    this.bridgeError,
   });
 
+  final int fetched;
   final int recorded;
   final int drafts;
+  final String? bridgeError;
+}
+
+class NotificationCaptureDiagnostics {
+  const NotificationCaptureDiagnostics({
+    required this.counts,
+    required this.retentionDays,
+    this.lastDrain,
+    this.lastError,
+  });
+
+  final Map<String, int> counts;
+  final int retentionDays;
+  final DateTime? lastDrain;
+  final String? lastError;
+
+  int count(String status) => counts[status] ?? 0;
 }
 
 class ZimbaBackupFile {
@@ -4267,6 +4857,8 @@ class SyncRunSummary {
     required this.conflicts,
     required this.rejected,
     required this.pulled,
+    required this.applied,
+    required this.remoteConflicts,
     required this.latestSeq,
   });
 
@@ -4275,8 +4867,248 @@ class SyncRunSummary {
   final int conflicts;
   final int rejected;
   final int pulled;
+  final int applied;
+  final int remoteConflicts;
   final int latestSeq;
 }
+
+class _PullApplySummary {
+  const _PullApplySummary({
+    required this.applied,
+    required this.conflicts,
+    required this.latestSeq,
+  });
+
+  final int applied;
+  final int conflicts;
+  final int latestSeq;
+}
+
+class _RemoteApplyResult {
+  const _RemoteApplyResult({this.conflict = false});
+
+  final bool conflict;
+}
+
+class _SyncTransactionPayload {
+  const _SyncTransactionPayload({
+    required this.operationType,
+    required this.serverAt,
+    required this.transaction,
+    required this.beneficiaries,
+    required this.sources,
+  });
+
+  final String operationType;
+  final DateTime serverAt;
+  final _RemoteTransactionData transaction;
+  final List<TransactionBeneficiariesCompanion> beneficiaries;
+  final List<TransactionSourcesCompanion> sources;
+
+  factory _SyncTransactionPayload.fromEvent(Map<String, dynamic> event) {
+    final payload = _syncMap(event['payload'], 'payload');
+    if (_syncInt(payload['schemaVersion'], 'payload.schemaVersion') != 1) {
+      throw const FormatException('Versao de payload de sync nao suportada.');
+    }
+    final transaction = _syncMap(payload['transaction'], 'payload.transaction');
+    final transactionId = _requiredSyncString(transaction, 'id');
+    final beneficiaries = _syncList(payload['beneficiaries'], 'beneficiaries')
+        .map((value) {
+          final item = _syncMap(value, 'beneficiary');
+          return TransactionBeneficiariesCompanion.insert(
+            id: _requiredSyncString(item, 'id'),
+            transactionId: _requiredSyncString(item, 'transactionId'),
+            personId: _requiredSyncString(item, 'personId'),
+            allocationMode: Value(
+              item['allocationMode'] as String? ?? 'mark_only',
+            ),
+            allocatedAmountCents: Value(item['allocatedAmountCents'] as int?),
+            allocatedPercent: Value(
+              _syncNullableDouble(item['allocatedPercent']),
+            ),
+            isPrimary: Value(item['isPrimary'] == true),
+          );
+        })
+        .toList(growable: false);
+    final sources = _syncList(payload['sources'], 'sources')
+        .map((value) {
+          final item = _syncMap(value, 'source');
+          return TransactionSourcesCompanion.insert(
+            id: _requiredSyncString(item, 'id'),
+            transactionId: _requiredSyncString(item, 'transactionId'),
+            sourceKind: _requiredSyncString(item, 'sourceKind'),
+            provider: _requiredSyncString(item, 'provider'),
+            externalId: Value(item['externalId'] as String?),
+            fileHash: Value(item['fileHash'] as String?),
+            rowHash: Value(item['rowHash'] as String?),
+            notificationKey: Value(item['notificationKey'] as String?),
+            rawPayloadJson: Value(item['rawPayloadJson'] as String?),
+            occurredAt: Value(_syncNullableDateTime(item['occurredAt'])),
+            confidence: Value(
+              _syncDouble(item['confidence'], 'source.confidence'),
+            ),
+          );
+        })
+        .toList(growable: false);
+
+    if (beneficiaries.any(
+          (item) => item.transactionId.value != transactionId,
+        ) ||
+        sources.any((item) => item.transactionId.value != transactionId)) {
+      throw const FormatException(
+        'Payload de sync contem relacao de outra transacao.',
+      );
+    }
+    return _SyncTransactionPayload(
+      operationType: _requiredSyncString(event, 'operationType'),
+      serverAt: _syncDateTime(event['serverAt'], 'serverAt'),
+      transaction: _RemoteTransactionData.fromJson(transaction),
+      beneficiaries: beneficiaries,
+      sources: sources,
+    );
+  }
+}
+
+class _RemoteTransactionData {
+  const _RemoteTransactionData({
+    required this.id,
+    required this.householdId,
+    required this.kind,
+    required this.reviewStatus,
+    required this.duplicateStatus,
+    required this.occurredAt,
+    required this.postedAt,
+    required this.competenceMonth,
+    required this.amountCents,
+    required this.currencyCode,
+    required this.descriptionRaw,
+    required this.accountId,
+    required this.transferFromAccountId,
+    required this.transferToAccountId,
+    required this.recurringScheduleId,
+    required this.installmentPlanId,
+    required this.merchantId,
+    required this.categoryId,
+    required this.costCenterId,
+    required this.payerId,
+    required this.appliedRuleId,
+    required this.sourceConfidence,
+    required this.updatedAt,
+    required this.deletedAt,
+  });
+
+  final String id;
+  final String householdId;
+  final String kind;
+  final String reviewStatus;
+  final String duplicateStatus;
+  final DateTime occurredAt;
+  final DateTime? postedAt;
+  final String competenceMonth;
+  final int amountCents;
+  final String currencyCode;
+  final String descriptionRaw;
+  final String? accountId;
+  final String? transferFromAccountId;
+  final String? transferToAccountId;
+  final String? recurringScheduleId;
+  final String? installmentPlanId;
+  final String? merchantId;
+  final String? categoryId;
+  final String? costCenterId;
+  final String? payerId;
+  final String? appliedRuleId;
+  final double sourceConfidence;
+  final DateTime updatedAt;
+  final DateTime? deletedAt;
+
+  factory _RemoteTransactionData.fromJson(Map<String, dynamic> json) {
+    return _RemoteTransactionData(
+      id: _requiredSyncString(json, 'id'),
+      householdId: _requiredSyncString(json, 'householdId'),
+      kind: _requiredSyncString(json, 'kind'),
+      reviewStatus: _requiredSyncString(json, 'reviewStatus'),
+      duplicateStatus: _requiredSyncString(json, 'duplicateStatus'),
+      occurredAt: _syncDateTime(json['occurredAt'], 'transaction.occurredAt'),
+      postedAt: _syncNullableDateTime(json['postedAt']),
+      competenceMonth: _requiredSyncString(json, 'competenceMonth'),
+      amountCents: _syncInt(json['amountCents'], 'transaction.amountCents'),
+      currencyCode: _requiredSyncString(json, 'currencyCode'),
+      descriptionRaw: _requiredSyncString(json, 'descriptionRaw'),
+      accountId: json['accountId'] as String?,
+      transferFromAccountId: json['transferFromAccountId'] as String?,
+      transferToAccountId: json['transferToAccountId'] as String?,
+      recurringScheduleId: json['recurringScheduleId'] as String?,
+      installmentPlanId: json['installmentPlanId'] as String?,
+      merchantId: json['merchantId'] as String?,
+      categoryId: json['categoryId'] as String?,
+      costCenterId: json['costCenterId'] as String?,
+      payerId: json['payerId'] as String?,
+      appliedRuleId: json['appliedRuleId'] as String?,
+      sourceConfidence: _syncDouble(
+        json['sourceConfidence'],
+        'transaction.sourceConfidence',
+      ),
+      updatedAt: _syncDateTime(json['updatedAt'], 'transaction.updatedAt'),
+      deletedAt: _syncNullableDateTime(json['deletedAt']),
+    );
+  }
+}
+
+Map<String, dynamic> _syncMap(Object? value, String field) {
+  if (value is! Map) {
+    throw FormatException('$field deve ser um objeto.');
+  }
+  return Map<String, dynamic>.from(value);
+}
+
+List<Object?> _syncList(Object? value, String field) {
+  if (value is! List) {
+    throw FormatException('$field deve ser uma lista.');
+  }
+  return List<Object?>.from(value);
+}
+
+String _requiredSyncString(Map<dynamic, dynamic> json, String field) {
+  final value = json[field];
+  if (value is! String || value.isEmpty) {
+    throw FormatException('$field e obrigatorio.');
+  }
+  return value;
+}
+
+int _syncInt(Object? value, String field) {
+  if (value is! int) {
+    throw FormatException('$field deve ser inteiro.');
+  }
+  return value;
+}
+
+double _syncDouble(Object? value, String field) {
+  if (value is! num) {
+    throw FormatException('$field deve ser numerico.');
+  }
+  return value.toDouble();
+}
+
+double? _syncNullableDouble(Object? value) =>
+    value is num ? value.toDouble() : null;
+
+DateTime _syncDateTime(Object? value, String field) {
+  if (value is! String) {
+    throw FormatException('$field deve ser data ISO-8601.');
+  }
+  return DateTime.tryParse(value) ??
+      (throw FormatException('$field deve ser data ISO-8601.'));
+}
+
+DateTime? _syncNullableDateTime(Object? value) =>
+    value is String ? DateTime.tryParse(value) : null;
+
+int _syncEventSeq(Map<String, dynamic> event) => _syncInt(event['seq'], 'seq');
+
+int _syncEventBaseVersion(Map<String, dynamic> event) =>
+    _syncInt(event['baseVersion'], 'baseVersion');
 
 class _DecodedBackup {
   const _DecodedBackup({
@@ -4295,6 +5127,8 @@ class _DecodedBackup {
     required this.transactionSources,
     required this.classificationRules,
     required this.syncOutbox,
+    required this.syncAppliedEvents,
+    required this.syncConflicts,
     required this.appPreferences,
     required this.authUsers,
     required this.recurringSchedules,
@@ -4320,6 +5154,8 @@ class _DecodedBackup {
   final List<TransactionSourceRow> transactionSources;
   final List<ClassificationRuleRow> classificationRules;
   final List<SyncOutboxRow> syncOutbox;
+  final List<SyncAppliedEventRow> syncAppliedEvents;
+  final List<SyncConflictRow> syncConflicts;
   final List<AppPreferenceRow> appPreferences;
   final List<AuthUserRow> authUsers;
   final List<RecurringScheduleRow> recurringSchedules;

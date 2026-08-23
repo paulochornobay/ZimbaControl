@@ -5,9 +5,14 @@ import 'design/zimba_theme.dart';
 import 'design/zimba_ui.dart';
 
 class RegistriesPage extends StatefulWidget {
-  const RegistriesPage({required this.database, super.key});
+  const RegistriesPage({
+    required this.database,
+    this.initialTabIndex = 0,
+    super.key,
+  }) : assert(initialTabIndex >= 0 && initialTabIndex < 5);
 
   final AppDatabase database;
+  final int initialTabIndex;
 
   @override
   State<RegistriesPage> createState() => _RegistriesPageState();
@@ -21,7 +26,11 @@ class _RegistriesPageState extends State<RegistriesPage>
   @override
   void initState() {
     super.initState();
-    tabController = TabController(length: 5, vsync: this);
+    tabController = TabController(
+      length: 5,
+      initialIndex: widget.initialTabIndex,
+      vsync: this,
+    );
     snapshotFuture = widget.database.getRegistrySnapshot();
   }
 
@@ -169,7 +178,7 @@ class _PersonList extends StatelessWidget {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
       itemCount: people.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
@@ -225,7 +234,7 @@ class _AccountList extends StatelessWidget {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
       itemCount: accounts.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
@@ -288,7 +297,7 @@ class _CardList extends StatelessWidget {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
       itemCount: cards.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
@@ -345,7 +354,7 @@ class _CategoryList extends StatelessWidget {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
       itemCount: categories.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
@@ -401,7 +410,7 @@ class _CostCenterList extends StatelessWidget {
       );
     }
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
       itemCount: costCenters.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
@@ -593,6 +602,7 @@ class _AccountFormPageState extends State<AccountFormPage> {
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           initialValue: type,
+          isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Tipo',
             border: OutlineInputBorder(),
@@ -607,6 +617,7 @@ class _AccountFormPageState extends State<AccountFormPage> {
         const SizedBox(height: 12),
         DropdownButtonFormField<String?>(
           initialValue: ownerPersonId,
+          isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Proprietario',
             border: OutlineInputBorder(),
@@ -619,7 +630,11 @@ class _AccountFormPageState extends State<AccountFormPage> {
             for (final person in widget.people)
               DropdownMenuItem(
                 value: person.id,
-                child: Text(person.displayName),
+                child: Text(
+                  person.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
           ],
           onChanged: (value) => setState(() => ownerPersonId = value),
@@ -757,6 +772,7 @@ class _CreditCardFormPageState extends State<CreditCardFormPage> {
         const SizedBox(height: 12),
         DropdownButtonFormField<String?>(
           initialValue: ownerPersonId,
+          isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Proprietario',
             border: OutlineInputBorder(),
@@ -769,7 +785,11 @@ class _CreditCardFormPageState extends State<CreditCardFormPage> {
             for (final person in widget.people)
               DropdownMenuItem(
                 value: person.id,
-                child: Text(person.displayName),
+                child: Text(
+                  person.displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
           ],
           onChanged: (value) => setState(() => ownerPersonId = value),
@@ -908,6 +928,7 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
           initialValue: kind,
+          isExpanded: true,
           decoration: const InputDecoration(
             labelText: 'Tipo',
             border: OutlineInputBorder(),
@@ -1032,19 +1053,21 @@ class _RegistryFormScaffold extends StatelessWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
           ZimbaCard(
             padding: const EdgeInsets.all(14),
             child: Column(children: children),
           ),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: onSave,
-            icon: const Icon(Icons.save_outlined),
-            label: const Text('Salvar localmente'),
-          ),
         ],
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: FilledButton.icon(
+          onPressed: onSave,
+          icon: const Icon(Icons.save_outlined),
+          label: const Text('Salvar localmente'),
+        ),
       ),
     );
   }
@@ -1071,33 +1094,78 @@ class _RegistryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ZimbaCard(
       padding: EdgeInsets.zero,
-      child: ListTile(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(ZimbaLayout.cardRadius),
         onTap: onTap,
-        leading: CircleAvatar(
-          backgroundColor: inactive
-              ? ZimbaColors.surfaceMuted
-              : ZimbaColors.accentSoft,
-          foregroundColor: inactive
-              ? ZimbaColors.secondaryText
-              : ZimbaColors.accent,
-          child: Icon(icon, size: 20),
-        ),
-        title: Text(
-          title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-        subtitle: Text(
-          inactive ? '$subtitle · arquivado' : subtitle,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: IconButton(
-          tooltip: inactive ? 'Reativar' : 'Arquivar',
-          onPressed: onArchive,
-          icon: Icon(
-            inactive ? Icons.unarchive_outlined : Icons.archive_outlined,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 8, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: inactive
+                      ? ZimbaColors.surfaceMuted
+                      : ZimbaColors.accentSoft,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: inactive
+                      ? ZimbaColors.secondaryText
+                      : ZimbaColors.accent,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: ZimbaColors.secondaryText,
+                      ),
+                    ),
+                    const SizedBox(height: 7),
+                    Row(
+                      children: [
+                        ZimbaBadge(
+                          label: inactive ? 'Arquivado' : 'Ativo',
+                          tone: inactive
+                              ? ZimbaTone.neutral
+                              : ZimbaTone.success,
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          tooltip: inactive ? 'Reativar' : 'Arquivar',
+                          visualDensity: VisualDensity.compact,
+                          onPressed: onArchive,
+                          icon: Icon(
+                            inactive
+                                ? Icons.unarchive_outlined
+                                : Icons.archive_outlined,
+                            size: 19,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),

@@ -1,4 +1,5 @@
 import 'package:drift/native.dart';
+import 'package:drift/drift.dart' show driftRuntimeOptions;
 import 'package:flutter_test/flutter_test.dart';
 import 'dart:convert';
 
@@ -10,6 +11,8 @@ import 'package:zimba_control/src/presentation/dashboard_page.dart';
 import 'package:zimba_control/src/presentation/movements_page.dart';
 
 void main() {
+  driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
+
   test('formatBrl formats integer cents as Brazilian currency text', () {
     expect(formatBrl(1280000), 'R\$ 12.800,00');
     expect(formatBrl(-48732), '-R\$ 487,32');
@@ -408,8 +411,9 @@ void main() {
 
     expect(before, isNotEmpty);
     expect(summary.pushed, before.length);
-    expect(summary.pulled, 1);
-    expect(summary.latestSeq, 7);
+    expect(summary.pulled, 0);
+    expect(summary.applied, 0);
+    expect(summary.latestSeq, 0);
     expect(after, isEmpty);
   });
 
@@ -442,6 +446,116 @@ void main() {
       isNotEmpty,
     );
   });
+
+  test('two local databases apply a remote transaction only once', () async {
+    final deviceA = AppDatabase.forTesting(NativeDatabase.memory());
+    final deviceB = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(deviceA.close);
+    addTearDown(deviceB.close);
+    await deviceA.seedIfEmpty();
+    await deviceB.seedIfEmpty();
+    final server = _SharedSyncServer();
+    final transactionId = await deviceA.createManualTransaction(
+      const NewTransactionInput(
+        kind: 'expense',
+        amountCents: 7654,
+        description: 'Compra compartilhada sincronizada',
+        accountId: 'mp',
+        payerPersonId: 'eu',
+        categoryId: 'alimentacao',
+        beneficiaryIds: ['eu'],
+      ),
+    );
+
+    await deviceA.runSyncOnce(_SharedSyncApiClient(server));
+    final firstPull = await deviceB.runSyncOnce(_SharedSyncApiClient(server));
+    final remote = await deviceB.getTransaction(transactionId);
+    final sources = await deviceB.listTransactionSources(transactionId);
+    final secondPull = await deviceB.runSyncOnce(_SharedSyncApiClient(server));
+
+    expect(firstPull.applied, 1);
+    expect(remote?.descriptionRaw, 'Compra compartilhada sincronizada');
+    expect(remote?.amountCents, -7654);
+    expect(sources.map((source) => source.sourceKind), contains('manual'));
+    expect(secondPull.applied, 0);
+    expect(await deviceB.listSyncConflicts(transactionId), isEmpty);
+  });
+
+  test(
+    'concurrent financial edits preserve both sides in sync review',
+    () async {
+      final deviceA = AppDatabase.forTesting(NativeDatabase.memory());
+      final deviceB = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(deviceA.close);
+      addTearDown(deviceB.close);
+      await deviceA.seedIfEmpty();
+      await deviceB.seedIfEmpty();
+      final server = _SharedSyncServer();
+      final transactionId = await deviceA.createManualTransaction(
+        const NewTransactionInput(
+          kind: 'expense',
+          amountCents: 3000,
+          description: 'Compra concorrente entre aparelhos',
+          accountId: 'mp',
+          payerPersonId: 'eu',
+          categoryId: 'alimentacao',
+        ),
+      );
+      await deviceA.runSyncOnce(_SharedSyncApiClient(server));
+      await deviceB.runSyncOnce(_SharedSyncApiClient(server));
+
+      await deviceA.updateTransactionCore(
+        id: transactionId,
+        description: 'Valor confirmado no aparelho A',
+        amountCents: -3100,
+        kind: 'expense',
+        categoryId: 'alimentacao',
+        costCenterId: null,
+      );
+      await deviceB.updateTransactionCore(
+        id: transactionId,
+        description: 'Valor corrigido no aparelho B',
+        amountCents: -3200,
+        kind: 'expense',
+        categoryId: 'alimentacao',
+        costCenterId: null,
+      );
+      await deviceA.runSyncOnce(_SharedSyncApiClient(server));
+      final result = await deviceB.runSyncOnce(_SharedSyncApiClient(server));
+      final local = await deviceB.getTransaction(transactionId);
+      final conflicts = await deviceB.listSyncConflicts(transactionId);
+      final inbox = await deviceB.watchOpenReviewInbox().first;
+      final reviewDetails = await deviceB.watchPendingReviewDetails().first;
+
+      expect(result.conflicts, 1);
+      expect(result.remoteConflicts, 1);
+      expect(local?.descriptionRaw, 'Valor corrigido no aparelho B');
+      expect(local?.amountCents, -3200);
+      expect(local?.reviewStatus, 'conflict');
+      expect(conflicts.single.localPayloadJson, contains('aparelho B'));
+      expect(conflicts.single.remotePayloadJson, contains('aparelho A'));
+      expect(
+        reviewDetails
+            .firstWhere((item) => item.transaction.id == transactionId)
+            .syncConflictSummary,
+        contains('aparelho B'),
+      );
+      expect(
+        inbox.where((item) => item.reason == 'sync_remote_conflict'),
+        isNotEmpty,
+      );
+
+      await deviceB.confirmTransaction(transactionId);
+      await deviceB.runSyncOnce(_SharedSyncApiClient(server));
+      await deviceA.runSyncOnce(_SharedSyncApiClient(server));
+      final resolvedOnA = await deviceA.getTransaction(transactionId);
+      final resolvedConflicts = await deviceB.listSyncConflicts(transactionId);
+
+      expect(resolvedConflicts.single.status, 'keep_local');
+      expect(resolvedOnA?.descriptionRaw, 'Valor corrigido no aparelho B');
+      expect(resolvedOnA?.reviewStatus, 'confirmed');
+    },
+  );
 
   test('pension and school are tied to the child financial context', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
@@ -704,6 +818,141 @@ void main() {
       contains('auto_merged'),
     );
   });
+
+  test('notification bridge drains a paginated backlog exactly once', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    await database.seedIfEmpty();
+    final now = DateTime.now();
+    final events = List.generate(
+      120,
+      (index) => CapturedNotificationEvent(
+        id: 'backlog-$index',
+        packageName: index.isEven
+            ? 'com.nu.production'
+            : 'com.mercadopago.wallet',
+        postedAt: now.add(Duration(seconds: index)),
+        capturedAt: now.add(Duration(seconds: index)),
+        title: 'Aviso sem valor $index',
+        text: 'Atualizacao de seguranca',
+      ),
+    );
+    final service = _FakeNotificationCaptureService(
+      drains: [
+        NotificationCaptureDrain(
+          available: true,
+          events: events.take(50).toList(),
+          pendingCount: 120,
+          hasMore: true,
+        ),
+        NotificationCaptureDrain(
+          available: true,
+          events: events.skip(50).take(50).toList(),
+          pendingCount: 70,
+          hasMore: true,
+        ),
+        NotificationCaptureDrain(
+          available: true,
+          events: events.skip(100).toList(),
+          pendingCount: 20,
+          hasMore: false,
+        ),
+      ],
+    );
+
+    final result = await database.syncNotificationCaptureEvents(service);
+    final rawEvents = await database.listRawNotificationEvents(limit: 200);
+    final diagnostics = await database.getNotificationCaptureDiagnostics();
+
+    expect(result.fetched, 120);
+    expect(result.recorded, 120);
+    expect(result.drafts, 0);
+    expect(service.acknowledged.expand((ids) => ids), hasLength(120));
+    expect(rawEvents, hasLength(120));
+    expect(diagnostics.count('ignored_no_amount'), 120);
+  });
+
+  test(
+    'notification bridge is idempotent after acknowledgement retry',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      await database.seedIfEmpty();
+      final now = DateTime.now();
+      final event = CapturedNotificationEvent(
+        id: 'same-native-notification',
+        packageName: 'com.nu.production',
+        postedAt: now,
+        capturedAt: now,
+        title: 'Compra aprovada',
+        text: 'Compra aprovada de R\$ 19,90',
+      );
+      final service = _FakeNotificationCaptureService(
+        drains: [
+          NotificationCaptureDrain(
+            available: true,
+            events: [event],
+            pendingCount: 1,
+            hasMore: true,
+          ),
+          NotificationCaptureDrain(
+            available: true,
+            events: [event],
+            pendingCount: 1,
+            hasMore: false,
+          ),
+        ],
+      );
+
+      final result = await database.syncNotificationCaptureEvents(service);
+      final rawEvents = await database.listRawNotificationEvents();
+      final sources = await database.listTransactionSources(
+        rawEvents.single.draftTransactionId!,
+      );
+
+      expect(result.fetched, 2);
+      expect(result.recorded, 1);
+      expect(result.drafts, 1);
+      expect(rawEvents, hasLength(1));
+      expect(rawEvents.single.status, 'draft_created');
+      expect(sources, hasLength(1));
+    },
+  );
+
+  test(
+    'notification bridge releases a batch after acknowledgement failure',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      await database.seedIfEmpty();
+      final now = DateTime.now();
+      final service = _FakeNotificationCaptureService(
+        failAcknowledge: true,
+        drains: [
+          NotificationCaptureDrain(
+            available: true,
+            events: [
+              CapturedNotificationEvent(
+                id: 'retry-after-bridge-failure',
+                packageName: 'com.mercadopago.wallet',
+                postedAt: now,
+                capturedAt: now,
+                title: 'Aviso',
+                text: 'Sem valor financeiro',
+              ),
+            ],
+            pendingCount: 1,
+            hasMore: false,
+          ),
+        ],
+      );
+
+      final result = await database.syncNotificationCaptureEvents(service);
+
+      expect(result.bridgeError, isNotNull);
+      expect(service.released, contains('retry-after-bridge-failure'));
+    },
+  );
 
   test('review actions update local transaction state and outbox', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
@@ -987,12 +1236,7 @@ class _FakeSyncApiClient implements SyncApiClient {
     required String householdId,
     required int sinceSeq,
   }) async {
-    return const SyncPullResponse(
-      events: [
-        {'seq': 7, 'entityId': 'remote-tx-1'},
-      ],
-      latestSeq: 7,
-    );
+    return const SyncPullResponse(events: [], latestSeq: 0);
   }
 
   @override
@@ -1033,5 +1277,124 @@ class _ConflictSyncApiClient implements SyncApiClient {
           ),
       ],
     );
+  }
+}
+
+class _SharedSyncApiClient implements SyncApiClient {
+  _SharedSyncApiClient(this.server);
+
+  final _SharedSyncServer server;
+
+  @override
+  Future<SyncPullResponse> pull({
+    required String householdId,
+    required int sinceSeq,
+  }) async => server.pull(householdId, sinceSeq);
+
+  @override
+  Future<SyncPushResponse> push(SyncPushPayload payload) async =>
+      server.push(payload);
+}
+
+class _SharedSyncServer {
+  final Map<String, SyncOperationAck> _operations = {};
+  final Map<String, int> _entityVersions = {};
+  final List<Map<String, dynamic>> _events = [];
+  var _seq = 0;
+
+  Future<SyncPushResponse> push(SyncPushPayload payload) async {
+    final results = <SyncOperationAck>[];
+    for (final operation in payload.operations) {
+      final opId = operation['opId'] as String;
+      final existing = _operations[opId];
+      if (existing != null) {
+        results.add(
+          SyncOperationAck(
+            opId: opId,
+            result: 'duplicate',
+            entityId: existing.entityId,
+            seq: existing.seq,
+          ),
+        );
+        continue;
+      }
+      final entityKey = [
+        operation['householdId'],
+        operation['entityType'],
+        operation['entityId'],
+      ].join(':');
+      final expectedVersion = _entityVersions[entityKey] ?? 0;
+      final baseVersion = operation['baseVersion'] as int;
+      final isCreate = operation['operationType'] == 'create';
+      final result = (!isCreate && baseVersion != expectedVersion)
+          ? 'conflict'
+          : 'applied';
+      final ack = SyncOperationAck(
+        opId: opId,
+        result: result,
+        entityId: operation['entityId'] as String,
+        seq: ++_seq,
+      );
+      _operations[opId] = ack;
+      results.add(ack);
+      if (result == 'applied') {
+        _entityVersions[entityKey] = baseVersion + 1;
+        _events.add({
+          ...operation,
+          'seq': ack.seq,
+          'serverAt': DateTime.utc(2026, 8, 23, 12, 0, _seq).toIso8601String(),
+        });
+      }
+    }
+    return SyncPushResponse(results: results, latestSeq: _seq);
+  }
+
+  Future<SyncPullResponse> pull(String householdId, int sinceSeq) async {
+    final events = _events
+        .where(
+          (event) =>
+              event['householdId'] == householdId &&
+              (event['seq'] as int) > sinceSeq,
+        )
+        .map(Map<String, dynamic>.from)
+        .toList(growable: false);
+    return SyncPullResponse(events: events, latestSeq: _seq);
+  }
+}
+
+class _FakeNotificationCaptureService extends NotificationCaptureService {
+  _FakeNotificationCaptureService({
+    required this.drains,
+    this.failAcknowledge = false,
+  });
+
+  final List<NotificationCaptureDrain> drains;
+  final bool failAcknowledge;
+  final List<List<String>> acknowledged = [];
+  final List<String> released = [];
+  var _drainIndex = 0;
+
+  @override
+  Future<NotificationCaptureDrain> drainPendingEvents({int limit = 50}) async {
+    if (_drainIndex >= drains.length) {
+      return const NotificationCaptureDrain.unavailable();
+    }
+    return drains[_drainIndex++];
+  }
+
+  @override
+  Future<void> acknowledgeDeliveredEvents(List<String> eventIds) async {
+    if (failAcknowledge) {
+      throw StateError('bridge acknowledgement failed');
+    }
+    acknowledged.add(eventIds);
+  }
+
+  @override
+  Future<void> releaseEventsForRetry(
+    List<String> eventIds, {
+    String? error,
+  }) async {
+    released.addAll(eventIds);
   }
 }
