@@ -59,7 +59,12 @@ postagem, usando a data da compra quando a postagem não existe. Fechamento,
 vencimento, estornos, pagamentos e atraso geram totais e estados derivados.
 Pagamento de fatura é registrado separadamente e continua sendo transferência,
 sem virar uma segunda despesa. Ajustes manuais de competência exigem motivo e
-ficam na auditoria; a visualização completa pertence à Fase 4B.
+ficam na auditoria.
+
+Em **Ajustes > Faturas de cartões**, a Fase 4B apresenta fatura atual/próxima,
+total, fechamento, vencimento, estado, compras, estornos e pagamentos. Os
+filtros por competência, categoria e pessoa atuam sobre os lançamentos reais.
+A conciliação automática e a projeção de parcelas pertencem à Fase 4C.
 
 O escopo e a ordem dos próximos trabalhos estão em
 `../../docs/product/IMPLEMENTATION_ROADMAP.md`.

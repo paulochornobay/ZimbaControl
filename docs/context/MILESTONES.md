@@ -13,7 +13,8 @@
   tecnicamente.
 - Fase 3 — importação vinculada ao instrumento: concluída tecnicamente.
 - Fase 4A — modelo e cálculo de faturas: concluída tecnicamente.
-- Fase 4B — visão de fatura: próxima.
+- Fase 4B — visão de fatura: concluída tecnicamente.
+- Fase 4C — conciliação e projeção: próxima.
 - Fase 5 — paridade restante, homologação e release: pendente.
 
 Baseline visual vigente: `pixel-perfect-pixels@2848fc6`. Baselines citados nos
@@ -74,6 +75,20 @@ marcos abaixo pertencem aos respectivos ciclos históricos.
   automático. Backup anterior continua restaurável pela migração 14.
 - A regressão total soma 88 testes Flutter aprovados. A próxima etapa é a
   Fase 4B, que expõe o domínio em uma visão por cartão e fatura.
+
+### Fase 4B — conclusão técnica em 2026-08-23
+
+- Ajustes ganhou a jornada **Faturas de cartões**, com instrumento identificável
+  e seleção de competência incluindo fatura atual e próxima mesmo vazias.
+- O resumo mostra total derivado, fechamento, vencimento, valor pago, saldo em
+  aberto e estado real; estornos e pagamentos são apresentados separadamente.
+- O detalhe lista compras/estornos, abre o lançamento real e filtra por
+  categoria, pessoa e competência, explicando mês-calendário versus mês da
+  fatura.
+- Estado sem cartão leva ao cadastro existente; não há CTA fictício de
+  pagamento ou conciliação antes da Fase 4C.
+- Três testes de widget cobrem 360×800, 390×844, texto 1,3, nomes/valores longos
+  e estado vazio. A regressão total passa a 91 testes Flutter.
 
 ## Status Geral
 

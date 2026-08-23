@@ -228,16 +228,31 @@ fatura como nova despesa.
 - o payload sincronizável da transação inclui o vínculo da fatura, e 8 testes
   dedicados cobrem os casos de aceite dentro da regressão total de 88 testes.
 
-A Etapa 4B é a próxima: a referência visual vigente ainda não possui uma tela
-de fatura completa, portanto a interface será composta com o design system
-Flutter existente e somente dados reais deste domínio.
-
 ### Etapa 4B — Visão de fatura
 
 - visão por cartão com fatura atual/próxima, total, datas e estado;
 - detalhe com compras, estornos, parcelas, pagamentos e total derivado;
 - filtros por categoria, pessoa e competência;
 - indicação clara de mês-calendário versus mês da fatura.
+
+#### Entregue em 2026-08-23
+
+- **Ajustes > Faturas de cartões** abre uma visão real por instrumento, cria a
+  fatura atual/próxima determinística e permite navegar pelas competências;
+- o resumo exibe total, fechamento, vencimento, pago, em aberto e estado
+  efetivo; compras, estornos e pagamentos possuem seções próprias;
+- filtros de categoria e pessoa atuam nos lançamentos da competência escolhida
+  e cada item abre a edição real da transação;
+- a interface explica o intervalo do ciclo e preserva visualmente a diferença
+  entre mês da fatura e mês-calendário;
+- o protótipo vigente não possui rota equivalente de fatura, então a composição
+  reutiliza o design system Flutter validado, sem copiar mock ou inventar ações;
+- testes cobrem 360×800 e 390×844, texto 1,3, dois cartões com nomes longos,
+  valor grande, estorno, pagamento parcial e ausência de cartão.
+
+A Etapa 4C é a próxima e deve introduzir apenas sugestões confirmáveis de
+pagamento/conciliação e projeção de parcelas, preservando os totais da 4A e a
+visão real da 4B.
 
 ### Etapa 4C — Conciliação e projeção
 

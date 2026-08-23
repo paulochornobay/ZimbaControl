@@ -950,6 +950,23 @@ class AppDatabase extends _$AppDatabase {
     )..where((row) => row.id.equals(id))).getSingleOrNull();
   }
 
+  Future<CreditCardInvoiceRow> ensureCreditCardInvoiceForDate({
+    required String creditCardId,
+    required DateTime transactionAt,
+    String origin = 'derived',
+  }) async {
+    final card = await getCreditCard(creditCardId);
+    if (card == null || !card.active) {
+      throw StateError('Cartao nao encontrado.');
+    }
+    return _ensureCreditCardInvoice(
+      card: card,
+      cycle: invoiceCycleFor(card, transactionAt),
+      origin: origin,
+      now: DateTime.now(),
+    );
+  }
+
   Future<List<InvoicePaymentRow>> listInvoicePayments(String invoiceId) {
     final query = select(invoicePayments)
       ..where((row) => row.invoiceId.equals(invoiceId))

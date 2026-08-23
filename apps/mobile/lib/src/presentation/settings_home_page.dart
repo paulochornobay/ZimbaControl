@@ -9,6 +9,7 @@ import 'duplicates_page.dart';
 import 'family_structure_page.dart';
 import 'feature_availability_page.dart';
 import 'import_page.dart';
+import 'invoices_page.dart';
 import 'registries_page.dart';
 
 class SettingsHomePage extends StatefulWidget {
@@ -159,6 +160,13 @@ class _SettingsHomePageState extends State<SettingsHomePage> {
                   subtitle: 'Contas, cartões, categorias e centros',
                   onTap: () =>
                       _open(context, RegistriesPage(database: widget.database)),
+                ),
+                _SettingsRow(
+                  icon: Icons.receipt_long_outlined,
+                  title: 'Faturas de cartões',
+                  subtitle: 'Ciclos, compras, estornos e pagamentos',
+                  onTap: () =>
+                      _open(context, InvoicesPage(database: widget.database)),
                 ),
                 _SettingsRow(
                   icon: Icons.event_repeat_outlined,

@@ -11,14 +11,15 @@
 
 - Item 0 do plano de continuidade concluído: requisitos, auditoria das 12
   telas do protótipo e roadmap por fases foram consolidados em `docs/product`.
-- Fases 1, 2, 3 e 4A concluídas tecnicamente. Além da fundação visual, o app agora
+- Fases 1, 2, 3, 4A e 4B concluídas tecnicamente. Além da fundação visual, o app agora
   distingue conta/cartão, persiste ícones e cores de categorias/centros,
   permite criação inline, oferece reset coordenado e exige instrumento
   confirmado em toda importação e possui o modelo calculável e auditável de
-  faturas. A Fase 4B, visão de fatura, é a próxima.
+  faturas e uma visão por cartão alimentada somente por dados reais. A Fase 4C,
+  conciliação e projeção, é a próxima.
 - Referência visual oficial local: `C:\dev\pixel-perfect-pixels@2848fc6`.
 - Código do app auditado: `ZimbaControl@cd67fcb`.
-- Lacunas críticas restantes: visão e conciliação de faturas, paridade das
+- Lacunas críticas restantes: conciliação/projeção de faturas, paridade das
   telas restantes e homologação Android integral.
 - A APK release `1.1.0+2` foi gerada com sucesso em
   `apps/mobile/build/app/outputs/flutter-apk/app-release.apk`, SHA-256
@@ -33,6 +34,11 @@
   `5EE399A51FF674F82314EAB8838D36A6363D542E72675D51A480AE6AAD977C02`. A
   tentativa de atualização foi interrompida porque o aparelho desapareceu do
   ADB durante a instalação; repetir `adb install -r` quando ele reconectar.
+- A build release com as Fases 4A e 4B foi gerada, SHA-256
+  `64335CDDCFEE59A80777001C93EE662E54F04EDA0F0A1829AF500BBC2861E61D`.
+  O Samsung apareceu inicialmente como `unauthorized` e depois saiu da lista
+  do ADB; a instalação por atualização continua pendente de reconexão e aceite
+  da depuração USB no aparelho.
 
 ## Estado Atual
 
@@ -77,6 +83,11 @@
   e vencimento funcionam em meses curtos e virada anual, estornos reduzem o
   total e pagamentos permanecem transferências fora das despesas. Correções
   manuais ficam protegidas do recálculo e registram motivo/origem.
+- A Fase 4B expôs esse domínio em **Ajustes > Faturas de cartões**: seleção
+  inequívoca do cartão, fatura atual/próxima, total, datas, estado, compras,
+  estornos, pagamentos e filtros por categoria/pessoa/competência. A tela
+  diferencia explicitamente mês-calendário e mês da fatura e foi validada em
+  360×800 e 390×844 com texto 1,3 e dados longos.
 - Mobile tem conciliacao financeira do Marco 07: candidatos de duplicidade,
   merge de fontes sem criar nova despesa, fatura como transferencia, parcelas
   de cartao em `installment_plans` e consorcio ligado ao plano do carro.
