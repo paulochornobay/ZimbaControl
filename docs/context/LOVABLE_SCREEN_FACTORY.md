@@ -1,5 +1,8 @@
 # ZimbaControl - Lovable Screen Factory
 
+> Guia histórico do laboratório visual. O baseline e a matriz de comparação
+> vigentes estão em `docs/product/VISUAL_PARITY_AUDIT.md`.
+
 ## Papel do Lovable
 
 O projeto Lovable e o laboratorio visual. Ele deve gerar e refinar 100% das
@@ -24,7 +27,7 @@ e seguranca devem ser implementados diretamente no app final.
 O front fica exclusivamente no repositorio externo:
 
 ```text
-/Users/macbookair/Public/dev/pixel-perfect-pixels
+C:\dev\pixel-perfect-pixels
 https://github.com/paulochornobay/pixel-perfect-pixels
 ```
 

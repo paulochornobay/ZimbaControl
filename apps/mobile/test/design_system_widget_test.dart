@@ -94,13 +94,13 @@ void main() {
   }
 
   for (final size in const [Size(360, 800), Size(390, 844)]) {
-    testWidgets('movement filters fit ${size.width.toInt()}px', (tester) async {
+    testWidgets('movement quick filters fit ${size.width.toInt()}px', (
+      tester,
+    ) async {
       tester.view.physicalSize = size;
       tester.view.devicePixelRatio = 1;
       tester.platformDispatcher.textScaleFactorTestValue = 1.3;
-      final controller = TextEditingController();
       addTearDown(() {
-        controller.dispose();
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
         tester.platformDispatcher.clearTextScaleFactorTestValue();
@@ -110,32 +110,34 @@ void main() {
         MaterialApp(
           theme: ZimbaTheme.light,
           home: Scaffold(
-            body: ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                MovementFilterPanel(
-                  searchController: controller,
-                  kindFilter: 'all',
-                  statusFilter: 'confirmed',
-                  sourceFilter: 'notification',
-                  currentMonthOnly: true,
-                  onChanged: ({kind, status, source, monthOnly}) {},
-                  onSearchChanged: _noop,
-                ),
-                const SizedBox(height: 12),
-                const MovementTotalsCard(
-                  count: 123,
-                  incomeCents: 1289450,
-                  expenseCents: -887755,
-                ),
-              ],
+            body: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  MovementQuickFilter(
+                    label: 'Todos',
+                    selected: true,
+                    onTap: _noop,
+                  ),
+                  MovementQuickFilter(
+                    label: 'Transferências',
+                    selected: false,
+                    onTap: _noop,
+                  ),
+                  MovementQuickFilter(
+                    label: 'Ajustes',
+                    selected: false,
+                    onTap: _noop,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
       );
 
       expect(find.text('Transferências'), findsOneWidget);
-      expect(find.text('Entradas'), findsOneWidget);
+      expect(find.text('Ajustes'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

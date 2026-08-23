@@ -2894,6 +2894,17 @@ class $TransactionsTable extends Transactions
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _displayDescriptionMeta =
+      const VerificationMeta('displayDescription');
+  @override
+  late final GeneratedColumn<String> displayDescription =
+      GeneratedColumn<String>(
+        'display_description',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _accountIdMeta = const VerificationMeta(
     'accountId',
   );
@@ -3076,6 +3087,7 @@ class $TransactionsTable extends Transactions
     amountCents,
     currencyCode,
     descriptionRaw,
+    displayDescription,
     accountId,
     transferFromAccountId,
     transferToAccountId,
@@ -3205,6 +3217,15 @@ class $TransactionsTable extends Transactions
       );
     } else if (isInserting) {
       context.missing(_descriptionRawMeta);
+    }
+    if (data.containsKey('display_description')) {
+      context.handle(
+        _displayDescriptionMeta,
+        displayDescription.isAcceptableOrUnknown(
+          data['display_description']!,
+          _displayDescriptionMeta,
+        ),
+      );
     }
     if (data.containsKey('account_id')) {
       context.handle(
@@ -3378,6 +3399,10 @@ class $TransactionsTable extends Transactions
         DriftSqlType.string,
         data['${effectivePrefix}description_raw'],
       )!,
+      displayDescription: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}display_description'],
+      ),
       accountId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}account_id'],
@@ -3460,6 +3485,7 @@ class FinanceTransaction extends DataClass
   final int amountCents;
   final String currencyCode;
   final String descriptionRaw;
+  final String? displayDescription;
   final String? accountId;
   final String? transferFromAccountId;
   final String? transferToAccountId;
@@ -3487,6 +3513,7 @@ class FinanceTransaction extends DataClass
     required this.amountCents,
     required this.currencyCode,
     required this.descriptionRaw,
+    this.displayDescription,
     this.accountId,
     this.transferFromAccountId,
     this.transferToAccountId,
@@ -3519,6 +3546,9 @@ class FinanceTransaction extends DataClass
     map['amount_cents'] = Variable<int>(amountCents);
     map['currency_code'] = Variable<String>(currencyCode);
     map['description_raw'] = Variable<String>(descriptionRaw);
+    if (!nullToAbsent || displayDescription != null) {
+      map['display_description'] = Variable<String>(displayDescription);
+    }
     if (!nullToAbsent || accountId != null) {
       map['account_id'] = Variable<String>(accountId);
     }
@@ -3574,6 +3604,9 @@ class FinanceTransaction extends DataClass
       amountCents: Value(amountCents),
       currencyCode: Value(currencyCode),
       descriptionRaw: Value(descriptionRaw),
+      displayDescription: displayDescription == null && nullToAbsent
+          ? const Value.absent()
+          : Value(displayDescription),
       accountId: accountId == null && nullToAbsent
           ? const Value.absent()
           : Value(accountId),
@@ -3631,6 +3664,9 @@ class FinanceTransaction extends DataClass
       amountCents: serializer.fromJson<int>(json['amountCents']),
       currencyCode: serializer.fromJson<String>(json['currencyCode']),
       descriptionRaw: serializer.fromJson<String>(json['descriptionRaw']),
+      displayDescription: serializer.fromJson<String?>(
+        json['displayDescription'],
+      ),
       accountId: serializer.fromJson<String?>(json['accountId']),
       transferFromAccountId: serializer.fromJson<String?>(
         json['transferFromAccountId'],
@@ -3671,6 +3707,7 @@ class FinanceTransaction extends DataClass
       'amountCents': serializer.toJson<int>(amountCents),
       'currencyCode': serializer.toJson<String>(currencyCode),
       'descriptionRaw': serializer.toJson<String>(descriptionRaw),
+      'displayDescription': serializer.toJson<String?>(displayDescription),
       'accountId': serializer.toJson<String?>(accountId),
       'transferFromAccountId': serializer.toJson<String?>(
         transferFromAccountId,
@@ -3703,6 +3740,7 @@ class FinanceTransaction extends DataClass
     int? amountCents,
     String? currencyCode,
     String? descriptionRaw,
+    Value<String?> displayDescription = const Value.absent(),
     Value<String?> accountId = const Value.absent(),
     Value<String?> transferFromAccountId = const Value.absent(),
     Value<String?> transferToAccountId = const Value.absent(),
@@ -3730,6 +3768,9 @@ class FinanceTransaction extends DataClass
     amountCents: amountCents ?? this.amountCents,
     currencyCode: currencyCode ?? this.currencyCode,
     descriptionRaw: descriptionRaw ?? this.descriptionRaw,
+    displayDescription: displayDescription.present
+        ? displayDescription.value
+        : this.displayDescription,
     accountId: accountId.present ? accountId.value : this.accountId,
     transferFromAccountId: transferFromAccountId.present
         ? transferFromAccountId.value
@@ -3785,6 +3826,9 @@ class FinanceTransaction extends DataClass
       descriptionRaw: data.descriptionRaw.present
           ? data.descriptionRaw.value
           : this.descriptionRaw,
+      displayDescription: data.displayDescription.present
+          ? data.displayDescription.value
+          : this.displayDescription,
       accountId: data.accountId.present ? data.accountId.value : this.accountId,
       transferFromAccountId: data.transferFromAccountId.present
           ? data.transferFromAccountId.value
@@ -3839,6 +3883,7 @@ class FinanceTransaction extends DataClass
           ..write('amountCents: $amountCents, ')
           ..write('currencyCode: $currencyCode, ')
           ..write('descriptionRaw: $descriptionRaw, ')
+          ..write('displayDescription: $displayDescription, ')
           ..write('accountId: $accountId, ')
           ..write('transferFromAccountId: $transferFromAccountId, ')
           ..write('transferToAccountId: $transferToAccountId, ')
@@ -3871,6 +3916,7 @@ class FinanceTransaction extends DataClass
     amountCents,
     currencyCode,
     descriptionRaw,
+    displayDescription,
     accountId,
     transferFromAccountId,
     transferToAccountId,
@@ -3902,6 +3948,7 @@ class FinanceTransaction extends DataClass
           other.amountCents == this.amountCents &&
           other.currencyCode == this.currencyCode &&
           other.descriptionRaw == this.descriptionRaw &&
+          other.displayDescription == this.displayDescription &&
           other.accountId == this.accountId &&
           other.transferFromAccountId == this.transferFromAccountId &&
           other.transferToAccountId == this.transferToAccountId &&
@@ -3931,6 +3978,7 @@ class TransactionsCompanion extends UpdateCompanion<FinanceTransaction> {
   final Value<int> amountCents;
   final Value<String> currencyCode;
   final Value<String> descriptionRaw;
+  final Value<String?> displayDescription;
   final Value<String?> accountId;
   final Value<String?> transferFromAccountId;
   final Value<String?> transferToAccountId;
@@ -3959,6 +4007,7 @@ class TransactionsCompanion extends UpdateCompanion<FinanceTransaction> {
     this.amountCents = const Value.absent(),
     this.currencyCode = const Value.absent(),
     this.descriptionRaw = const Value.absent(),
+    this.displayDescription = const Value.absent(),
     this.accountId = const Value.absent(),
     this.transferFromAccountId = const Value.absent(),
     this.transferToAccountId = const Value.absent(),
@@ -3988,6 +4037,7 @@ class TransactionsCompanion extends UpdateCompanion<FinanceTransaction> {
     required int amountCents,
     this.currencyCode = const Value.absent(),
     required String descriptionRaw,
+    this.displayDescription = const Value.absent(),
     this.accountId = const Value.absent(),
     this.transferFromAccountId = const Value.absent(),
     this.transferToAccountId = const Value.absent(),
@@ -4026,6 +4076,7 @@ class TransactionsCompanion extends UpdateCompanion<FinanceTransaction> {
     Expression<int>? amountCents,
     Expression<String>? currencyCode,
     Expression<String>? descriptionRaw,
+    Expression<String>? displayDescription,
     Expression<String>? accountId,
     Expression<String>? transferFromAccountId,
     Expression<String>? transferToAccountId,
@@ -4055,6 +4106,7 @@ class TransactionsCompanion extends UpdateCompanion<FinanceTransaction> {
       if (amountCents != null) 'amount_cents': amountCents,
       if (currencyCode != null) 'currency_code': currencyCode,
       if (descriptionRaw != null) 'description_raw': descriptionRaw,
+      if (displayDescription != null) 'display_description': displayDescription,
       if (accountId != null) 'account_id': accountId,
       if (transferFromAccountId != null)
         'transfer_from_account_id': transferFromAccountId,
@@ -4089,6 +4141,7 @@ class TransactionsCompanion extends UpdateCompanion<FinanceTransaction> {
     Value<int>? amountCents,
     Value<String>? currencyCode,
     Value<String>? descriptionRaw,
+    Value<String?>? displayDescription,
     Value<String?>? accountId,
     Value<String?>? transferFromAccountId,
     Value<String?>? transferToAccountId,
@@ -4118,6 +4171,7 @@ class TransactionsCompanion extends UpdateCompanion<FinanceTransaction> {
       amountCents: amountCents ?? this.amountCents,
       currencyCode: currencyCode ?? this.currencyCode,
       descriptionRaw: descriptionRaw ?? this.descriptionRaw,
+      displayDescription: displayDescription ?? this.displayDescription,
       accountId: accountId ?? this.accountId,
       transferFromAccountId:
           transferFromAccountId ?? this.transferFromAccountId,
@@ -4173,6 +4227,9 @@ class TransactionsCompanion extends UpdateCompanion<FinanceTransaction> {
     }
     if (descriptionRaw.present) {
       map['description_raw'] = Variable<String>(descriptionRaw.value);
+    }
+    if (displayDescription.present) {
+      map['display_description'] = Variable<String>(displayDescription.value);
     }
     if (accountId.present) {
       map['account_id'] = Variable<String>(accountId.value);
@@ -4245,6 +4302,7 @@ class TransactionsCompanion extends UpdateCompanion<FinanceTransaction> {
           ..write('amountCents: $amountCents, ')
           ..write('currencyCode: $currencyCode, ')
           ..write('descriptionRaw: $descriptionRaw, ')
+          ..write('displayDescription: $displayDescription, ')
           ..write('accountId: $accountId, ')
           ..write('transferFromAccountId: $transferFromAccountId, ')
           ..write('transferToAccountId: $transferToAccountId, ')
@@ -16374,6 +16432,7 @@ typedef $$TransactionsTableCreateCompanionBuilder =
       required int amountCents,
       Value<String> currencyCode,
       required String descriptionRaw,
+      Value<String?> displayDescription,
       Value<String?> accountId,
       Value<String?> transferFromAccountId,
       Value<String?> transferToAccountId,
@@ -16404,6 +16463,7 @@ typedef $$TransactionsTableUpdateCompanionBuilder =
       Value<int> amountCents,
       Value<String> currencyCode,
       Value<String> descriptionRaw,
+      Value<String?> displayDescription,
       Value<String?> accountId,
       Value<String?> transferFromAccountId,
       Value<String?> transferToAccountId,
@@ -16483,6 +16543,11 @@ class $$TransactionsTableFilterComposer
 
   ColumnFilters<String> get descriptionRaw => $composableBuilder(
     column: $table.descriptionRaw,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get displayDescription => $composableBuilder(
+    column: $table.displayDescription,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -16626,6 +16691,11 @@ class $$TransactionsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get displayDescription => $composableBuilder(
+    column: $table.displayDescription,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get accountId => $composableBuilder(
     column: $table.accountId,
     builder: (column) => ColumnOrderings(column),
@@ -16760,6 +16830,11 @@ class $$TransactionsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get displayDescription => $composableBuilder(
+    column: $table.displayDescription,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get accountId =>
       $composableBuilder(column: $table.accountId, builder: (column) => column);
 
@@ -16874,6 +16949,7 @@ class $$TransactionsTableTableManager
                 Value<int> amountCents = const Value.absent(),
                 Value<String> currencyCode = const Value.absent(),
                 Value<String> descriptionRaw = const Value.absent(),
+                Value<String?> displayDescription = const Value.absent(),
                 Value<String?> accountId = const Value.absent(),
                 Value<String?> transferFromAccountId = const Value.absent(),
                 Value<String?> transferToAccountId = const Value.absent(),
@@ -16902,6 +16978,7 @@ class $$TransactionsTableTableManager
                 amountCents: amountCents,
                 currencyCode: currencyCode,
                 descriptionRaw: descriptionRaw,
+                displayDescription: displayDescription,
                 accountId: accountId,
                 transferFromAccountId: transferFromAccountId,
                 transferToAccountId: transferToAccountId,
@@ -16932,6 +17009,7 @@ class $$TransactionsTableTableManager
                 required int amountCents,
                 Value<String> currencyCode = const Value.absent(),
                 required String descriptionRaw,
+                Value<String?> displayDescription = const Value.absent(),
                 Value<String?> accountId = const Value.absent(),
                 Value<String?> transferFromAccountId = const Value.absent(),
                 Value<String?> transferToAccountId = const Value.absent(),
@@ -16960,6 +17038,7 @@ class $$TransactionsTableTableManager
                 amountCents: amountCents,
                 currencyCode: currencyCode,
                 descriptionRaw: descriptionRaw,
+                displayDescription: displayDescription,
                 accountId: accountId,
                 transferFromAccountId: transferFromAccountId,
                 transferToAccountId: transferToAccountId,

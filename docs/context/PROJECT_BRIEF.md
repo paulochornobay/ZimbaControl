@@ -1,5 +1,9 @@
 # ZimbaControl - Project Brief
 
+> Documento de fundação. Para requisitos detalhados e prioridades atuais,
+> prevalecem `docs/product/PRODUCT_REQUIREMENTS.md` e
+> `docs/product/IMPLEMENTATION_ROADMAP.md`.
+
 ## Objetivo
 
 Construir um app familiar de financas pessoais, offline-first, para uso pessoal
@@ -20,7 +24,7 @@ bloquear o uso local.
 
 ## Decisoes Fixas
 
-- O projeto externo `/Users/macbookair/Public/dev/pixel-perfect-pixels`
+- O projeto externo `C:\dev\pixel-perfect-pixels`
   (`paulochornobay/pixel-perfect-pixels`) e a referencia visual oficial.
 - Nenhum codigo React/Lovable deve ser copiado para este monorepo.
 - O app final sera Flutter, nao React.

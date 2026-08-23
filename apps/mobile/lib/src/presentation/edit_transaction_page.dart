@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/local/app_database.dart';
+import 'dashboard_page.dart' show formatBrl;
 import 'design/zimba_theme.dart';
 import 'design/zimba_ui.dart';
 
@@ -21,7 +22,7 @@ class EditTransactionPage extends StatefulWidget {
 }
 
 class _EditTransactionPageState extends State<EditTransactionPage> {
-  final descriptionController = TextEditingController();
+  final titleController = TextEditingController();
   final amountController = TextEditingController();
   final competenceController = TextEditingController();
 
@@ -41,6 +42,7 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
   DateTime occurredAt = DateTime.now();
   bool loading = true;
   bool saving = false;
+  bool editing = false;
 
   @override
   void initState() {
@@ -50,7 +52,7 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
 
   @override
   void dispose() {
-    descriptionController.dispose();
+    titleController.dispose();
     amountController.dispose();
     competenceController.dispose();
     super.dispose();
@@ -75,7 +77,10 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
       accounts = results[3] as List<AccountWithOwner>;
       people = results[4] as List<PersonRow>;
       installmentPlans = results[5] as List<InstallmentPlanRow>;
-      descriptionController.text = loadedTransaction?.descriptionRaw ?? '';
+      titleController.text =
+          loadedTransaction?.displayDescription ??
+          loadedTransaction?.descriptionRaw ??
+          '';
       amountController.text = loadedTransaction == null
           ? ''
           : centsToInput(loadedTransaction.amountCents);
@@ -119,9 +124,9 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
     setState(() => saving = true);
     await widget.database.updateTransactionDetails(
       id: widget.transactionId,
-      description: descriptionController.text.trim().isEmpty
+      displayDescription: titleController.text.trim().isEmpty
           ? 'Lancamento sem descricao'
-          : descriptionController.text.trim(),
+          : titleController.text.trim(),
       amountCents: parseBrlInput(amountController.text),
       kind: kind,
       occurredAt: occurredAt,
@@ -134,10 +139,19 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
       payerId: fallbackPayerId,
       beneficiaryIds: selectedBeneficiaries,
     );
+    await load();
     if (!mounted) return;
-    setState(() => saving = false);
+    setState(() {
+      saving = false;
+      editing = false;
+    });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Lancamento salvo localmente.')),
+      const SnackBar(
+        content: Text('Lançamento salvo localmente.'),
+        duration: Duration(seconds: 3),
+        persist: false,
+        showCloseIcon: true,
+      ),
     );
     if (closeAfterSave) Navigator.of(context).pop();
   }
@@ -226,7 +240,15 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
         'Sem pagador';
 
     return Scaffold(
-      appBar: _DetailAppBar(onBack: () => Navigator.of(context).pop()),
+      appBar: _DetailAppBar(
+        onBack: () => Navigator.of(context).pop(),
+        editing: editing,
+        onEdit: () => setState(() => editing = true),
+        onCancel: () async {
+          await load();
+          if (mounted) setState(() => editing = false);
+        },
+      ),
       bottomNavigationBar: widget.onNavigate == null
           ? null
           : ZimbaBottomNavigation(
@@ -240,14 +262,18 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
         children: [
           _TransactionSummaryCard(
-            descriptionController: descriptionController,
+            titleController: titleController,
             amountController: amountController,
+            originalDescription: current.descriptionRaw,
+            amountCents: current.amountCents,
             status: _reviewStatusLabel(current.reviewStatus),
             provider: details?.providerLabel ?? 'ZimbaControl',
             date: _formatDetailDate(occurredAt),
             currency: current.currencyCode,
             isIncome: kind == 'income',
+            editing: editing,
             showSuggestion:
+                editing &&
                 current.reviewStatus == 'pending' &&
                 categoryId == null &&
                 kind != 'transfer',
@@ -269,66 +295,77 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
               _DetailSelectRow(
                 label: 'Tipo do lançamento',
                 value: _kindLabel(kind),
-                onTap: () => pickValue(
-                  title: 'Tipo do lançamento',
-                  selectedId: kind,
-                  options: const [
-                    _PickerOption('expense', 'Despesa'),
-                    _PickerOption('income', 'Receita'),
-                    _PickerOption('transfer', 'Transferência'),
-                  ],
-                  onSelected: (value) => setState(() => kind = value ?? kind),
-                ),
+                onTap: editing
+                    ? () => pickValue(
+                        title: 'Tipo do lançamento',
+                        selectedId: kind,
+                        options: const [
+                          _PickerOption('expense', 'Despesa'),
+                          _PickerOption('income', 'Receita'),
+                          _PickerOption('transfer', 'Transferência'),
+                        ],
+                        onSelected: (value) =>
+                            setState(() => kind = value ?? kind),
+                      )
+                    : null,
               ),
               _DetailSelectRow(
                 label: 'Categoria',
                 value: kind == 'transfer' ? 'Não se aplica' : categoryName,
                 enabled: kind != 'transfer',
-                onTap: () => pickValue(
-                  title: 'Categoria',
-                  selectedId: categoryId,
-                  options: [
-                    const _PickerOption(null, 'Sem categoria'),
-                    for (final item in visibleCategories)
-                      _PickerOption(item.id, item.name),
-                  ],
-                  onSelected: (value) => setState(() => categoryId = value),
-                ),
+                onTap: editing && kind != 'transfer'
+                    ? () => pickValue(
+                        title: 'Categoria',
+                        selectedId: categoryId,
+                        options: [
+                          const _PickerOption(null, 'Sem categoria'),
+                          for (final item in visibleCategories)
+                            _PickerOption(item.id, item.name),
+                        ],
+                        onSelected: (value) =>
+                            setState(() => categoryId = value),
+                      )
+                    : null,
               ),
               _DetailSelectRow(
                 label: 'Centro de custo',
                 value: kind == 'transfer' ? 'Não se aplica' : costCenterName,
                 enabled: kind != 'transfer',
-                onTap: () => pickValue(
-                  title: 'Centro de custo',
-                  selectedId: costCenterId,
-                  options: [
-                    const _PickerOption(null, 'Sem centro de custo'),
-                    for (final item in visibleCostCenters)
-                      _PickerOption(item.id, item.name),
-                  ],
-                  onSelected: (value) => setState(() => costCenterId = value),
-                ),
+                onTap: editing && kind != 'transfer'
+                    ? () => pickValue(
+                        title: 'Centro de custo',
+                        selectedId: costCenterId,
+                        options: [
+                          const _PickerOption(null, 'Sem centro de custo'),
+                          for (final item in visibleCostCenters)
+                            _PickerOption(item.id, item.name),
+                        ],
+                        onSelected: (value) =>
+                            setState(() => costCenterId = value),
+                      )
+                    : null,
               ),
               _DetailSelectRow(
                 label: 'Conta / Cartão',
                 value: accountName,
-                onTap: () => pickValue(
-                  title: 'Conta / Cartão',
-                  selectedId: accountId,
-                  options: [
-                    const _PickerOption(null, 'Conta não definida'),
-                    for (final item in visibleAccounts)
-                      _PickerOption(item.account.id, item.account.name),
-                  ],
-                  onSelected: (value) => setState(() => accountId = value),
-                ),
+                onTap: editing
+                    ? () => pickValue(
+                        title: 'Conta / Cartão',
+                        selectedId: accountId,
+                        options: [
+                          const _PickerOption(null, 'Conta não definida'),
+                          for (final item in visibleAccounts)
+                            _PickerOption(item.account.id, item.account.name),
+                        ],
+                        onSelected: (value) =>
+                            setState(() => accountId = value),
+                      )
+                    : null,
               ),
-              _DetailInputRow(
+              _DetailSelectRow(
                 label: 'Competência',
-                controller: competenceController,
-                prefixIcon: Icons.calendar_today_outlined,
-                onTap: pickDate,
+                value: competenceController.text,
+                onTap: editing ? pickDate : null,
               ),
             ],
           ),
@@ -347,13 +384,15 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
                       _BeneficiaryChip(
                         label: person.displayName,
                         selected: beneficiaryIds.contains(person.id),
-                        onTap: () => setState(() {
-                          final next = beneficiaryIds.toSet();
-                          next.contains(person.id)
-                              ? next.remove(person.id)
-                              : next.add(person.id);
-                          beneficiaryIds = next;
-                        }),
+                        onTap: editing
+                            ? () => setState(() {
+                                final next = beneficiaryIds.toSet();
+                                next.contains(person.id)
+                                    ? next.remove(person.id)
+                                    : next.add(person.id);
+                                beneficiaryIds = next;
+                              })
+                            : null,
                       ),
                   ],
                 ),
@@ -393,36 +432,40 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
               _DetailSelectRow(
                 label: 'Pagador',
                 value: payerName,
-                onTap: () => pickValue(
-                  title: 'Pagador',
-                  selectedId: payerId,
-                  options: [
-                    const _PickerOption(null, 'Sem pagador'),
-                    for (final person in people)
-                      _PickerOption(person.id, person.displayName),
-                  ],
-                  onSelected: (value) => setState(() => payerId = value),
-                ),
+                onTap: editing
+                    ? () => pickValue(
+                        title: 'Pagador',
+                        selectedId: payerId,
+                        options: [
+                          const _PickerOption(null, 'Sem pagador'),
+                          for (final person in people)
+                            _PickerOption(person.id, person.displayName),
+                        ],
+                        onSelected: (value) => setState(() => payerId = value),
+                      )
+                    : null,
               ),
             ],
           ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 48,
-            child: FilledButton(
-              onPressed: saving ? null : save,
-              child: saving
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Salvar alterações'),
+          if (editing) ...[
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 48,
+              child: FilledButton(
+                onPressed: saving ? null : save,
+                child: saving
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Salvar alterações'),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -430,9 +473,17 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
 }
 
 class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
-  const _DetailAppBar({required this.onBack});
+  const _DetailAppBar({
+    required this.onBack,
+    required this.editing,
+    required this.onEdit,
+    required this.onCancel,
+  });
 
   final VoidCallback onBack;
+  final bool editing;
+  final VoidCallback onEdit;
+  final VoidCallback onCancel;
 
   @override
   Size get preferredSize => const Size.fromHeight(82);
@@ -441,17 +492,12 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return AppBar(
       toolbarHeight: 82,
-      leadingWidth: 126,
-      leading: TextButton.icon(
+      leadingWidth: 52,
+      leading: IconButton(
         onPressed: onBack,
+        tooltip: 'Voltar',
         icon: const Icon(Icons.arrow_back, size: 22),
-        label: const Text('Voltar'),
-        style: TextButton.styleFrom(
-          foregroundColor: ZimbaColors.accent,
-          textStyle: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
-        ),
+        color: ZimbaColors.accent,
       ),
       title: Text(
         'Lançamento',
@@ -460,6 +506,14 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
           letterSpacing: -.6,
         ),
       ),
+      actions: [
+        TextButton.icon(
+          onPressed: editing ? onCancel : onEdit,
+          icon: Icon(editing ? Icons.close : Icons.edit_outlined, size: 18),
+          label: Text(editing ? 'Cancelar' : 'Editar'),
+        ),
+        const SizedBox(width: 8),
+      ],
       bottom: const PreferredSize(
         preferredSize: Size.fromHeight(1),
         child: Divider(height: 1, color: ZimbaColors.border),
@@ -470,24 +524,30 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
 
 class _TransactionSummaryCard extends StatelessWidget {
   const _TransactionSummaryCard({
-    required this.descriptionController,
+    required this.titleController,
     required this.amountController,
+    required this.originalDescription,
+    required this.amountCents,
     required this.status,
     required this.provider,
     required this.date,
     required this.currency,
     required this.isIncome,
+    required this.editing,
     required this.showSuggestion,
     required this.onAcceptSuggestion,
   });
 
-  final TextEditingController descriptionController;
+  final TextEditingController titleController;
   final TextEditingController amountController;
+  final String originalDescription;
+  final int amountCents;
   final String status;
   final String provider;
   final String date;
   final String currency;
   final bool isIncome;
+  final bool editing;
   final bool showSuggestion;
   final VoidCallback onAcceptSuggestion;
 
@@ -518,55 +578,60 @@ class _TransactionSummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: descriptionController,
-            maxLines: 2,
-            minLines: 1,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              fontSize: 22,
-              height: 1.2,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -.45,
+          if (editing)
+            TextField(
+              controller: titleController,
+              maxLines: 2,
+              minLines: 1,
+              textCapitalization: TextCapitalization.sentences,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontSize: 22,
+                height: 1.2,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -.45,
+              ),
+              decoration: const InputDecoration(
+                labelText: 'Título amigável',
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(vertical: 8),
+              ),
+            )
+          else
+            Text(
+              titleController.text,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontSize: 22,
+                height: 1.2,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -.45,
+              ),
             ),
-            decoration: const InputDecoration(
-              isDense: true,
-              contentPadding: EdgeInsets.zero,
-              filled: false,
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-            ),
-          ),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.baseline,
             textBaseline: TextBaseline.alphabetic,
             children: [
               Expanded(
-                child: TextField(
-                  controller: amountController,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: true,
-                  ),
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontSize: 32,
-                    height: 1,
-                    fontWeight: FontWeight.w600,
-                    color: isIncome
-                        ? ZimbaColors.success
-                        : ZimbaColors.foreground,
-                    letterSpacing: -.9,
-                  ),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.zero,
-                    filled: false,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                  ),
-                ),
+                child: editing
+                    ? TextField(
+                        controller: amountController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                          signed: true,
+                        ),
+                        style: _amountStyle(context, isIncome),
+                        decoration: const InputDecoration(
+                          labelText: 'Valor',
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 8),
+                        ),
+                      )
+                    : Text(
+                        formatBrl(amountCents),
+                        style: _amountStyle(context, isIncome),
+                      ),
               ),
               const SizedBox(width: 8),
               Text(
@@ -576,6 +641,35 @@ class _TransactionSummaryCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: ZimbaColors.surfaceMuted,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'DESCRIÇÃO ORIGINAL',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: ZimbaColors.secondaryText,
+                    letterSpacing: .6,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                SelectableText(
+                  '“$originalDescription”',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: ZimbaColors.secondaryText,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
           ),
           if (showSuggestion) ...[
             const SizedBox(height: 16),
@@ -623,6 +717,15 @@ class _TransactionSummaryCard extends StatelessWidget {
       ),
     );
   }
+
+  TextStyle? _amountStyle(BuildContext context, bool isIncome) =>
+      Theme.of(context).textTheme.headlineMedium?.copyWith(
+        fontSize: 32,
+        height: 1,
+        fontWeight: FontWeight.w600,
+        color: isIncome ? ZimbaColors.success : ZimbaColors.foreground,
+        letterSpacing: -.9,
+      );
 }
 
 class _DetailSelectRow extends StatelessWidget {
@@ -635,7 +738,7 @@ class _DetailSelectRow extends StatelessWidget {
 
   final String label;
   final String value;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final bool enabled;
 
   @override
@@ -657,71 +760,6 @@ class _DetailStaticRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) =>
       _DetailRow(label: label, value: value, icon: icon);
-}
-
-class _DetailInputRow extends StatelessWidget {
-  const _DetailInputRow({
-    required this.label,
-    required this.controller,
-    required this.prefixIcon,
-    required this.onTap,
-  });
-
-  final String label;
-  final TextEditingController controller;
-  final IconData prefixIcon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: ZimbaColors.secondaryText,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Row(
-              children: [
-                Icon(prefixIcon, size: 16, color: ZimbaColors.secondaryText),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    maxLines: 1,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                      filled: false,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                    ),
-                  ),
-                ),
-                const Icon(
-                  Icons.chevron_right,
-                  size: 20,
-                  color: Color(0xFF94A3B8),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _DetailRow extends StatelessWidget {
@@ -801,7 +839,7 @@ class _BeneficiaryChip extends StatelessWidget {
 
   final String label;
   final bool selected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

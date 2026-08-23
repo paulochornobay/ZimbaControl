@@ -1,5 +1,10 @@
 # Marco E — roteiro de regressao visual e homologacao Android
 
+> Registro histórico. A build release inicialmente pendente foi gerada depois
+> deste roteiro; o estado vigente e as ressalvas de assinatura estão em
+> `docs/product/IMPLEMENTATION_ROADMAP.md`. A homologação física permanece
+> pendente.
+
 Data de preparacao: 2026-08-23
 Baseline visual: `pixel-perfect-pixels@ac6bf30`
 
@@ -13,10 +18,10 @@ Baseline visual: `pixel-perfect-pixels@ac6bf30`
 - Valores e textos longos fazem parte das fixtures. Um overflow encontrado no
   resumo foi corrigido em `BreakdownRow` antes deste registro.
 - APK debug: gerada em `apps/mobile/build/app/outputs/flutter-apk/app-debug.apk`.
-- APK release: a tentativa em 2026-08-23 ficou travada no `gen_snapshot` AOT
-  sem produzir artefato novo e foi encerrada após alguns minutos. A APK release
-  existente nao deve ser tratada como validacao deste marco; repetir a build
-  em ambiente Android/Flutter saudavel e obrigatorio antes da release pessoal.
+- APK release: a tentativa inicial em 2026-08-23 ficou travada no
+  `gen_snapshot` AOT. Uma repetição posterior gerou uma APK diagnóstica, mas
+  ela não valida este marco: continua obrigatório homologar em Android físico
+  e assinar uma candidata com certificado próprio antes da release pessoal.
 
 ## Homologacao fisica pendente
 

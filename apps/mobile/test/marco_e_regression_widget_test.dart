@@ -59,7 +59,7 @@ void main() {
           home: MovementsPage(database: database),
         ),
       );
-      await _pumpUntilFound(tester, find.byType(MovementTotalsCard));
+      await _pumpUntilFound(tester, find.byType(MovementTransactionRow));
       expect(tester.takeException(), isNull);
 
       await tester.pumpWidget(

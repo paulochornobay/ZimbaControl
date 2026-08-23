@@ -1,5 +1,33 @@
 # ZimbaControl - Milestones
 
+> Registro histórico dos marcos técnicos. A partir de 2026-08-23, a ordem de
+> execução vigente está em `docs/product/IMPLEMENTATION_ROADMAP.md`, os
+> requisitos em `docs/product/PRODUCT_REQUIREMENTS.md` e a situação visual em
+> `docs/product/VISUAL_PARITY_AUDIT.md`.
+
+## Plano de continuidade
+
+- Item 0 — documentação canônica e auditoria completa: concluído.
+- Fase 1 — fundação visual e correções críticas: concluída tecnicamente.
+- Fase 2 — instrumentos, ícones, criação inline e reset completo: próxima.
+- Fase 3 — importação vinculada ao instrumento: pendente.
+- Fase 4 — faturas completas por etapas: pendente.
+- Fase 5 — paridade restante, homologação e release: pendente.
+
+Baseline visual vigente: `pixel-perfect-pixels@2848fc6`. Baselines citados nos
+marcos abaixo pertencem aos respectivos ciclos históricos.
+
+### Fase 1 — conclusão técnica em 2026-08-23
+
+- Movimentações passou a seguir a composição compacta do baseline, com filtros
+  avançados em bottom sheet e detalhe real ao tocar na linha.
+- Revisão não mantém mais a confirmação entre abas; o feedback expira e ainda
+  oferece fechar/desfazer.
+- Detalhe abre em leitura e preserva a descrição importada, enquanto o título
+  amigável usa `displayDescription` sincronizável.
+- A regressão inclui seis goldens em 360×800 e 390×844 e testes funcionais dos
+  comportamentos críticos.
+
 ## Status Geral
 
 - Marco 00 - Bussola do Projeto: concluido
@@ -39,7 +67,7 @@ publicacao para depois. O Marco 11 foi quebrado em 11A, 11B e 11C para reduzir
 risco: primeiro sync tecnico com MongoDB, depois acesso Google, depois dois
 dispositivos aplicando eventos remotos.
 
-O codigo novo do Lovable em `/Users/macbookair/Public/dev/pixel-perfect-pixels`
+O codigo novo do Lovable em `C:\dev\pixel-perfect-pixels`
 e uma referencia visual importante, especialmente para revisao, edicao,
 duplicidades e parcelas. A ultima tentativa com pouco credito nao concluiu o
 prompt: o projeto compilou, mas manteve "Tudo ok", navegacao antiga e acoes
@@ -123,9 +151,10 @@ Entregaveis tecnicos concluidos:
 Homologacao pendente: executar integralmente
 `docs/context/MARCO_E_HOMOLOGATION.md` em Android fisico. A aprovacao dos
 testes locais nao substitui permissao real, teclado, safe area, importacao,
-backup/restauracao ou sync em dois aparelhos. A build release tambem deve ser
-repetida: a tentativa deste marco travou no `gen_snapshot` AOT sem gerar uma
-APK release nova.
+backup/restauracao ou sync em dois aparelhos. A tentativa inicial deste marco
+travou no `gen_snapshot`; uma repetição posterior gerou a APK diagnóstica
+registrada em `docs/product/IMPLEMENTATION_ROADMAP.md`, ainda sem homologação
+física e sem assinatura própria de release.
 
 ## Marco 11C - Dois dispositivos e conflitos financeiros
 
@@ -177,7 +206,7 @@ Criterio de aceite:
 - O prototipo roda localmente e esta claramente separado do app final.
 
 Status: concluido. A referencia existe somente no repositorio externo
-`/Users/macbookair/Public/dev/pixel-perfect-pixels`; nao ha copia React dentro
+`C:\dev\pixel-perfect-pixels`; nao ha copia React dentro
 do monorepo Flutter.
 
 ## Marco 02 - Fundacao do Monorepo

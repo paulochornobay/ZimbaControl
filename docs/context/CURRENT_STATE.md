@@ -1,5 +1,32 @@
 # ZimbaControl - Current State
 
+> Fonte operacional canônica desde 2026-08-23:
+> `docs/product/PRODUCT_REQUIREMENTS.md`,
+> `docs/product/VISUAL_PARITY_AUDIT.md` e
+> `docs/product/IMPLEMENTATION_ROADMAP.md`. O inventário abaixo preserva o
+> histórico técnico; em caso de divergência, prevalecem os documentos de
+> `docs/product`.
+
+## Atualização canônica de 2026-08-23
+
+- Item 0 do plano de continuidade concluído: requisitos, auditoria das 12
+  telas do protótipo e roadmap por fases foram consolidados em `docs/product`.
+- Fase 1 concluída tecnicamente: Movimentações compacta com bottom sheet de
+  filtros, navegação “Movim.”, detalhe em leitura, snackbar temporário e título
+  amigável separado da descrição original. A Fase 2 é a próxima.
+- Referência visual oficial local: `C:\dev\pixel-perfect-pixels@2848fc6`.
+- Código do app auditado: `ZimbaControl@cd67fcb`.
+- Lacunas críticas confirmadas: Movimentações, snackbar persistente,
+  identificação de contas/cartões, destino do OFX, semântica da descrição,
+  reset completo e domínio de faturas.
+- A APK release `1.1.0+2` foi gerada com sucesso em
+  `apps/mobile/build/app/outputs/flutter-apk/app-release.apk`, SHA-256
+  `36C922AE12AA35C1BE22C4305C1DF8E08E2EB714D76ACCD58D3AB074750C2C57`.
+  Ela é um artefato diagnóstico: usa certificado de debug e não é a candidata
+  final de distribuição.
+- ADB não enumerou aparelho durante a auditoria; homologação física continua
+  pendente.
+
 ## Estado Atual
 
 - Repositorio estruturado como monorepo.
@@ -7,18 +34,18 @@
 - Toolchains detectadas localmente: Flutter, Dart, Node.js, npm e unzip.
 - PDF/DOCX de arquitetura analisado e resumido nos arquivos de contexto.
 - O front Lovable duplicado foi removido do monorepo. A referencia visual vive
-  exclusivamente em `/Users/macbookair/Public/dev/pixel-perfect-pixels`.
-- O ciclo de recuperacao mobile usa `pixel-perfect-pixels@6a2d072` como
-  baseline visual.
+  exclusivamente em `C:\dev\pixel-perfect-pixels`.
+- O ciclo historico de recuperacao mobile usou
+  `pixel-perfect-pixels@6a2d072` como baseline visual.
 - A recuperacao do app local esta implementada: primeira abertura sem seed,
   onboarding transacional com pessoa e conta reais, demonstracao apenas por
   escolha explicita e lancamento manual sem IDs ficticios.
 - O Flutter tem tema proprio inspirado no baseline externo, com Inter
   embutida, tokens compartilhados, cards, botoes, navegacao e formularios
   consistentes. Nenhum componente React/Tailwind foi copiado.
-- A navegacao principal agora e Resumo, Revisao, Novo, Movimentacoes e
-  Ajustes. Ajustes mostra apenas jornadas funcionais; Regras, Google e Sync
-  ficam ocultos.
+- A estrutura da navegacao principal e Resumo, Revisao, Novo, Movimentacoes e
+  Ajustes; o quarto destino agora aparece como “Movim.”. Ajustes expõe apenas
+  jornadas com estado real.
 - App Flutter criado em `apps/mobile`.
 - API Fastify criada em `apps/api`.
 - Contratos OpenAPI/JSON Schema criados em `packages/contracts`.
@@ -84,8 +111,9 @@
   padronizados, a regressao automatizada agora inclui Resumo, Movimentacoes,
   Duplicidades e Importacao, e um overflow de valores grandes no Resumo foi
   corrigido. O roteiro fisico pendente esta em
-  `docs/context/MARCO_E_HOMOLOGATION.md`. A APK debug foi gerada; a tentativa
-  de APK release travou no `gen_snapshot` AOT e deve ser repetida.
+  `docs/context/MARCO_E_HOMOLOGATION.md`. A tentativa inicial de release
+  travou no `gen_snapshot`, mas uma repetição posterior gerou a APK release
+  descrita na atualização canônica acima.
 - Uma instalacao limpa nao carrega seed automaticamente. Dados de demonstracao
   sao uma escolha explicita no onboarding ou em Ajustes.
 - Para teste visual no Chrome, o banco usa Drift Web com `sql.js`; Android e
@@ -145,7 +173,7 @@ npm run build
 Referencia Lovable externa:
 
 ```sh
-cd /Users/macbookair/Public/dev/pixel-perfect-pixels
+cd C:\dev\pixel-perfect-pixels
 git fetch origin
 npm run build
 npm run lint
@@ -179,12 +207,12 @@ Antes de continuar qualquer marco, leia:
 - Substituir armazenamento local simples por criptografia SQLCipher quando
   viavel no Marco 12.
 
-## Proximo Marco
+## Próximo ciclo
 
-Concluir Marco E — repetir a build release e executar a homologacao Android
-fisica em `MARCO_E_HOMOLOGATION.md`. Somente depois iniciar o Marco F. A
-homologacao Android local abaixo continua pendente em paralelo e e necessaria
-antes da aceitacao para release dos marcos tecnicos ja implementados.
+Executar a Fase 1 de `docs/product/IMPLEMENTATION_ROADMAP.md`: fundação visual,
+Movimentações, correção do feedback de confirmação e separação entre título
+amigável e descrição original. A homologação Android física continua
+obrigatória antes de uma candidata final de release.
 
 Sequencia recomendada:
 

@@ -478,7 +478,7 @@ class TransactionTile extends StatelessWidget {
       child: ListTile(
         dense: true,
         title: Text(
-          transaction.descriptionRaw,
+          details.displayTitle,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),

@@ -222,9 +222,14 @@ class _ReviewPageState extends State<ReviewPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
+        duration: const Duration(seconds: 4),
+        persist: false,
+        showCloseIcon: true,
         action: SnackBarAction(
           label: 'Desfazer',
-          onPressed: () => widget.database.restoreReviewSnapshot(snapshot),
+          onPressed: () async {
+            await widget.database.restoreReviewSnapshot(snapshot);
+          },
         ),
       ),
     );

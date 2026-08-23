@@ -654,7 +654,11 @@ class ZimbaBottomNavigation extends StatelessWidget {
     _ZimbaNavItem('Início', Icons.home_outlined, Icons.home_rounded),
     _ZimbaNavItem('Revisão', Icons.inbox_outlined, Icons.inbox_rounded),
     _ZimbaNavItem('Novo', Icons.add_circle_outline, Icons.add_circle),
-    _ZimbaNavItem('Filtros', Icons.tune_outlined, Icons.tune_rounded),
+    _ZimbaNavItem(
+      'Movim.',
+      Icons.format_list_bulleted_outlined,
+      Icons.format_list_bulleted_rounded,
+    ),
     _ZimbaNavItem('Ajustes', Icons.settings_outlined, Icons.settings_rounded),
   ];
 

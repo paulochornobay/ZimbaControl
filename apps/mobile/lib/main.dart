@@ -131,6 +131,7 @@ class _ZimbaHomeShellState extends State<ZimbaHomeShell> {
   var selectedIndex = 0;
 
   void select(int index) {
+    ScaffoldMessenger.maybeOf(context)?.removeCurrentSnackBar();
     setState(() => selectedIndex = index);
   }
 

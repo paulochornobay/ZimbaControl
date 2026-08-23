@@ -6,14 +6,19 @@ App familiar de finanças pessoais com arquitetura offline-first.
 
 Antes de implementar novos marcos, leia estes arquivos:
 
+- `docs/product/PRODUCT_REQUIREMENTS.md`
+- `docs/product/VISUAL_PARITY_AUDIT.md`
+- `docs/product/IMPLEMENTATION_ROADMAP.md`
 - `docs/context/PROJECT_BRIEF.md`
-- `docs/context/MILESTONES.md`
 - `docs/context/CURRENT_STATE.md`
 - `docs/context/ARCHITECTURE.md`
-- `docs/context/LOVABLE_SCREEN_FACTORY.md`
+
+Os documentos em `docs/product` são a fonte canônica para requisito, paridade
+visual e ordem de implementação. Os marcos anteriores permanecem em
+`docs/context` como histórico técnico.
 
 O projeto Flutter usa como referencia visual externa o projeto Lovable em
-`/Users/macbookair/Public/dev/pixel-perfect-pixels`
+`C:\dev\pixel-perfect-pixels`
 (`paulochornobay/pixel-perfect-pixels`). Nenhum codigo React/Lovable e mantido
 neste monorepo.
 
@@ -30,7 +35,7 @@ Antes de portar ou revisar uma tela, atualize apenas o repositorio externo e
 registre o commit usado no ciclo:
 
 ```sh
-cd /Users/macbookair/Public/dev/pixel-perfect-pixels
+cd C:\dev\pixel-perfect-pixels
 git fetch origin
 git log -1 --oneline origin/main
 ```
@@ -38,7 +43,7 @@ git log -1 --oneline origin/main
 Nao copie o front React para dentro deste repositorio e nao misture o historico
 Git dos dois projetos.
 
-Baseline visual da recuperacao mobile atual: `6a2d072`.
+Baseline visual canônico da auditoria de 2026-08-23: `2848fc6`.
 
 ## Comandos
 

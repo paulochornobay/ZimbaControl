@@ -1,0 +1,252 @@
+# ZimbaControl — Roadmap de implementação
+
+**Data-base:** 2026-08-23
+
+**Fonte funcional:** [PRODUCT_REQUIREMENTS.md](PRODUCT_REQUIREMENTS.md)
+
+**Fonte visual:** `pixel-perfect-pixels@2848fc6`
+
+## 1. Estado do plano
+
+| Fase | Resultado | Estado |
+| --- | --- | --- |
+| 0 | documentação canônica, auditoria completa e roteiro reproduzível | concluída em 2026-08-23 |
+| 1 | fundação visual e correções críticas de interação | concluída em 2026-08-23 |
+| 2 | instrumentos, ícones, criação inline e reset completo | próxima |
+| 3 | importação vinculada à conta/cartão correto | pendente |
+| 4 | faturas completas por etapas | pendente |
+| 5 | paridade restante, homologação Android e release | pendente |
+
+As fases são sequenciais por dependência de domínio. Correções pequenas e
+isoladas da Fase 1 podem compartilhar um ciclo, mas nenhuma fase deve ser
+declarada concluída sem seus critérios de aceite.
+
+## 2. Fase 0 — Base canônica e auditoria
+
+### Entregue
+
+- requisitos funcionais e não funcionais consolidados;
+- inventário das 12 telas do protótipo, redirecionamento e jornadas exclusivas
+  do Flutter;
+- baseline e estado sujo do repositório visual registrados;
+- divergências críticas ligadas às causas atuais do código;
+- roadmap com dependências, testes e política de release;
+- documentos históricos apontando para esta fonte canônica.
+
+### Limite
+
+Esta fase não altera banco, UI, regras financeiras, protótipo ou APK.
+
+## 3. Fase 1 — Fundação visual e correções críticas
+
+### Objetivo
+
+Tornar navegação, Movimentações, Revisão e detalhe coerentes com a fonte
+visual, eliminando os defeitos mais visíveis sem migrar ainda o domínio.
+
+### Escopo
+
+1. Consolidar shell, cabeçalhos, largura, grid, densidade, raios, tipografia e
+   navegação compartilhada.
+2. Corrigir o quarto destino para “Movim.” com ícone apropriado.
+3. Refatorar Movimentações:
+   - busca compacta e ação de filtros;
+   - chips rápidos horizontais;
+   - bottom sheet para filtros avançados;
+   - lista densa, sem painel/totais redundantes;
+   - abertura do detalhe real.
+4. Corrigir o snackbar de confirmação: saída imediata da fila, duração
+   explícita, `persist: false`, fechar e desfazer acessíveis.
+5. Abrir detalhe em leitura e edição apenas por ação explícita.
+6. Introduzir `displayDescription` com fallback e manter
+   `descriptionRaw` somente leitura para fontes externas.
+
+### Aceite
+
+- goldens/overlays de Revisão, Movimentações e Detalhe em 360×800 e 390×844;
+- snackbar desaparece sozinho e não acompanha troca de aba;
+- nenhuma regressão em confirmar/desfazer, busca ou filtros;
+- migração de título preserva descrições existentes e backup compatível.
+
+### Entregue em 2026-08-23
+
+- navegação principal corrigida para “Movim.” e feedback removido ao trocar de
+  aba;
+- Movimentações refeita com cabeçalho e busca compactos, chips rápidos,
+  filtros avançados em bottom sheet, linhas densas e abertura do detalhe;
+- snackbar de confirmação com duração explícita, fechamento e desfazer;
+- detalhe inicialmente somente leitura, com edição por ação explícita;
+- `displayDescription` adicionado por migração Drift 11, com backfill,
+  contratos e sync retrocompatíveis; `descriptionRaw` permanece imutável;
+- seis goldens de Revisão, Movimentações e Detalhe nos viewports 360×800 e
+  390×844, além de testes de troca de aba, expiração e preservação do texto
+  original.
+
+A homologação em Android físico continua concentrada na Fase 5; ela não
+bloqueia o encerramento técnico local desta fase.
+
+## 4. Fase 2 — Instrumentos, cadastros e recomeço seguro
+
+### Objetivo
+
+Eliminar seleções ambíguas e tornar o cadastro contextual, com uma limpeza
+realmente completa do app.
+
+### Escopo
+
+1. Criar um componente `InstrumentDisplay` compartilhado com tipo, provedor,
+   titular, nome e últimos dígitos.
+2. Aplicá-lo em Novo, Editar, Movimentações, Importação e Cadastros.
+3. Adicionar `iconKey` e `colorKey` a categorias e centros, com backfill,
+   fallback, sugestões e seletor vetorial.
+4. Permitir criar categoria/centro dentro de Novo/Editar e selecionar o novo
+   registro após salvar.
+5. Criar área de perigo “Zerar aplicativo” com contagens, oferta de backup e
+   confirmação `ZERAR`.
+6. Coordenar exclusão de todas as tabelas Drift, sync, staging, fila nativa,
+   preferências e sessão; explicar que permissões do Android permanecem;
+   retornar ao onboarding.
+
+### Aceite
+
+- conta e cartão do mesmo provedor são inequívocos em toda seleção;
+- registros antigos recebem ícone/cor sem perda;
+- criação inline retorna ao lançamento com a opção selecionada;
+- teste de integração comprova ausência de dados em todos os stores e retorno
+  ao onboarding;
+- backup anterior ao reset continua restaurável.
+
+## 5. Fase 3 — Importação orientada ao instrumento
+
+### Objetivo
+
+Garantir que cada arquivo seja associado explicitamente à conta ou cartão
+correto antes de gerar lançamentos.
+
+### Escopo
+
+1. Evoluir o parser para produzir `StatementIdentity` com tipo, provedor,
+   `ACCTID`, moeda, período e saldos disponíveis.
+2. Persistir metadados e `targetAccountId` no lote de importação.
+3. Implementar etapas reais: arquivo, identificação, mapeamento CSV quando
+   necessário, prévia, confirmação do destino e resultado.
+4. Sugerir destino por tipo/provedor/últimos dígitos, sempre mostrando a
+   confirmação; bloquear ambiguidade.
+5. Permitir cadastrar instrumento ausente e retornar ao lote.
+6. Promover e conciliar usando exclusivamente o destino confirmado, removendo
+   a dependência de “primeira conta do provedor”.
+7. Exibir conta/cartão e metadados do demonstrativo no histórico do lote.
+
+### Aceite
+
+- testes com conta corrente e cartão Nubank simultâneos;
+- cenários `BANKACCTFROM`, `CCACCTFROM`, `ACCTID` ausente, destino incorreto,
+  mais de um candidato e criação durante o fluxo;
+- reimportação preserva idempotência de arquivo/linha;
+- nenhum lote ambíguo é promovido silenciosamente.
+
+## 6. Fase 4 — Faturas completas por etapas
+
+### Objetivo
+
+Consolidar gastos de cartão no mês de fatura correto, sem contar pagamento da
+fatura como nova despesa.
+
+### Etapa 4A — Modelo e cálculo
+
+- criar `CreditCardInvoice`, `InvoicePayment` e vínculo opcional da transação;
+- armazenar período, fechamento, vencimento, origem e estado efetivo;
+- associar por `postedAt` com fallback para `occurredAt`;
+- tratar corte, virada de ano, estorno, pagamento parcial/total e correção
+  manual auditável;
+- migrar helpers atuais sem mudar dados históricos silenciosamente.
+
+### Etapa 4B — Visão de fatura
+
+- visão por cartão com fatura atual/próxima, total, datas e estado;
+- detalhe com compras, estornos, parcelas, pagamentos e total derivado;
+- filtros por categoria, pessoa e competência;
+- indicação clara de mês-calendário versus mês da fatura.
+
+### Etapa 4C — Conciliação e projeção
+
+- sugerir pagamento de fatura como transferência, sempre com confirmação;
+- reconciliar OFX bancário com pagamento e OFX/cartão com compras;
+- projetar parcelas nas faturas seguintes sem duplicar a despesa.
+
+### Aceite
+
+- testes de corte antes/no/depois do fechamento, meses curtos e virada anual;
+- estorno reduz total, pagamento não aumenta despesas e estados derivam dos
+  valores reais;
+- Nubank pode sugerir fechamento a partir do vencimento, mas a configuração é
+  editável e visível;
+- correções manuais deixam trilha suficiente para explicar a fatura.
+
+## 7. Fase 5 — Paridade restante, homologação e release
+
+### Objetivo
+
+Finalizar as telas restantes e produzir uma build Android validada, assinada
+adequadamente para distribuição pessoal.
+
+### Escopo
+
+1. Migrar Resumo, Ajustes, Família, Backup, Regras, Sync/privacidade,
+   Duplicidades, Onboarding, Cadastros, Compromissos e Captura Android.
+2. Registrar diferenças deliberadas quando o protótipo simular recurso que o
+   produto não possui.
+3. Executar regressão visual de todas as telas e estados.
+4. Homologar em Android físico com instalação limpa, dados Nubank
+   anonimizados, offline, teclado, retorno do app, notificações, importação,
+   backup/restauração e reset.
+5. Configurar assinatura de release própria, revisar permissões/privacidade e
+   gerar APK final com checksum.
+
+### Aceite
+
+- todas as linhas da auditoria marcadas como equivalentes ou com diferença
+  deliberada justificada;
+- `flutter analyze` sem avisos e suíte de testes completa aprovada;
+- testes instrumentados Android relevantes aprovados;
+- nenhuma captura pessoal incluída no Git;
+- APK release reproduzível, assinado para release e instalado no aparelho de
+  homologação.
+
+## 8. Evoluções públicas de dados previstas
+
+| Área | Evolução planejada |
+| --- | --- |
+| Transação | `displayDescription` separado de `descriptionRaw`; vínculo opcional de fatura |
+| Categoria/centro | `iconKey` e `colorKey` com fallback e backfill |
+| Importação | `targetAccountId` e metadados de `StatementIdentity` no lote |
+| Cartão | entidades de fatura, pagamento e resumo derivado |
+| Apresentação | `InstrumentDisplay` compartilhado entre seletores e listas |
+
+Toda evolução exige migração Drift, backup/restore retrocompatível, ajuste no
+payload de sync quando a entidade for sincronizada e testes com banco
+preexistente.
+
+## 9. Matriz mínima de testes
+
+| Tema | Casos obrigatórios |
+| --- | --- |
+| Visual | goldens 360×800 e 390×844, texto 1,3, nomes e valores longos |
+| Movimentações | filtros combinados, limpar, vazio, detalhe, lista extensa |
+| Revisão | confirmar, desfazer, trocar aba, snackbar temporário |
+| Instrumentos | mesmo banco com conta/cartão/titulares diferentes |
+| OFX | banco/cartão, ACCTID presente/ausente, ambiguidade, reimportação |
+| Fatura | fechamento, vencimento, estorno, pagamento parcial/total, parcelas |
+| Reset | Drift, sync, fila nativa, preferências, sessão, onboarding e restore |
+| Acessibilidade | TalkBack, contraste, ícones rotulados e alvos de 48 dp |
+
+## 10. Estado de build na abertura do plano
+
+Em 2026-08-23, o código-base `cd67fcb` passou em `flutter analyze` e nos 61
+testes então existentes. A APK `1.1.0+2` foi gerada em
+`apps/mobile/build/app/outputs/flutter-apk/app-release.apk`, SHA-256
+`36C922AE12AA35C1BE22C4305C1DF8E08E2EB714D76ACCD58D3AB074750C2C57`.
+
+Esse artefato é diagnóstico, não o release final: ele usa certificado de debug
+e o manifesto principal não declara `INTERNET`. Uma nova APK só deve ser
+considerada candidata após a Fase 5 e a homologação física.

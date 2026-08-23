@@ -106,6 +106,7 @@ class Transactions extends Table {
   IntColumn get amountCents => integer()();
   TextColumn get currencyCode => text().withDefault(const Constant('BRL'))();
   TextColumn get descriptionRaw => text()();
+  TextColumn get displayDescription => text().nullable()();
   TextColumn get accountId => text().nullable()();
   TextColumn get transferFromAccountId => text().nullable()();
   TextColumn get transferToAccountId => text().nullable()();
@@ -450,7 +451,7 @@ class AppDatabase extends _$AppDatabase {
       'notification_capture_retention_days';
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -507,6 +508,14 @@ class AppDatabase extends _$AppDatabase {
       if (from < 10) {
         await migrator.createTable(syncAppliedEvents);
         await migrator.createTable(syncConflicts);
+      }
+      if (from < 11) {
+        await migrator.addColumn(transactions, transactions.displayDescription);
+        await customStatement(
+          'UPDATE transactions '
+          'SET display_description = description_raw '
+          'WHERE display_description IS NULL',
+        );
       }
     },
   );
@@ -1128,6 +1137,7 @@ class AppDatabase extends _$AppDatabase {
         amountCents: value.amountCents,
         currencyCode: Value(value.currencyCode),
         descriptionRaw: value.descriptionRaw,
+        displayDescription: Value(value.displayDescription),
         accountId: Value(value.accountId),
         transferFromAccountId: Value(value.transferFromAccountId),
         transferToAccountId: Value(value.transferToAccountId),
@@ -2538,7 +2548,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> updateTransactionCore({
     required String id,
-    required String description,
+    required String displayDescription,
     required int amountCents,
     required String kind,
     required String? categoryId,
@@ -2546,7 +2556,7 @@ class AppDatabase extends _$AppDatabase {
   }) async {
     await (update(transactions)..where((row) => row.id.equals(id))).write(
       TransactionsCompanion(
-        descriptionRaw: Value(description),
+        displayDescription: Value(displayDescription),
         amountCents: Value(amountCents),
         kind: Value(kind),
         categoryId: Value(categoryId),
@@ -2559,7 +2569,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> updateTransactionDetails({
     required String id,
-    required String description,
+    required String displayDescription,
     required int amountCents,
     required String kind,
     required DateTime occurredAt,
@@ -2579,7 +2589,7 @@ class AppDatabase extends _$AppDatabase {
     await transaction(() async {
       await (update(transactions)..where((row) => row.id.equals(id))).write(
         TransactionsCompanion(
-          descriptionRaw: Value(description),
+          displayDescription: Value(displayDescription),
           amountCents: Value(signedCents),
           kind: Value(kind),
           occurredAt: Value(occurredAt),
@@ -3162,6 +3172,7 @@ class AppDatabase extends _$AppDatabase {
         'amountCents': transaction.amountCents,
         'currencyCode': transaction.currencyCode,
         'descriptionRaw': transaction.descriptionRaw,
+        'displayDescription': transaction.displayDescription,
         'accountId': transaction.accountId,
         'transferFromAccountId': transaction.transferFromAccountId,
         'transferToAccountId': transaction.transferToAccountId,
@@ -4211,6 +4222,7 @@ class AppDatabase extends _$AppDatabase {
       competenceMonth: month,
       amountCents: amountCents,
       descriptionRaw: description,
+      displayDescription: Value(description),
       accountId: Value(accountId),
       transferFromAccountId: Value(transferFromAccountId),
       transferToAccountId: Value(transferToAccountId),
@@ -4513,8 +4525,15 @@ class ReviewTransactionDetails {
   final List<ReviewInboxRow> inboxItems;
   final SyncConflictRow? syncConflict;
 
-  String get displayMerchant =>
-      merchant?.displayName ?? transaction.descriptionRaw;
+  String get displayTitle {
+    final custom = transaction.displayDescription?.trim();
+    if (custom != null && custom.isNotEmpty) {
+      return custom;
+    }
+    return merchant?.displayName ?? transaction.descriptionRaw;
+  }
+
+  String get displayMerchant => displayTitle;
 
   String get accountLabel => account?.name ?? 'Conta nao definida';
 
@@ -4597,7 +4616,9 @@ class ReviewTransactionDetails {
   final payload = jsonDecode(payloadJson) as Map<String, dynamic>;
   final transaction = payload['transaction'] as Map<String, dynamic>;
   return (
-    transaction['descriptionRaw'] as String? ?? 'Sem descricao',
+    transaction['displayDescription'] as String? ??
+        transaction['descriptionRaw'] as String? ??
+        'Sem descricao',
     transaction['amountCents'] as int? ?? 0,
   );
 }
@@ -4982,6 +5003,7 @@ class _RemoteTransactionData {
     required this.amountCents,
     required this.currencyCode,
     required this.descriptionRaw,
+    required this.displayDescription,
     required this.accountId,
     required this.transferFromAccountId,
     required this.transferToAccountId,
@@ -5008,6 +5030,7 @@ class _RemoteTransactionData {
   final int amountCents;
   final String currencyCode;
   final String descriptionRaw;
+  final String? displayDescription;
   final String? accountId;
   final String? transferFromAccountId;
   final String? transferToAccountId;
@@ -5035,6 +5058,7 @@ class _RemoteTransactionData {
       amountCents: _syncInt(json['amountCents'], 'transaction.amountCents'),
       currencyCode: _requiredSyncString(json, 'currencyCode'),
       descriptionRaw: _requiredSyncString(json, 'descriptionRaw'),
+      displayDescription: json['displayDescription'] as String?,
       accountId: json['accountId'] as String?,
       transferFromAccountId: json['transferFromAccountId'] as String?,
       transferToAccountId: json['transferToAccountId'] as String?,

@@ -1,5 +1,9 @@
 # ZimbaControl — Próximos marcos e prompts de execução
 
+> **Documento substituído para novos ciclos.** Preservado como histórico dos
+> Marcos A–F. Use `docs/product/IMPLEMENTATION_ROADMAP.md` para a sequência
+> atual e `docs/product/PRODUCT_REQUIREMENTS.md` para o escopo funcional.
+
 Data da auditoria: 2026-08-23
 Escopo deste arquivo: planejar os próximos ciclos. Não é autorização para
 alterar domínio, banco, Android ou interface fora do marco escolhido.
@@ -111,8 +115,9 @@ aceitação para release continua dependente da homologação Android física.
   implementados; a pendência real de dois aparelhos continua explícita.
 - O baseline `pixel-perfect-pixels@ac6bf30`, diferenças deliberadas e o
   checklist físico pendente estão em `MARCO_E_HOMOLOGATION.md`.
-- A APK debug foi gerada. A build release travou no `gen_snapshot` AOT sem
-  criar artefato novo; ela precisa ser repetida antes de iniciar o Marco F.
+- A APK debug foi gerada. A primeira build release travou no `gen_snapshot`;
+  uma repetição posterior gerou o artefato diagnóstico registrado no roadmap
+  canônico, ainda sem homologação física e assinatura própria.
 
 ### Lacunas técnicas confirmadas
 
@@ -263,7 +268,7 @@ Critérios de aceite:
 ### Prompt 0 — Preparar um marco sem implementar
 
 ```text
-No repositório /Users/macbookair/Public/dev/ZimbaControl, leia primeiro:
+No repositório C:\dev\ZimbaControl, leia primeiro:
 docs/context/PROJECT_BRIEF.md, ARCHITECTURE.md, MILESTONES.md,
 CURRENT_STATE.md e NEXT_IMPLEMENTATION_PROMPTS.md.
 
@@ -309,7 +314,7 @@ flutter test. Faça commit apenas se eu pedir.
 
 ```text
 Implemente somente o Marco C de docs/context/NEXT_IMPLEMENTATION_PROMPTS.md.
-Use /Users/macbookair/Public/dev/pixel-perfect-pixels como referência visual,
+Use C:\dev\pixel-perfect-pixels como referência visual,
 sem copiar código React. Primeiro registre o commit da referência e compare as
 rotas aplicáveis. Migre compromissos e Ajustes com dados e ações reais.
 

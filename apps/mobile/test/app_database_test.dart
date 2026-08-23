@@ -506,7 +506,7 @@ void main() {
 
       await deviceA.updateTransactionCore(
         id: transactionId,
-        description: 'Valor confirmado no aparelho A',
+        displayDescription: 'Valor confirmado no aparelho A',
         amountCents: -3100,
         kind: 'expense',
         categoryId: 'alimentacao',
@@ -514,7 +514,7 @@ void main() {
       );
       await deviceB.updateTransactionCore(
         id: transactionId,
-        description: 'Valor corrigido no aparelho B',
+        displayDescription: 'Valor corrigido no aparelho B',
         amountCents: -3200,
         kind: 'expense',
         categoryId: 'alimentacao',
@@ -529,7 +529,7 @@ void main() {
 
       expect(result.conflicts, 1);
       expect(result.remoteConflicts, 1);
-      expect(local?.descriptionRaw, 'Valor corrigido no aparelho B');
+      expect(local?.displayDescription, 'Valor corrigido no aparelho B');
       expect(local?.amountCents, -3200);
       expect(local?.reviewStatus, 'conflict');
       expect(conflicts.single.localPayloadJson, contains('aparelho B'));
@@ -552,7 +552,7 @@ void main() {
       final resolvedConflicts = await deviceB.listSyncConflicts(transactionId);
 
       expect(resolvedConflicts.single.status, 'keep_local');
-      expect(resolvedOnA?.descriptionRaw, 'Valor corrigido no aparelho B');
+      expect(resolvedOnA?.displayDescription, 'Valor corrigido no aparelho B');
       expect(resolvedOnA?.reviewStatus, 'confirmed');
     },
   );
@@ -1128,7 +1128,7 @@ void main() {
       await database.seedIfEmpty();
       await database.updateTransactionDetails(
         id: 'tx-farmacia',
-        description: 'Farmacia completa',
+        displayDescription: 'Farmacia completa',
         amountCents: 4567,
         kind: 'expense',
         occurredAt: DateTime(2026, 7, 29),
@@ -1146,7 +1146,8 @@ void main() {
         (item) => item.transaction.id == 'tx-farmacia',
       );
 
-      expect(transaction?.descriptionRaw, 'Farmacia completa');
+      expect(transaction?.descriptionRaw, 'Farmacia Pague Menos');
+      expect(transaction?.displayDescription, 'Farmacia completa');
       expect(transaction?.amountCents, -4567);
       expect(transaction?.occurredAt, DateTime(2026, 7, 29));
       expect(transaction?.accountId, 'marina-conta');
@@ -1215,7 +1216,7 @@ void main() {
     await database.seedIfEmpty();
     await database.updateTransactionCore(
       id: 'tx-farmacia',
-      description: 'Farmacia editada',
+      displayDescription: 'Farmacia editada',
       amountCents: -12000,
       kind: 'expense',
       categoryId: 'saude',
@@ -1224,7 +1225,8 @@ void main() {
 
     final transaction = await database.getTransaction('tx-farmacia');
 
-    expect(transaction?.descriptionRaw, 'Farmacia editada');
+    expect(transaction?.descriptionRaw, 'Farmacia Pague Menos');
+    expect(transaction?.displayDescription, 'Farmacia editada');
     expect(transaction?.amountCents, -12000);
     expect(transaction?.costCenterId, 'pessoal');
   });

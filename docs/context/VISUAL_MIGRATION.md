@@ -1,49 +1,51 @@
-# ZimbaControl — Baseline de migracao visual
+# ZimbaControl — Migração visual
 
-## Referencia fixa
+> Resumo operacional. A matriz completa e as evidências estão em
+> `docs/product/VISUAL_PARITY_AUDIT.md`; requisitos e ordem de implementação
+> estão em `docs/product/PRODUCT_REQUIREMENTS.md` e
+> `docs/product/IMPLEMENTATION_ROADMAP.md`.
 
-- Laboratorio visual: `/Users/macbookair/Public/dev/pixel-perfect-pixels`.
-- Commit aprovado para este ciclo: `2848fc6` (`Redesenhou telas e componentes`).
-- O React/Tailwind nunca deve ser copiado para o monorepo. A referencia e
-  traduzida em widgets Flutter ligados a dados reais do Drift.
+## Referência vigente
 
-## Contrato visual
+- Laboratório visual: `C:\dev\pixel-perfect-pixels`.
+- Baseline canônico: `2848fc6` (`Redesenhou telas e componentes`).
+- Baseline do app auditado: `ZimbaControl@cd67fcb`.
+- O React/Tailwind é apenas referência; widgets Flutter continuam ligados a
+  dados e ações reais do Drift.
+- O repositório visual possuía alterações locais preexistentes em
+  `src/routeTree.gen.ts` e `package-lock.json`; elas não fazem parte desta
+  migração.
 
-| Item | Regra Flutter |
+## Situação
+
+A Fase 1 corrigiu Movimentações, o destino “Movim.”, o feedback de confirmação
+e a separação entre título amigável e descrição original. Há goldens de
+Revisão, Movimentações e Detalhe nos dois viewports de referência.
+
+As maiores lacunas restantes são:
+
+1. contas e cartões indistinguíveis nos seletores;
+2. categoria/centro sem ícone padrão e sem criação inline;
+3. OFX sem identidade do demonstrativo e sem confirmação do instrumento;
+4. reset escondido/incompleto;
+5. ausência de fatura como entidade.
+
+## Contrato resumido
+
+| Item | Regra |
 | --- | --- |
-| Largura | Android usa a largura do aparelho; preview web centraliza em 440 px. |
-| Grade | Espacamentos em multiplos de 4 px; margem de pagina de 16 px. |
-| Superficies | Fundo `#F7F8FA`, card branco, borda `#E5E7EB`, sombra discreta. |
-| Raios | 12 px em controles e 16 px em cards/listas. |
-| Tipografia | Inter; titulos densos, texto auxiliar 12 px e valores com leitura tabular. |
-| Navegacao | Resumo, Revisao, Novo, Movim. e Ajustes, fixa na parte inferior. |
-| Estados | Vazio, carregando, erro e revisao manual usam componentes compartilhados. |
+| Largura | Android usa a largura do aparelho; preview web centraliza em 440 px |
+| Grade | múltiplos de 4 px; margem de página usual de 16 px |
+| Superfícies | fundo `#F7F8FA`, card branco, borda/sombra discretas |
+| Tipografia | Inter, títulos compactos, auxiliares de 12 px, valores legíveis |
+| Navegação | Resumo, Revisão, Novo, Movim. e Ajustes |
+| Filtros | rápidos na tela; avançados em bottom sheet |
+| Estados | vazio, carregando, erro e sucesso baseados em estado real |
+| Acessibilidade | alvos de 48 dp, contraste e semântica de ícones |
 
-## Matriz de migracao
+## Validação
 
-| Jornada Lovable | Flutter | Situacao |
-| --- | --- | --- |
-| Resumo | `dashboard_page.dart` | Dados reais; usa a nova moldura e tokens. |
-| Caixa de Revisao | `review_page.dart` | Dados e acoes reais; card e acoes compactadas no padrao aprovado. |
-| Movimentacoes | `movements_page.dart` | Fluxo real; refinamento visual incremental. |
-| Novo / Edicao | `new_transaction_page.dart`, `edit_transaction_page.dart` | Fluxo real; rateio avancado permanece pendente. |
-| Importacao / Duplicidades | `import_page.dart`, `duplicates_page.dart` | Parser, staging e conciliacao reais; acabamento incremental. |
-| Familia / cadastros / compromissos | `family_structure_page.dart`, `registries_page.dart`, `commitments_page.dart` | Fluxos reais; agrupamento em Ajustes permanece em migracao. |
-| Backup / captura Android | `family_structure_page.dart` | Funcional, a ser separado em jornadas visuais proprias. |
-| Regras | `feature_availability_page.dart` | UI honesta criada; dominio persistente pendente. |
-| Sync e privacidade | `feature_availability_page.dart` | UI honesta criada; Marco 11C pendente. |
-
-## Lacunas que nao podem ser simuladas
-
-1. Regras persistentes: prioridade, padrao, ativacao, historico e explicacao.
-2. Rateio avancado, fontes editaveis e vinculo de regras/parcelas na edicao.
-3. Sync 11C: `deviceId`, aplicacao de eventos remotos no Drift e conflitos em
-   revisao.
-4. Estados finais da captura Android: expurgo, erros de permissao e allowlist
-   administravel.
-
-## Validacao por marco
-
-Cada tela deve ser verificada em 360x800 e 390x844, com escala de texto 1.3.
-Nao aprovar cortes de texto, overflow, acoes falsas ou divergencias de
-hierarquia que alterem a leitura da referencia.
+Cada jornada deve ser verificada em 360×800 e 390×844, com escala de texto
+1,3, nomes e valores longos. A comparação usa screenshot/overlay e registra
+diferenças deliberadas. Homologação final exige Android físico; capturas com
+dados pessoais não devem ser commitadas.
