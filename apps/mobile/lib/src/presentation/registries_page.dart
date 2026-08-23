@@ -244,7 +244,7 @@ class _AccountList extends StatelessWidget {
           instrument: InstrumentDisplay.account(item),
           inactive: !item.account.active,
           onTap: () async {
-            final result = await Navigator.of(context).push<bool>(
+            final result = await Navigator.of(context).push<String>(
               MaterialPageRoute(
                 builder: (_) => AccountFormPage(
                   database: database,
@@ -253,7 +253,7 @@ class _AccountList extends StatelessWidget {
                 ),
               ),
             );
-            if (result == true) {
+            if (result != null) {
               onChanged();
             }
           },
@@ -305,7 +305,7 @@ class _CardList extends StatelessWidget {
               '${card.brand ?? 'Cartão'} · fecha ${card.billingDay ?? '-'} · vence ${card.dueDay ?? '-'}',
           inactive: !card.active,
           onTap: () async {
-            final result = await Navigator.of(context).push<bool>(
+            final result = await Navigator.of(context).push<String>(
               MaterialPageRoute(
                 builder: (_) => CreditCardFormPage(
                   database: database,
@@ -314,7 +314,7 @@ class _CardList extends StatelessWidget {
                 ),
               ),
             );
-            if (result == true) {
+            if (result != null) {
               onChanged();
             }
           },
@@ -519,12 +519,18 @@ class AccountFormPage extends StatefulWidget {
     required this.database,
     required this.people,
     this.account,
+    this.initialProvider,
+    this.initialLast4,
+    this.initialType,
     super.key,
   });
 
   final AppDatabase database;
   final List<PersonRow> people;
   final AccountRow? account;
+  final String? initialProvider;
+  final String? initialLast4;
+  final String? initialType;
 
   @override
   State<AccountFormPage> createState() => _AccountFormPageState();
@@ -544,10 +550,12 @@ class _AccountFormPageState extends State<AccountFormPage> {
     final account = widget.account;
     nameController = TextEditingController(text: account?.name ?? '');
     providerController = TextEditingController(
-      text: account?.provider ?? 'manual',
+      text: account?.provider ?? widget.initialProvider ?? 'manual',
     );
-    last4Controller = TextEditingController(text: account?.last4 ?? '');
-    type = account?.type ?? 'account';
+    last4Controller = TextEditingController(
+      text: account?.last4 ?? widget.initialLast4 ?? '',
+    );
+    type = account?.type ?? widget.initialType ?? 'account';
     ownerPersonId = account?.ownerPersonId;
     active = account?.active ?? true;
   }
@@ -564,7 +572,7 @@ class _AccountFormPageState extends State<AccountFormPage> {
     if (nameController.text.trim().isEmpty) {
       return;
     }
-    await widget.database.upsertAccount(
+    final id = await widget.database.upsertAccount(
       id: widget.account?.id,
       provider: providerController.text,
       name: nameController.text,
@@ -574,7 +582,7 @@ class _AccountFormPageState extends State<AccountFormPage> {
       active: active,
     );
     if (mounted) {
-      Navigator.of(context).pop(true);
+      Navigator.of(context).pop(id);
     }
   }
 
@@ -609,7 +617,9 @@ class _AccountFormPageState extends State<AccountFormPage> {
             border: OutlineInputBorder(),
           ),
           items: const [
-            DropdownMenuItem(value: 'account', child: Text('Conta corrente')),
+            DropdownMenuItem(value: 'account', child: Text('Conta')),
+            DropdownMenuItem(value: 'checking', child: Text('Conta corrente')),
+            DropdownMenuItem(value: 'savings', child: Text('Poupança')),
             DropdownMenuItem(value: 'wallet', child: Text('Carteira')),
             DropdownMenuItem(value: 'credit_card', child: Text('Cartao')),
           ],
@@ -666,12 +676,16 @@ class CreditCardFormPage extends StatefulWidget {
     required this.database,
     required this.people,
     this.creditCard,
+    this.initialProvider,
+    this.initialLast4,
     super.key,
   });
 
   final AppDatabase database;
   final List<PersonRow> people;
   final CreditCardRow? creditCard;
+  final String? initialProvider;
+  final String? initialLast4;
 
   @override
   State<CreditCardFormPage> createState() => _CreditCardFormPageState();
@@ -693,10 +707,12 @@ class _CreditCardFormPageState extends State<CreditCardFormPage> {
     final card = widget.creditCard;
     nameController = TextEditingController(text: card?.name ?? '');
     providerController = TextEditingController(
-      text: card?.provider ?? 'manual',
+      text: card?.provider ?? widget.initialProvider ?? 'manual',
     );
     brandController = TextEditingController(text: card?.brand ?? '');
-    last4Controller = TextEditingController(text: card?.last4 ?? '');
+    last4Controller = TextEditingController(
+      text: card?.last4 ?? widget.initialLast4 ?? '',
+    );
     billingDayController = TextEditingController(
       text: card?.billingDay?.toString() ?? '',
     );
@@ -732,7 +748,7 @@ class _CreditCardFormPageState extends State<CreditCardFormPage> {
       );
       return;
     }
-    await widget.database.upsertCreditCard(
+    final cardId = await widget.database.upsertCreditCard(
       id: widget.creditCard?.id,
       accountId: widget.creditCard?.accountId,
       provider: providerController.text,
@@ -745,7 +761,10 @@ class _CreditCardFormPageState extends State<CreditCardFormPage> {
       active: active,
     );
     if (mounted) {
-      Navigator.of(context).pop(true);
+      final card = await widget.database.getCreditCard(cardId);
+      if (mounted) {
+        Navigator.of(context).pop(card?.accountId);
+      }
     }
   }
 

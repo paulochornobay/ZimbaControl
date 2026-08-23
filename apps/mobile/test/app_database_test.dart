@@ -606,6 +606,10 @@ void main() {
       details.records.map((record) => record.status),
       containsAll(['needs_review', 'invalid']),
     );
+    await database.confirmImportTarget(
+      batchId: details.batch.id,
+      accountId: 'nu',
+    );
 
     final promoted = await database.promoteImportBatchToReview(
       details.batch.id,
@@ -637,11 +641,19 @@ void main() {
       fileName: 'nubank_julho.csv',
       bytes: utf8.encode(csv),
     );
+    await database.confirmImportTarget(
+      batchId: first.batch.id,
+      accountId: 'nu',
+    );
     await database.promoteImportBatchToReview(first.batch.id);
 
     final second = await database.importStatementFile(
       fileName: 'nubank_julho.csv',
       bytes: utf8.encode(csv),
+    );
+    await database.confirmImportTarget(
+      batchId: second.batch.id,
+      accountId: 'nu',
     );
 
     expect(second.batch.reviewRows, 0);
@@ -673,12 +685,16 @@ void main() {
         fileName: 'nubank_julho.csv',
         bytes: utf8.encode(csv),
       );
+      final confirmed = await database.confirmImportTarget(
+        batchId: details.batch.id,
+        accountId: 'nu',
+      );
       final candidates = await database.listDuplicateCandidates();
 
-      expect(details.batch.reviewRows, 0);
-      expect(details.batch.duplicateRows, 1);
-      expect(details.records.single.status, 'merge_candidate');
-      expect(details.records.single.duplicateOfTransactionId, 'tx-mercado');
+      expect(confirmed.batch.reviewRows, 0);
+      expect(confirmed.batch.duplicateRows, 1);
+      expect(confirmed.records.single.status, 'merge_candidate');
+      expect(confirmed.records.single.duplicateOfTransactionId, 'tx-mercado');
       expect(candidates.single.transactionId, 'tx-mercado');
       expect(candidates.single.explanation, contains('valor igual'));
 
@@ -717,6 +733,10 @@ void main() {
         fileName: 'mercado_pago_julho.csv',
         bytes: utf8.encode(csv),
       );
+      await database.confirmImportTarget(
+        batchId: details.batch.id,
+        accountId: 'mp',
+      );
       await database.promoteImportBatchToReview(details.batch.id);
 
       final pending = await database.watchPendingReview().first;
@@ -736,11 +756,11 @@ void main() {
 
       expect(invoice.kind, 'transfer');
       expect(invoice.transferFromAccountId, 'mp');
-      expect(invoice.transferToAccountId, 'nu');
+      expect(invoice.transferToAccountId, isNull);
       expect(cardPlan.planKind, 'credit_card_purchase');
       expect(cardPlan.currentInstallment, 2);
       expect(cardPlan.totalInstallments, 10);
-      expect(cardPlan.dueDay, 27);
+      expect(cardPlan.dueDay, isNull);
       expect(consortium.installmentPlanId, 'plan-consorcio-carro');
       expect(consortium.categoryId, 'transporte');
     },

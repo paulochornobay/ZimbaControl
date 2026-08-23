@@ -328,6 +328,20 @@ class ImportBatches extends Table {
   TextColumn get fileHash => text()();
   TextColumn get fileFormat => text()();
   TextColumn get provider => text()();
+  TextColumn get statementType =>
+      text().withDefault(const Constant('unknown'))();
+  TextColumn get statementAccountId => text().nullable()();
+  TextColumn get statementBankId => text().nullable()();
+  TextColumn get statementBranchId => text().nullable()();
+  TextColumn get statementAccountType => text().nullable()();
+  TextColumn get currencyCode => text().withDefault(const Constant('BRL'))();
+  DateTimeColumn get periodStart => dateTime().nullable()();
+  DateTimeColumn get periodEnd => dateTime().nullable()();
+  IntColumn get ledgerBalanceCents => integer().nullable()();
+  IntColumn get availableBalanceCents => integer().nullable()();
+  TextColumn get targetAccountId => text().nullable()();
+  DateTimeColumn get targetConfirmedAt => dateTime().nullable()();
+  TextColumn get targetMatchReason => text().nullable()();
   DateTimeColumn get importedAt => dateTime()();
   IntColumn get totalRows => integer().withDefault(const Constant(0))();
   IntColumn get validRows => integer().withDefault(const Constant(0))();
@@ -455,7 +469,7 @@ class AppDatabase extends _$AppDatabase {
       'notification_capture_retention_days';
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -565,6 +579,42 @@ class AppDatabase extends _$AppDatabase {
               ELSE 'slate'
             END
         ''');
+      }
+      if (from >= 5 && from < 13) {
+        await migrator.addColumn(importBatches, importBatches.statementType);
+        await migrator.addColumn(
+          importBatches,
+          importBatches.statementAccountId,
+        );
+        await migrator.addColumn(importBatches, importBatches.statementBankId);
+        await migrator.addColumn(
+          importBatches,
+          importBatches.statementBranchId,
+        );
+        await migrator.addColumn(
+          importBatches,
+          importBatches.statementAccountType,
+        );
+        await migrator.addColumn(importBatches, importBatches.currencyCode);
+        await migrator.addColumn(importBatches, importBatches.periodStart);
+        await migrator.addColumn(importBatches, importBatches.periodEnd);
+        await migrator.addColumn(
+          importBatches,
+          importBatches.ledgerBalanceCents,
+        );
+        await migrator.addColumn(
+          importBatches,
+          importBatches.availableBalanceCents,
+        );
+        await migrator.addColumn(importBatches, importBatches.targetAccountId);
+        await migrator.addColumn(
+          importBatches,
+          importBatches.targetConfirmedAt,
+        );
+        await migrator.addColumn(
+          importBatches,
+          importBatches.targetMatchReason,
+        );
       }
     },
   );
@@ -780,6 +830,12 @@ class AppDatabase extends _$AppDatabase {
     ];
   }
 
+  Future<CreditCardRow?> getCreditCard(String id) {
+    return (select(
+      creditCards,
+    )..where((row) => row.id.equals(id))).getSingleOrNull();
+  }
+
   Future<List<AuthUserRow>> listAuthUsers() {
     final query = select(authUsers)
       ..where((row) => row.householdId.equals(householdMain))
@@ -830,6 +886,34 @@ class AppDatabase extends _$AppDatabase {
       batch: batch,
       records: await listStagedRecords(batch.id),
     );
+  }
+
+  Future<ImportBatchDetails?> getImportBatchDetails(String batchId) async {
+    final batch = await (select(
+      importBatches,
+    )..where((row) => row.id.equals(batchId))).getSingleOrNull();
+    if (batch == null) return null;
+    return ImportBatchDetails(
+      batch: batch,
+      records: await listStagedRecords(batch.id),
+    );
+  }
+
+  Future<List<ImportBatchHistoryItem>> listImportBatchHistory() async {
+    final batches = await listImportBatches();
+    final instruments = await listAccountsWithOwners(includeInactive: true);
+    final byId = {
+      for (final instrument in instruments) instrument.account.id: instrument,
+    };
+    return [
+      for (final batch in batches)
+        ImportBatchHistoryItem(
+          batch: batch,
+          target: batch.targetAccountId == null
+              ? null
+              : byId[batch.targetAccountId],
+        ),
+    ];
   }
 
   Future<List<DuplicateCandidateRow>> listDuplicateCandidates() {
@@ -1659,7 +1743,6 @@ class AppDatabase extends _$AppDatabase {
     var duplicate = 0;
     var review = 0;
     final staged = <StagedSourceRecordsCompanion>[];
-    final candidates = <DuplicateCandidatesCompanion>[];
 
     for (final record in parsed.records) {
       final duplicateTransactionId = await _findDuplicateSource(
@@ -1672,22 +1755,14 @@ class AppDatabase extends _$AppDatabase {
         fileHash: parsed.fileHash,
         rowHash: record.rowHash,
       );
-      final likelyMatch =
-          !record.isValid || duplicateTransactionId != null || alreadyStaged
-          ? null
-          : await _findLikelyTransactionMatch(record);
       final stagedId = 'staged-$batchId-${record.rowIndex}';
-      final shouldMerge = likelyMatch != null && likelyMatch.score >= 0.82;
       final status = !record.isValid
           ? 'invalid'
           : duplicateTransactionId != null || alreadyStaged
           ? 'duplicate'
-          : shouldMerge
-          ? 'merge_candidate'
           : 'needs_review';
-      final duplicateOfTransactionId =
-          duplicateTransactionId ?? likelyMatch?.transactionId;
-      final errorMessage = record.errorMessage ?? likelyMatch?.explanation;
+      final duplicateOfTransactionId = duplicateTransactionId;
+      final errorMessage = record.errorMessage;
 
       switch (status) {
         case 'invalid':
@@ -1724,22 +1799,6 @@ class AppDatabase extends _$AppDatabase {
           createdAt: now,
         ),
       );
-
-      if (likelyMatch != null) {
-        candidates.add(
-          DuplicateCandidatesCompanion.insert(
-            id: 'dup-$stagedId',
-            householdId: householdMain,
-            transactionId: likelyMatch.transactionId,
-            stagedSourceRecordId: Value(stagedId),
-            score: likelyMatch.score,
-            status: Value(shouldMerge ? 'auto_merged' : 'pending_review'),
-            reason: 'heuristic_source_match',
-            explanation: likelyMatch.explanation,
-            createdAt: now,
-          ),
-        );
-      }
     }
 
     final batchCompanion = ImportBatchesCompanion.insert(
@@ -1749,22 +1808,31 @@ class AppDatabase extends _$AppDatabase {
       fileHash: parsed.fileHash,
       fileFormat: parsed.fileFormat,
       provider: parsed.provider,
+      statementType: Value(parsed.statementIdentity.statementType),
+      statementAccountId: Value(parsed.statementIdentity.accountId),
+      statementBankId: Value(parsed.statementIdentity.bankId),
+      statementBranchId: Value(parsed.statementIdentity.branchId),
+      statementAccountType: Value(parsed.statementIdentity.accountType),
+      currencyCode: Value(parsed.statementIdentity.currencyCode),
+      periodStart: Value(parsed.statementIdentity.periodStart),
+      periodEnd: Value(parsed.statementIdentity.periodEnd),
+      ledgerBalanceCents: Value(parsed.statementIdentity.ledgerBalanceCents),
+      availableBalanceCents: Value(
+        parsed.statementIdentity.availableBalanceCents,
+      ),
       importedAt: now,
       totalRows: Value(parsed.records.length),
       validRows: Value(valid),
       invalidRows: Value(invalid),
       duplicateRows: Value(duplicate),
       reviewRows: Value(review),
-      status: const Value('staged'),
+      status: const Value('awaiting_target'),
     );
 
     await into(importBatches).insert(batchCompanion);
     if (staged.isNotEmpty) {
       await batch((batch) {
         batch.insertAll(stagedSourceRecords, staged);
-        if (candidates.isNotEmpty) {
-          batch.insertAll(duplicateCandidates, candidates);
-        }
       });
     }
 
@@ -1776,14 +1844,172 @@ class AppDatabase extends _$AppDatabase {
         fileHash: parsed.fileHash,
         fileFormat: parsed.fileFormat,
         provider: parsed.provider,
+        statementType: parsed.statementIdentity.statementType,
+        statementAccountId: parsed.statementIdentity.accountId,
+        statementBankId: parsed.statementIdentity.bankId,
+        statementBranchId: parsed.statementIdentity.branchId,
+        statementAccountType: parsed.statementIdentity.accountType,
+        currencyCode: parsed.statementIdentity.currencyCode,
+        periodStart: parsed.statementIdentity.periodStart,
+        periodEnd: parsed.statementIdentity.periodEnd,
+        ledgerBalanceCents: parsed.statementIdentity.ledgerBalanceCents,
+        availableBalanceCents: parsed.statementIdentity.availableBalanceCents,
+        targetAccountId: null,
+        targetConfirmedAt: null,
+        targetMatchReason: null,
         importedAt: now,
         totalRows: parsed.records.length,
         validRows: valid,
         invalidRows: invalid,
         duplicateRows: duplicate,
         reviewRows: review,
-        status: 'staged',
+        status: 'awaiting_target',
       ),
+      records: await listStagedRecords(batchId),
+    );
+  }
+
+  Future<ImportTargetOptions> getImportTargetOptions(String batchId) async {
+    final importBatch = await (select(
+      importBatches,
+    )..where((row) => row.id.equals(batchId))).getSingle();
+    final accountsWithOwners = await listAccountsWithOwners(
+      includeInactive: false,
+    );
+    final options =
+        [
+          for (final item in accountsWithOwners)
+            ImportTargetOption(
+              instrument: item,
+              assessment: _assessImportTarget(importBatch, item.account),
+            ),
+        ]..sort((left, right) {
+          final compatibility = right.assessment.compatible
+              .toString()
+              .compareTo(left.assessment.compatible.toString());
+          if (compatibility != 0) return compatibility;
+          final score = right.assessment.score.compareTo(left.assessment.score);
+          if (score != 0) return score;
+          return left.instrument.account.name.compareTo(
+            right.instrument.account.name,
+          );
+        });
+    final compatible = options
+        .where((option) => option.assessment.compatible)
+        .toList(growable: false);
+    String? suggestedAccountId;
+    if (compatible.length == 1) {
+      suggestedAccountId = compatible.single.instrument.account.id;
+    } else if (compatible.length > 1 &&
+        compatible.first.assessment.score > compatible[1].assessment.score) {
+      suggestedAccountId = compatible.first.instrument.account.id;
+    }
+    return ImportTargetOptions(
+      batch: importBatch,
+      options: options,
+      suggestedAccountId: suggestedAccountId,
+      ambiguous: compatible.length > 1 && suggestedAccountId == null,
+    );
+  }
+
+  Future<ImportBatchDetails> confirmImportTarget({
+    required String batchId,
+    required String accountId,
+    String reason = 'confirmed_by_user',
+  }) async {
+    final targetOptions = await getImportTargetOptions(batchId);
+    if (targetOptions.batch.status == 'promoted') {
+      throw StateError(
+        'Este lote já foi promovido e não pode mudar de destino.',
+      );
+    }
+    final option = targetOptions.options
+        .where((item) => item.instrument.account.id == accountId)
+        .firstOrNull;
+    if (option == null) {
+      throw StateError('A conta ou o cartão escolhido não está disponível.');
+    }
+    if (!option.assessment.compatible) {
+      throw StateError(option.assessment.explanation);
+    }
+
+    final rows = await listStagedRecords(batchId);
+    final rowIds = rows.map((row) => row.id).toList(growable: false);
+    await transaction(() async {
+      if (rowIds.isNotEmpty) {
+        await (delete(duplicateCandidates)..where(
+              (candidate) => candidate.stagedSourceRecordId.isIn(rowIds),
+            ))
+            .go();
+      }
+      for (final row in rows) {
+        if (row.status != 'needs_review' && row.status != 'merge_candidate') {
+          continue;
+        }
+        final record = _canonicalRecordFromStaged(row);
+        final match = await _findLikelyTransactionMatch(
+          record,
+          targetAccountId: accountId,
+        );
+        final shouldMerge = match != null && match.score >= 0.82;
+        await (update(
+          stagedSourceRecords,
+        )..where((item) => item.id.equals(row.id))).write(
+          StagedSourceRecordsCompanion(
+            status: Value(shouldMerge ? 'merge_candidate' : 'needs_review'),
+            duplicateOfTransactionId: Value(match?.transactionId),
+            errorMessage: Value(match?.explanation),
+          ),
+        );
+        if (match != null) {
+          await into(duplicateCandidates).insert(
+            DuplicateCandidatesCompanion.insert(
+              id: 'dup-${row.id}',
+              householdId: householdMain,
+              transactionId: match.transactionId,
+              stagedSourceRecordId: Value(row.id),
+              score: match.score,
+              status: Value(shouldMerge ? 'ready_to_merge' : 'pending_review'),
+              reason: 'confirmed_target_match',
+              explanation: match.explanation,
+              createdAt: DateTime.now(),
+            ),
+          );
+        }
+      }
+
+      final refreshed = await listStagedRecords(batchId);
+      final invalid = refreshed.where((row) => row.status == 'invalid').length;
+      final duplicates = refreshed
+          .where(
+            (row) =>
+                row.status == 'duplicate' || row.status == 'merge_candidate',
+          )
+          .length;
+      final review = refreshed
+          .where((row) => row.status == 'needs_review')
+          .length;
+      await (update(
+        importBatches,
+      )..where((row) => row.id.equals(batchId))).write(
+        ImportBatchesCompanion(
+          targetAccountId: Value(accountId),
+          targetConfirmedAt: Value(DateTime.now()),
+          targetMatchReason: Value(reason),
+          validRows: Value(review),
+          invalidRows: Value(invalid),
+          duplicateRows: Value(duplicates),
+          reviewRows: Value(review),
+          status: const Value('staged'),
+        ),
+      );
+    });
+
+    final batch = await (select(
+      importBatches,
+    )..where((row) => row.id.equals(batchId))).getSingle();
+    return ImportBatchDetails(
+      batch: batch,
       records: await listStagedRecords(batchId),
     );
   }
@@ -1792,6 +2018,22 @@ class AppDatabase extends _$AppDatabase {
     final importBatch = await (select(
       importBatches,
     )..where((batch) => batch.id.equals(batchId))).getSingle();
+    final targetAccountId = importBatch.targetAccountId;
+    if (targetAccountId == null || importBatch.targetConfirmedAt == null) {
+      throw StateError(
+        'Confirme a conta ou o cartão de destino antes de continuar.',
+      );
+    }
+    final target = await (select(
+      accounts,
+    )..where((row) => row.id.equals(targetAccountId))).getSingleOrNull();
+    if (target == null || !target.active) {
+      throw StateError('A conta ou o cartão confirmado não está disponível.');
+    }
+    final assessment = _assessImportTarget(importBatch, target);
+    if (!assessment.compatible) {
+      throw StateError(assessment.explanation);
+    }
     final rows =
         await (select(stagedSourceRecords)
               ..where((row) => row.batchId.equals(batchId))
@@ -1808,6 +2050,7 @@ class AppDatabase extends _$AppDatabase {
           row: row,
           importBatch: importBatch,
           transactionId: row.duplicateOfTransactionId!,
+          targetAccountId: targetAccountId,
         );
         continue;
       }
@@ -1824,7 +2067,7 @@ class AppDatabase extends _$AppDatabase {
         continue;
       }
 
-      final classification = await _classifyStagedRecord(row);
+      final classification = await _classifyStagedRecord(row, targetAccountId);
       final primaryPersonId = await _preferenceValue(
         primaryPersonPreferenceKey,
       );
@@ -3066,10 +3309,17 @@ class AppDatabase extends _$AppDatabase {
           importBatches,
         )..where((row) => row.id.equals(staged.batchId))).getSingleOrNull();
         if (batch != null) {
+          final targetAccountId = batch.targetAccountId;
+          if (targetAccountId == null || batch.targetConfirmedAt == null) {
+            throw StateError(
+              'Confirme o destino do lote antes de mesclar esta origem.',
+            );
+          }
           await _mergeStagedSourceWithTransaction(
             row: staged,
             importBatch: batch,
             transactionId: candidate.transactionId,
+            targetAccountId: targetAccountId,
           );
           return;
         }
@@ -3524,7 +3774,11 @@ class AppDatabase extends _$AppDatabase {
       importBatches: _decodeRows(
         data,
         'importBatches',
-        ImportBatchRow.fromJson,
+        (json) => ImportBatchRow.fromJson({
+          ...json,
+          'statementType': json['statementType'] ?? 'unknown',
+          'currencyCode': json['currencyCode'] ?? 'BRL',
+        }),
       ),
       stagedSourceRecords: _decodeRows(
         data,
@@ -3625,8 +3879,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<_ReconciliationMatch?> _findLikelyTransactionMatch(
-    CanonicalImportRecord record,
-  ) async {
+    CanonicalImportRecord record, {
+    String? targetAccountId,
+  }) async {
     if (!record.isValid) {
       return null;
     }
@@ -3640,11 +3895,17 @@ class AppDatabase extends _$AppDatabase {
       return null;
     }
 
-    final providerAccountId = await _accountForProvider(record.provider);
+    final providerAccountId =
+        targetAccountId ?? await _accountForProvider(record.provider);
     final recordTokens = _conciliationTokens(record.description ?? '');
     _ReconciliationMatch? best;
 
     for (final candidate in candidates) {
+      if (targetAccountId != null &&
+          candidate.accountId != null &&
+          candidate.accountId != targetAccountId) {
+        continue;
+      }
       final daysApart = candidate.occurredAt
           .difference(record.occurredAt!)
           .inDays
@@ -3897,6 +4158,7 @@ class AppDatabase extends _$AppDatabase {
     required StagedSourceRecordRow row,
     required ImportBatchRow importBatch,
     required String transactionId,
+    required String targetAccountId,
   }) async {
     final now = DateTime.now();
     final transaction = await getTransaction(transactionId);
@@ -3919,12 +4181,16 @@ class AppDatabase extends _$AppDatabase {
       ),
       mode: InsertMode.insertOrIgnore,
     );
-    if (row.confidence > transaction.sourceConfidence) {
+    if (row.confidence > transaction.sourceConfidence ||
+        transaction.accountId == null) {
       await (update(
         transactions,
       )..where((item) => item.id.equals(transactionId))).write(
         TransactionsCompanion(
           sourceConfidence: Value(row.confidence),
+          accountId: transaction.accountId == null
+              ? Value(targetAccountId)
+              : const Value.absent(),
           updatedAt: Value(now),
         ),
       );
@@ -3951,16 +4217,20 @@ class AppDatabase extends _$AppDatabase {
 
   Future<_PromotedRecordClassification> _classifyStagedRecord(
     StagedSourceRecordRow row,
+    String targetAccountId,
   ) async {
-    final accountId = await _accountForProvider(row.provider);
+    final accountId = targetAccountId;
     final description = row.descriptionRaw ?? '';
     if (_isInvoicePayment(description)) {
-      final transferToAccountId = accountId == 'nu' ? null : 'nu';
+      final target = await (select(
+        accounts,
+      )..where((item) => item.id.equals(accountId))).getSingleOrNull();
+      final targetIsCard = target?.type == 'credit_card';
       return _PromotedRecordClassification(
         kind: 'transfer',
         accountId: accountId,
-        transferFromAccountId: accountId,
-        transferToAccountId: transferToAccountId,
+        transferFromAccountId: targetIsCard ? null : accountId,
+        transferToAccountId: targetIsCard ? accountId : null,
         reviewReason: 'invoice_payment_transfer_needs_review',
       );
     }
@@ -3978,7 +4248,11 @@ class AppDatabase extends _$AppDatabase {
 
     final installment = _installmentHint(description);
     if (installment != null && row.occurredAt != null) {
-      final planId = await _ensureCreditCardInstallmentPlan(row, installment);
+      final planId = await _ensureCreditCardInstallmentPlan(
+        row,
+        installment,
+        accountId,
+      );
       return _PromotedRecordClassification(
         kind: row.amountCents! >= 0 ? 'income' : 'expense',
         accountId: accountId,
@@ -3999,9 +4273,9 @@ class AppDatabase extends _$AppDatabase {
   Future<String> _ensureCreditCardInstallmentPlan(
     StagedSourceRecordRow row,
     _InstallmentHint installment,
+    String accountId,
   ) async {
     final occurredAt = row.occurredAt!;
-    final accountId = await _accountForProvider(row.provider);
     final card = await _creditCardForAccountOrFirst(accountId);
     final label = _cleanInstallmentLabel(row.descriptionRaw ?? 'Compra');
     final invoiceMonth = card == null
@@ -4235,6 +4509,124 @@ class AppDatabase extends _$AppDatabase {
     return existing != null;
   }
 
+  ImportTargetAssessment _assessImportTarget(
+    ImportBatchRow batch,
+    AccountRow account,
+  ) {
+    final statementIsCard = batch.statementType == 'credit_card';
+    final statementIsBank = batch.statementType == 'bank';
+    final accountIsCard = account.type == 'credit_card';
+    if (statementIsCard && !accountIsCard) {
+      return const ImportTargetAssessment(
+        compatible: false,
+        score: 0,
+        explanation: 'Este arquivo é de cartão de crédito, não de conta.',
+      );
+    }
+    if (statementIsBank && accountIsCard) {
+      return const ImportTargetAssessment(
+        compatible: false,
+        score: 0,
+        explanation: 'Este arquivo é de conta bancária, não de cartão.',
+      );
+    }
+    if (batch.provider != 'unknown' && account.provider != batch.provider) {
+      return ImportTargetAssessment(
+        compatible: false,
+        score: 0,
+        explanation:
+            'O demonstrativo é ${_providerName(batch.provider)}, mas o destino é ${_providerName(account.provider)}.',
+      );
+    }
+    if (batch.currencyCode.isNotEmpty &&
+        account.currencyCode.toUpperCase() !=
+            batch.currencyCode.toUpperCase()) {
+      return ImportTargetAssessment(
+        compatible: false,
+        score: 0,
+        explanation:
+            'A moeda do arquivo (${batch.currencyCode}) difere da conta (${account.currencyCode}).',
+      );
+    }
+
+    final statementLast4 = _statementLast4(batch.statementAccountId);
+    final accountLast4 = account.last4?.trim();
+    if (statementLast4 != null &&
+        accountLast4 != null &&
+        accountLast4.isNotEmpty &&
+        statementLast4.toLowerCase() != accountLast4.toLowerCase()) {
+      return ImportTargetAssessment(
+        compatible: false,
+        score: 0,
+        explanation:
+            'O final do demonstrativo ($statementLast4) não corresponde ao destino (${account.last4}).',
+      );
+    }
+
+    var score = 5;
+    final reasons = <String>[];
+    if (batch.provider != 'unknown') {
+      score += 30;
+      reasons.add('mesmo provedor');
+    }
+    if (statementIsCard || statementIsBank) {
+      score += 40;
+      reasons.add('mesmo tipo');
+    }
+    if (statementLast4 != null &&
+        accountLast4 != null &&
+        accountLast4.isNotEmpty) {
+      score += 100;
+      reasons.add('final $statementLast4');
+    } else if (statementLast4 != null) {
+      reasons.add('destino sem últimos dígitos cadastrados');
+    }
+    return ImportTargetAssessment(
+      compatible: true,
+      score: score,
+      explanation: reasons.isEmpty
+          ? 'Compatível, mas sem identidade suficiente para sugerir sozinho.'
+          : 'Compatível por ${reasons.join(', ')}.',
+    );
+  }
+
+  CanonicalImportRecord _canonicalRecordFromStaged(StagedSourceRecordRow row) {
+    return CanonicalImportRecord(
+      rowIndex: row.rowIndex,
+      rowHash: row.rowHash,
+      sourceKind: row.sourceKind,
+      provider: row.provider,
+      rawPayload: row.rawPayloadJson ?? '',
+      externalId: row.externalId,
+      occurredAt: row.occurredAt,
+      postedAt: row.postedAt,
+      description: row.descriptionRaw,
+      amountCents: row.amountCents,
+      currencyCode: row.currencyCode,
+      accountHint: row.accountHint,
+      status: row.status == 'invalid' ? 'invalid' : 'valid',
+      errorMessage: row.errorMessage,
+      confidence: row.confidence,
+    );
+  }
+
+  String? _statementLast4(String? accountId) {
+    final compact = accountId?.replaceAll(RegExp('[^0-9A-Za-z]'), '');
+    if (compact == null || compact.isEmpty) return null;
+    return compact.length <= 4
+        ? compact
+        : compact.substring(compact.length - 4);
+  }
+
+  String _providerName(String provider) {
+    return switch (provider) {
+      'nubank' => 'Nubank',
+      'mercado_pago' => 'Mercado Pago',
+      'manual' => 'manual',
+      _ => provider,
+    };
+  }
+
   Future<String?> _accountForProvider(String provider) async {
     final account =
         await (select(accounts)
@@ -4256,6 +4648,7 @@ class AppDatabase extends _$AppDatabase {
       if (byAccount != null) {
         return byAccount;
       }
+      return null;
     }
     return (select(creditCards)
           ..where((row) => row.active.equals(true))
@@ -4951,6 +5344,49 @@ class ImportBatchDetails {
 
   final ImportBatchRow batch;
   final List<StagedSourceRecordRow> records;
+}
+
+class ImportBatchHistoryItem {
+  const ImportBatchHistoryItem({required this.batch, required this.target});
+
+  final ImportBatchRow batch;
+  final AccountWithOwner? target;
+}
+
+class ImportTargetOptions {
+  const ImportTargetOptions({
+    required this.batch,
+    required this.options,
+    required this.suggestedAccountId,
+    required this.ambiguous,
+  });
+
+  final ImportBatchRow batch;
+  final List<ImportTargetOption> options;
+  final String? suggestedAccountId;
+  final bool ambiguous;
+}
+
+class ImportTargetOption {
+  const ImportTargetOption({
+    required this.instrument,
+    required this.assessment,
+  });
+
+  final AccountWithOwner instrument;
+  final ImportTargetAssessment assessment;
+}
+
+class ImportTargetAssessment {
+  const ImportTargetAssessment({
+    required this.compatible,
+    required this.score,
+    required this.explanation,
+  });
+
+  final bool compatible;
+  final int score;
+  final String explanation;
 }
 
 class NotificationCaptureSyncResult {

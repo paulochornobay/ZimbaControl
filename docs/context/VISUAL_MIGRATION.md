@@ -22,14 +22,15 @@ A Fase 1 corrigiu Movimentações, o destino “Movim.”, o feedback de confirm
 e a separação entre título amigável e descrição original. A Fase 2 adicionou
 identidade inequívoca de contas/cartões, ícones e cores em classificações,
 criação inline e a área segura para zerar o app. Os goldens de Movimentações e
-Detalhe foram atualizados para a nova identidade nos dois viewports.
+Detalhe foram atualizados para a nova identidade nos dois viewports. A Fase 3
+traduziu o stepper de Importação para etapas reais e acrescentou identificação,
+confirmação de destino, prévia e histórico ligados ao Drift.
 
 As maiores lacunas restantes são:
 
-1. OFX sem identidade do demonstrativo e sem confirmação do instrumento;
-2. ausência de fatura como entidade;
-3. paridade restante de Resumo, Ajustes, Família e jornadas auxiliares;
-4. homologação integral em Android físico.
+1. ausência de fatura como entidade;
+2. paridade restante de Resumo, Ajustes, Família e jornadas auxiliares;
+3. homologação integral em Android físico.
 
 ## Contrato resumido
 

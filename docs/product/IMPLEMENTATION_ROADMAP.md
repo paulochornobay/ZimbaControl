@@ -13,8 +13,8 @@
 | 0 | documentação canônica, auditoria completa e roteiro reproduzível | concluída em 2026-08-23 |
 | 1 | fundação visual e correções críticas de interação | concluída em 2026-08-23 |
 | 2 | instrumentos, ícones, criação inline e reset completo | concluída em 2026-08-23 |
-| 3 | importação vinculada à conta/cartão correto | próxima |
-| 4 | faturas completas por etapas | pendente |
+| 3 | importação vinculada à conta/cartão correto | concluída em 2026-08-23 |
+| 4 | faturas completas por etapas | próxima |
 | 5 | paridade restante, homologação Android e release | pendente |
 
 As fases são sequenciais por dependência de domínio. Correções pequenas e
@@ -167,6 +167,33 @@ correto antes de gerar lançamentos.
   mais de um candidato e criação durante o fluxo;
 - reimportação preserva idempotência de arquivo/linha;
 - nenhum lote ambíguo é promovido silenciosamente.
+
+### Entregue em 2026-08-23
+
+- o parser produz `StatementIdentity` com tipo bancário/cartão, provedor,
+  `ACCTID`, banco/agência, moeda, período e saldos contábil/disponível quando o
+  OFX fornece esses campos; CSV mantém identidade honesta quando a fonte não é
+  comprovável;
+- a migração Drift 13 persiste os metadados, `targetAccountId`, instante e
+  motivo da confirmação, mantendo restore de backups anteriores;
+- a jornada real segue arquivo/mapeamento, identificação, destino, prévia e
+  resultado, com histórico dos lotes e instrumento confirmado visível;
+- destinos são sugeridos por tipo, provedor, moeda e últimos dígitos, mas a
+  promoção permanece bloqueada até confirmação explícita; empates e `ACCTID`
+  ausente nunca escolhem silenciosamente;
+- conta/cartão ausente pode ser cadastrado dentro do lote e retorna
+  selecionado para confirmação;
+- conciliação e promoção deixaram de usar a primeira conta do provedor e o
+  primeiro cartão: transações, merges e parcelas usam exclusivamente o destino
+  confirmado, sem inferir a outra ponta do pagamento de fatura;
+- testes cobrem conta e cartão Nubank simultâneos, `BANKACCTFROM`,
+  `CCACCTFROM`, `ACCTID` ausente, tipo/final incorretos, cadastro contextual,
+  idempotência existente, backup retrocompatível e responsividade em 360×800 e
+  390×844 com texto 1,3.
+
+A consolidação de faturas, seus pagamentos, fechamento e vencimento permanece
+na Fase 4; esta fase apenas garante que cada origem importada chegue ao
+instrumento correto.
 
 ## 6. Fase 4 — Faturas completas por etapas
 

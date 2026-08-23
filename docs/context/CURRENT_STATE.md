@@ -11,15 +11,15 @@
 
 - Item 0 do plano de continuidade concluído: requisitos, auditoria das 12
   telas do protótipo e roadmap por fases foram consolidados em `docs/product`.
-- Fases 1 e 2 concluídas tecnicamente. Além da fundação visual, o app agora
+- Fases 1, 2 e 3 concluídas tecnicamente. Além da fundação visual, o app agora
   distingue conta/cartão, persiste ícones e cores de categorias/centros,
-  permite criação inline e oferece reset coordenado com confirmação `ZERAR`.
-  A Fase 3, associação explícita da importação ao instrumento, é a próxima.
+  permite criação inline, oferece reset coordenado e exige instrumento
+  confirmado em toda importação. A Fase 4, domínio completo de faturas, é a
+  próxima.
 - Referência visual oficial local: `C:\dev\pixel-perfect-pixels@2848fc6`.
 - Código do app auditado: `ZimbaControl@cd67fcb`.
-- Lacunas críticas confirmadas: Movimentações, snackbar persistente,
-  identificação de contas/cartões, destino do OFX, semântica da descrição,
-  reset completo e domínio de faturas.
+- Lacunas críticas restantes: domínio auditável de faturas, paridade das telas
+  restantes e homologação Android integral.
 - A APK release `1.1.0+2` foi gerada com sucesso em
   `apps/mobile/build/app/outputs/flutter-apk/app-release.apk`, SHA-256
   `36C922AE12AA35C1BE22C4305C1DF8E08E2EB714D76ACCD58D3AB074750C2C57`.
@@ -29,6 +29,10 @@
   build release da Fase 2 por atualização (`adb install -r`), preservando os
   dados. O processo iniciou normalmente; a homologação física completa
   continua reservada à Fase 5.
+- A build release da Fase 3 foi gerada, SHA-256
+  `5EE399A51FF674F82314EAB8838D36A6363D542E72675D51A480AE6AAD977C02`. A
+  tentativa de atualização foi interrompida porque o aparelho desapareceu do
+  ADB durante a instalação; repetir `adb install -r` quando ele reconectar.
 
 ## Estado Atual
 
@@ -64,6 +68,10 @@
   Pago, deteccao e mapeamento visual de colunas, previa amigavel, resumo de
   conflitos, promocao para Caixa de Revisao e deteccao de reimportacao
   duplicada.
+- A Fase 3 ampliou a importação: `StatementIdentity` preserva identidade,
+  moeda, período e saldos do OFX; o lote persiste o destino confirmado e não
+  promove nem concilia enquanto houver ambiguidade. Conta/cartão pode ser
+  criado no fluxo, e o histórico mostra metadados e instrumento de cada lote.
 - Mobile tem conciliacao financeira do Marco 07: candidatos de duplicidade,
   merge de fontes sem criar nova despesa, fatura como transferencia, parcelas
   de cartao em `installment_plans` e consorcio ligado ao plano do carro.
@@ -217,10 +225,10 @@ Antes de continuar qualquer marco, leia:
 
 ## Próximo ciclo
 
-Executar a Fase 3 de `docs/product/IMPLEMENTATION_ROADMAP.md`: extrair a
-identidade do demonstrativo, exigir confirmação da conta/cartão de destino e
-promover o lote somente para o instrumento confirmado. A homologação Android
-física completa continua obrigatória antes de uma candidata final de release.
+Executar a Fase 4 de `docs/product/IMPLEMENTATION_ROADMAP.md`: criar o modelo
+auditável de faturas, calcular fechamento/vencimento e consolidar compras,
+estornos e pagamentos sem duplicar despesas. A homologação Android física
+completa continua obrigatória antes de uma candidata final de release.
 
 Sequencia recomendada:
 

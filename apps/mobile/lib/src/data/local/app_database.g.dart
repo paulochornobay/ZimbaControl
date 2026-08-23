@@ -11523,6 +11523,152 @@ class $ImportBatchesTable extends ImportBatches
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _statementTypeMeta = const VerificationMeta(
+    'statementType',
+  );
+  @override
+  late final GeneratedColumn<String> statementType = GeneratedColumn<String>(
+    'statement_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('unknown'),
+  );
+  static const VerificationMeta _statementAccountIdMeta =
+      const VerificationMeta('statementAccountId');
+  @override
+  late final GeneratedColumn<String> statementAccountId =
+      GeneratedColumn<String>(
+        'statement_account_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _statementBankIdMeta = const VerificationMeta(
+    'statementBankId',
+  );
+  @override
+  late final GeneratedColumn<String> statementBankId = GeneratedColumn<String>(
+    'statement_bank_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _statementBranchIdMeta = const VerificationMeta(
+    'statementBranchId',
+  );
+  @override
+  late final GeneratedColumn<String> statementBranchId =
+      GeneratedColumn<String>(
+        'statement_branch_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _statementAccountTypeMeta =
+      const VerificationMeta('statementAccountType');
+  @override
+  late final GeneratedColumn<String> statementAccountType =
+      GeneratedColumn<String>(
+        'statement_account_type',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _currencyCodeMeta = const VerificationMeta(
+    'currencyCode',
+  );
+  @override
+  late final GeneratedColumn<String> currencyCode = GeneratedColumn<String>(
+    'currency_code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('BRL'),
+  );
+  static const VerificationMeta _periodStartMeta = const VerificationMeta(
+    'periodStart',
+  );
+  @override
+  late final GeneratedColumn<DateTime> periodStart = GeneratedColumn<DateTime>(
+    'period_start',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _periodEndMeta = const VerificationMeta(
+    'periodEnd',
+  );
+  @override
+  late final GeneratedColumn<DateTime> periodEnd = GeneratedColumn<DateTime>(
+    'period_end',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _ledgerBalanceCentsMeta =
+      const VerificationMeta('ledgerBalanceCents');
+  @override
+  late final GeneratedColumn<int> ledgerBalanceCents = GeneratedColumn<int>(
+    'ledger_balance_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _availableBalanceCentsMeta =
+      const VerificationMeta('availableBalanceCents');
+  @override
+  late final GeneratedColumn<int> availableBalanceCents = GeneratedColumn<int>(
+    'available_balance_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _targetAccountIdMeta = const VerificationMeta(
+    'targetAccountId',
+  );
+  @override
+  late final GeneratedColumn<String> targetAccountId = GeneratedColumn<String>(
+    'target_account_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _targetConfirmedAtMeta = const VerificationMeta(
+    'targetConfirmedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> targetConfirmedAt =
+      GeneratedColumn<DateTime>(
+        'target_confirmed_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _targetMatchReasonMeta = const VerificationMeta(
+    'targetMatchReason',
+  );
+  @override
+  late final GeneratedColumn<String> targetMatchReason =
+      GeneratedColumn<String>(
+        'target_match_reason',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _importedAtMeta = const VerificationMeta(
     'importedAt',
   );
@@ -11612,6 +11758,19 @@ class $ImportBatchesTable extends ImportBatches
     fileHash,
     fileFormat,
     provider,
+    statementType,
+    statementAccountId,
+    statementBankId,
+    statementBranchId,
+    statementAccountType,
+    currencyCode,
+    periodStart,
+    periodEnd,
+    ledgerBalanceCents,
+    availableBalanceCents,
+    targetAccountId,
+    targetConfirmedAt,
+    targetMatchReason,
     importedAt,
     totalRows,
     validRows,
@@ -11679,6 +11838,120 @@ class $ImportBatchesTable extends ImportBatches
       );
     } else if (isInserting) {
       context.missing(_providerMeta);
+    }
+    if (data.containsKey('statement_type')) {
+      context.handle(
+        _statementTypeMeta,
+        statementType.isAcceptableOrUnknown(
+          data['statement_type']!,
+          _statementTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('statement_account_id')) {
+      context.handle(
+        _statementAccountIdMeta,
+        statementAccountId.isAcceptableOrUnknown(
+          data['statement_account_id']!,
+          _statementAccountIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('statement_bank_id')) {
+      context.handle(
+        _statementBankIdMeta,
+        statementBankId.isAcceptableOrUnknown(
+          data['statement_bank_id']!,
+          _statementBankIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('statement_branch_id')) {
+      context.handle(
+        _statementBranchIdMeta,
+        statementBranchId.isAcceptableOrUnknown(
+          data['statement_branch_id']!,
+          _statementBranchIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('statement_account_type')) {
+      context.handle(
+        _statementAccountTypeMeta,
+        statementAccountType.isAcceptableOrUnknown(
+          data['statement_account_type']!,
+          _statementAccountTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('currency_code')) {
+      context.handle(
+        _currencyCodeMeta,
+        currencyCode.isAcceptableOrUnknown(
+          data['currency_code']!,
+          _currencyCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('period_start')) {
+      context.handle(
+        _periodStartMeta,
+        periodStart.isAcceptableOrUnknown(
+          data['period_start']!,
+          _periodStartMeta,
+        ),
+      );
+    }
+    if (data.containsKey('period_end')) {
+      context.handle(
+        _periodEndMeta,
+        periodEnd.isAcceptableOrUnknown(data['period_end']!, _periodEndMeta),
+      );
+    }
+    if (data.containsKey('ledger_balance_cents')) {
+      context.handle(
+        _ledgerBalanceCentsMeta,
+        ledgerBalanceCents.isAcceptableOrUnknown(
+          data['ledger_balance_cents']!,
+          _ledgerBalanceCentsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('available_balance_cents')) {
+      context.handle(
+        _availableBalanceCentsMeta,
+        availableBalanceCents.isAcceptableOrUnknown(
+          data['available_balance_cents']!,
+          _availableBalanceCentsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('target_account_id')) {
+      context.handle(
+        _targetAccountIdMeta,
+        targetAccountId.isAcceptableOrUnknown(
+          data['target_account_id']!,
+          _targetAccountIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('target_confirmed_at')) {
+      context.handle(
+        _targetConfirmedAtMeta,
+        targetConfirmedAt.isAcceptableOrUnknown(
+          data['target_confirmed_at']!,
+          _targetConfirmedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('target_match_reason')) {
+      context.handle(
+        _targetMatchReasonMeta,
+        targetMatchReason.isAcceptableOrUnknown(
+          data['target_match_reason']!,
+          _targetMatchReasonMeta,
+        ),
+      );
     }
     if (data.containsKey('imported_at')) {
       context.handle(
@@ -11763,6 +12036,58 @@ class $ImportBatchesTable extends ImportBatches
         DriftSqlType.string,
         data['${effectivePrefix}provider'],
       )!,
+      statementType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}statement_type'],
+      )!,
+      statementAccountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}statement_account_id'],
+      ),
+      statementBankId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}statement_bank_id'],
+      ),
+      statementBranchId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}statement_branch_id'],
+      ),
+      statementAccountType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}statement_account_type'],
+      ),
+      currencyCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}currency_code'],
+      )!,
+      periodStart: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}period_start'],
+      ),
+      periodEnd: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}period_end'],
+      ),
+      ledgerBalanceCents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}ledger_balance_cents'],
+      ),
+      availableBalanceCents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}available_balance_cents'],
+      ),
+      targetAccountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_account_id'],
+      ),
+      targetConfirmedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}target_confirmed_at'],
+      ),
+      targetMatchReason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}target_match_reason'],
+      ),
       importedAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}imported_at'],
@@ -11807,6 +12132,19 @@ class ImportBatchRow extends DataClass implements Insertable<ImportBatchRow> {
   final String fileHash;
   final String fileFormat;
   final String provider;
+  final String statementType;
+  final String? statementAccountId;
+  final String? statementBankId;
+  final String? statementBranchId;
+  final String? statementAccountType;
+  final String currencyCode;
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
+  final int? ledgerBalanceCents;
+  final int? availableBalanceCents;
+  final String? targetAccountId;
+  final DateTime? targetConfirmedAt;
+  final String? targetMatchReason;
   final DateTime importedAt;
   final int totalRows;
   final int validRows;
@@ -11821,6 +12159,19 @@ class ImportBatchRow extends DataClass implements Insertable<ImportBatchRow> {
     required this.fileHash,
     required this.fileFormat,
     required this.provider,
+    required this.statementType,
+    this.statementAccountId,
+    this.statementBankId,
+    this.statementBranchId,
+    this.statementAccountType,
+    required this.currencyCode,
+    this.periodStart,
+    this.periodEnd,
+    this.ledgerBalanceCents,
+    this.availableBalanceCents,
+    this.targetAccountId,
+    this.targetConfirmedAt,
+    this.targetMatchReason,
     required this.importedAt,
     required this.totalRows,
     required this.validRows,
@@ -11838,6 +12189,41 @@ class ImportBatchRow extends DataClass implements Insertable<ImportBatchRow> {
     map['file_hash'] = Variable<String>(fileHash);
     map['file_format'] = Variable<String>(fileFormat);
     map['provider'] = Variable<String>(provider);
+    map['statement_type'] = Variable<String>(statementType);
+    if (!nullToAbsent || statementAccountId != null) {
+      map['statement_account_id'] = Variable<String>(statementAccountId);
+    }
+    if (!nullToAbsent || statementBankId != null) {
+      map['statement_bank_id'] = Variable<String>(statementBankId);
+    }
+    if (!nullToAbsent || statementBranchId != null) {
+      map['statement_branch_id'] = Variable<String>(statementBranchId);
+    }
+    if (!nullToAbsent || statementAccountType != null) {
+      map['statement_account_type'] = Variable<String>(statementAccountType);
+    }
+    map['currency_code'] = Variable<String>(currencyCode);
+    if (!nullToAbsent || periodStart != null) {
+      map['period_start'] = Variable<DateTime>(periodStart);
+    }
+    if (!nullToAbsent || periodEnd != null) {
+      map['period_end'] = Variable<DateTime>(periodEnd);
+    }
+    if (!nullToAbsent || ledgerBalanceCents != null) {
+      map['ledger_balance_cents'] = Variable<int>(ledgerBalanceCents);
+    }
+    if (!nullToAbsent || availableBalanceCents != null) {
+      map['available_balance_cents'] = Variable<int>(availableBalanceCents);
+    }
+    if (!nullToAbsent || targetAccountId != null) {
+      map['target_account_id'] = Variable<String>(targetAccountId);
+    }
+    if (!nullToAbsent || targetConfirmedAt != null) {
+      map['target_confirmed_at'] = Variable<DateTime>(targetConfirmedAt);
+    }
+    if (!nullToAbsent || targetMatchReason != null) {
+      map['target_match_reason'] = Variable<String>(targetMatchReason);
+    }
     map['imported_at'] = Variable<DateTime>(importedAt);
     map['total_rows'] = Variable<int>(totalRows);
     map['valid_rows'] = Variable<int>(validRows);
@@ -11856,6 +12242,41 @@ class ImportBatchRow extends DataClass implements Insertable<ImportBatchRow> {
       fileHash: Value(fileHash),
       fileFormat: Value(fileFormat),
       provider: Value(provider),
+      statementType: Value(statementType),
+      statementAccountId: statementAccountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(statementAccountId),
+      statementBankId: statementBankId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(statementBankId),
+      statementBranchId: statementBranchId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(statementBranchId),
+      statementAccountType: statementAccountType == null && nullToAbsent
+          ? const Value.absent()
+          : Value(statementAccountType),
+      currencyCode: Value(currencyCode),
+      periodStart: periodStart == null && nullToAbsent
+          ? const Value.absent()
+          : Value(periodStart),
+      periodEnd: periodEnd == null && nullToAbsent
+          ? const Value.absent()
+          : Value(periodEnd),
+      ledgerBalanceCents: ledgerBalanceCents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ledgerBalanceCents),
+      availableBalanceCents: availableBalanceCents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(availableBalanceCents),
+      targetAccountId: targetAccountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetAccountId),
+      targetConfirmedAt: targetConfirmedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetConfirmedAt),
+      targetMatchReason: targetMatchReason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(targetMatchReason),
       importedAt: Value(importedAt),
       totalRows: Value(totalRows),
       validRows: Value(validRows),
@@ -11878,6 +12299,31 @@ class ImportBatchRow extends DataClass implements Insertable<ImportBatchRow> {
       fileHash: serializer.fromJson<String>(json['fileHash']),
       fileFormat: serializer.fromJson<String>(json['fileFormat']),
       provider: serializer.fromJson<String>(json['provider']),
+      statementType: serializer.fromJson<String>(json['statementType']),
+      statementAccountId: serializer.fromJson<String?>(
+        json['statementAccountId'],
+      ),
+      statementBankId: serializer.fromJson<String?>(json['statementBankId']),
+      statementBranchId: serializer.fromJson<String?>(
+        json['statementBranchId'],
+      ),
+      statementAccountType: serializer.fromJson<String?>(
+        json['statementAccountType'],
+      ),
+      currencyCode: serializer.fromJson<String>(json['currencyCode']),
+      periodStart: serializer.fromJson<DateTime?>(json['periodStart']),
+      periodEnd: serializer.fromJson<DateTime?>(json['periodEnd']),
+      ledgerBalanceCents: serializer.fromJson<int?>(json['ledgerBalanceCents']),
+      availableBalanceCents: serializer.fromJson<int?>(
+        json['availableBalanceCents'],
+      ),
+      targetAccountId: serializer.fromJson<String?>(json['targetAccountId']),
+      targetConfirmedAt: serializer.fromJson<DateTime?>(
+        json['targetConfirmedAt'],
+      ),
+      targetMatchReason: serializer.fromJson<String?>(
+        json['targetMatchReason'],
+      ),
       importedAt: serializer.fromJson<DateTime>(json['importedAt']),
       totalRows: serializer.fromJson<int>(json['totalRows']),
       validRows: serializer.fromJson<int>(json['validRows']),
@@ -11897,6 +12343,19 @@ class ImportBatchRow extends DataClass implements Insertable<ImportBatchRow> {
       'fileHash': serializer.toJson<String>(fileHash),
       'fileFormat': serializer.toJson<String>(fileFormat),
       'provider': serializer.toJson<String>(provider),
+      'statementType': serializer.toJson<String>(statementType),
+      'statementAccountId': serializer.toJson<String?>(statementAccountId),
+      'statementBankId': serializer.toJson<String?>(statementBankId),
+      'statementBranchId': serializer.toJson<String?>(statementBranchId),
+      'statementAccountType': serializer.toJson<String?>(statementAccountType),
+      'currencyCode': serializer.toJson<String>(currencyCode),
+      'periodStart': serializer.toJson<DateTime?>(periodStart),
+      'periodEnd': serializer.toJson<DateTime?>(periodEnd),
+      'ledgerBalanceCents': serializer.toJson<int?>(ledgerBalanceCents),
+      'availableBalanceCents': serializer.toJson<int?>(availableBalanceCents),
+      'targetAccountId': serializer.toJson<String?>(targetAccountId),
+      'targetConfirmedAt': serializer.toJson<DateTime?>(targetConfirmedAt),
+      'targetMatchReason': serializer.toJson<String?>(targetMatchReason),
       'importedAt': serializer.toJson<DateTime>(importedAt),
       'totalRows': serializer.toJson<int>(totalRows),
       'validRows': serializer.toJson<int>(validRows),
@@ -11914,6 +12373,19 @@ class ImportBatchRow extends DataClass implements Insertable<ImportBatchRow> {
     String? fileHash,
     String? fileFormat,
     String? provider,
+    String? statementType,
+    Value<String?> statementAccountId = const Value.absent(),
+    Value<String?> statementBankId = const Value.absent(),
+    Value<String?> statementBranchId = const Value.absent(),
+    Value<String?> statementAccountType = const Value.absent(),
+    String? currencyCode,
+    Value<DateTime?> periodStart = const Value.absent(),
+    Value<DateTime?> periodEnd = const Value.absent(),
+    Value<int?> ledgerBalanceCents = const Value.absent(),
+    Value<int?> availableBalanceCents = const Value.absent(),
+    Value<String?> targetAccountId = const Value.absent(),
+    Value<DateTime?> targetConfirmedAt = const Value.absent(),
+    Value<String?> targetMatchReason = const Value.absent(),
     DateTime? importedAt,
     int? totalRows,
     int? validRows,
@@ -11928,6 +12400,37 @@ class ImportBatchRow extends DataClass implements Insertable<ImportBatchRow> {
     fileHash: fileHash ?? this.fileHash,
     fileFormat: fileFormat ?? this.fileFormat,
     provider: provider ?? this.provider,
+    statementType: statementType ?? this.statementType,
+    statementAccountId: statementAccountId.present
+        ? statementAccountId.value
+        : this.statementAccountId,
+    statementBankId: statementBankId.present
+        ? statementBankId.value
+        : this.statementBankId,
+    statementBranchId: statementBranchId.present
+        ? statementBranchId.value
+        : this.statementBranchId,
+    statementAccountType: statementAccountType.present
+        ? statementAccountType.value
+        : this.statementAccountType,
+    currencyCode: currencyCode ?? this.currencyCode,
+    periodStart: periodStart.present ? periodStart.value : this.periodStart,
+    periodEnd: periodEnd.present ? periodEnd.value : this.periodEnd,
+    ledgerBalanceCents: ledgerBalanceCents.present
+        ? ledgerBalanceCents.value
+        : this.ledgerBalanceCents,
+    availableBalanceCents: availableBalanceCents.present
+        ? availableBalanceCents.value
+        : this.availableBalanceCents,
+    targetAccountId: targetAccountId.present
+        ? targetAccountId.value
+        : this.targetAccountId,
+    targetConfirmedAt: targetConfirmedAt.present
+        ? targetConfirmedAt.value
+        : this.targetConfirmedAt,
+    targetMatchReason: targetMatchReason.present
+        ? targetMatchReason.value
+        : this.targetMatchReason,
     importedAt: importedAt ?? this.importedAt,
     totalRows: totalRows ?? this.totalRows,
     validRows: validRows ?? this.validRows,
@@ -11948,6 +12451,43 @@ class ImportBatchRow extends DataClass implements Insertable<ImportBatchRow> {
           ? data.fileFormat.value
           : this.fileFormat,
       provider: data.provider.present ? data.provider.value : this.provider,
+      statementType: data.statementType.present
+          ? data.statementType.value
+          : this.statementType,
+      statementAccountId: data.statementAccountId.present
+          ? data.statementAccountId.value
+          : this.statementAccountId,
+      statementBankId: data.statementBankId.present
+          ? data.statementBankId.value
+          : this.statementBankId,
+      statementBranchId: data.statementBranchId.present
+          ? data.statementBranchId.value
+          : this.statementBranchId,
+      statementAccountType: data.statementAccountType.present
+          ? data.statementAccountType.value
+          : this.statementAccountType,
+      currencyCode: data.currencyCode.present
+          ? data.currencyCode.value
+          : this.currencyCode,
+      periodStart: data.periodStart.present
+          ? data.periodStart.value
+          : this.periodStart,
+      periodEnd: data.periodEnd.present ? data.periodEnd.value : this.periodEnd,
+      ledgerBalanceCents: data.ledgerBalanceCents.present
+          ? data.ledgerBalanceCents.value
+          : this.ledgerBalanceCents,
+      availableBalanceCents: data.availableBalanceCents.present
+          ? data.availableBalanceCents.value
+          : this.availableBalanceCents,
+      targetAccountId: data.targetAccountId.present
+          ? data.targetAccountId.value
+          : this.targetAccountId,
+      targetConfirmedAt: data.targetConfirmedAt.present
+          ? data.targetConfirmedAt.value
+          : this.targetConfirmedAt,
+      targetMatchReason: data.targetMatchReason.present
+          ? data.targetMatchReason.value
+          : this.targetMatchReason,
       importedAt: data.importedAt.present
           ? data.importedAt.value
           : this.importedAt,
@@ -11975,6 +12515,19 @@ class ImportBatchRow extends DataClass implements Insertable<ImportBatchRow> {
           ..write('fileHash: $fileHash, ')
           ..write('fileFormat: $fileFormat, ')
           ..write('provider: $provider, ')
+          ..write('statementType: $statementType, ')
+          ..write('statementAccountId: $statementAccountId, ')
+          ..write('statementBankId: $statementBankId, ')
+          ..write('statementBranchId: $statementBranchId, ')
+          ..write('statementAccountType: $statementAccountType, ')
+          ..write('currencyCode: $currencyCode, ')
+          ..write('periodStart: $periodStart, ')
+          ..write('periodEnd: $periodEnd, ')
+          ..write('ledgerBalanceCents: $ledgerBalanceCents, ')
+          ..write('availableBalanceCents: $availableBalanceCents, ')
+          ..write('targetAccountId: $targetAccountId, ')
+          ..write('targetConfirmedAt: $targetConfirmedAt, ')
+          ..write('targetMatchReason: $targetMatchReason, ')
           ..write('importedAt: $importedAt, ')
           ..write('totalRows: $totalRows, ')
           ..write('validRows: $validRows, ')
@@ -11987,13 +12540,26 @@ class ImportBatchRow extends DataClass implements Insertable<ImportBatchRow> {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     householdId,
     fileName,
     fileHash,
     fileFormat,
     provider,
+    statementType,
+    statementAccountId,
+    statementBankId,
+    statementBranchId,
+    statementAccountType,
+    currencyCode,
+    periodStart,
+    periodEnd,
+    ledgerBalanceCents,
+    availableBalanceCents,
+    targetAccountId,
+    targetConfirmedAt,
+    targetMatchReason,
     importedAt,
     totalRows,
     validRows,
@@ -12001,7 +12567,7 @@ class ImportBatchRow extends DataClass implements Insertable<ImportBatchRow> {
     duplicateRows,
     reviewRows,
     status,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -12012,6 +12578,19 @@ class ImportBatchRow extends DataClass implements Insertable<ImportBatchRow> {
           other.fileHash == this.fileHash &&
           other.fileFormat == this.fileFormat &&
           other.provider == this.provider &&
+          other.statementType == this.statementType &&
+          other.statementAccountId == this.statementAccountId &&
+          other.statementBankId == this.statementBankId &&
+          other.statementBranchId == this.statementBranchId &&
+          other.statementAccountType == this.statementAccountType &&
+          other.currencyCode == this.currencyCode &&
+          other.periodStart == this.periodStart &&
+          other.periodEnd == this.periodEnd &&
+          other.ledgerBalanceCents == this.ledgerBalanceCents &&
+          other.availableBalanceCents == this.availableBalanceCents &&
+          other.targetAccountId == this.targetAccountId &&
+          other.targetConfirmedAt == this.targetConfirmedAt &&
+          other.targetMatchReason == this.targetMatchReason &&
           other.importedAt == this.importedAt &&
           other.totalRows == this.totalRows &&
           other.validRows == this.validRows &&
@@ -12028,6 +12607,19 @@ class ImportBatchesCompanion extends UpdateCompanion<ImportBatchRow> {
   final Value<String> fileHash;
   final Value<String> fileFormat;
   final Value<String> provider;
+  final Value<String> statementType;
+  final Value<String?> statementAccountId;
+  final Value<String?> statementBankId;
+  final Value<String?> statementBranchId;
+  final Value<String?> statementAccountType;
+  final Value<String> currencyCode;
+  final Value<DateTime?> periodStart;
+  final Value<DateTime?> periodEnd;
+  final Value<int?> ledgerBalanceCents;
+  final Value<int?> availableBalanceCents;
+  final Value<String?> targetAccountId;
+  final Value<DateTime?> targetConfirmedAt;
+  final Value<String?> targetMatchReason;
   final Value<DateTime> importedAt;
   final Value<int> totalRows;
   final Value<int> validRows;
@@ -12043,6 +12635,19 @@ class ImportBatchesCompanion extends UpdateCompanion<ImportBatchRow> {
     this.fileHash = const Value.absent(),
     this.fileFormat = const Value.absent(),
     this.provider = const Value.absent(),
+    this.statementType = const Value.absent(),
+    this.statementAccountId = const Value.absent(),
+    this.statementBankId = const Value.absent(),
+    this.statementBranchId = const Value.absent(),
+    this.statementAccountType = const Value.absent(),
+    this.currencyCode = const Value.absent(),
+    this.periodStart = const Value.absent(),
+    this.periodEnd = const Value.absent(),
+    this.ledgerBalanceCents = const Value.absent(),
+    this.availableBalanceCents = const Value.absent(),
+    this.targetAccountId = const Value.absent(),
+    this.targetConfirmedAt = const Value.absent(),
+    this.targetMatchReason = const Value.absent(),
     this.importedAt = const Value.absent(),
     this.totalRows = const Value.absent(),
     this.validRows = const Value.absent(),
@@ -12059,6 +12664,19 @@ class ImportBatchesCompanion extends UpdateCompanion<ImportBatchRow> {
     required String fileHash,
     required String fileFormat,
     required String provider,
+    this.statementType = const Value.absent(),
+    this.statementAccountId = const Value.absent(),
+    this.statementBankId = const Value.absent(),
+    this.statementBranchId = const Value.absent(),
+    this.statementAccountType = const Value.absent(),
+    this.currencyCode = const Value.absent(),
+    this.periodStart = const Value.absent(),
+    this.periodEnd = const Value.absent(),
+    this.ledgerBalanceCents = const Value.absent(),
+    this.availableBalanceCents = const Value.absent(),
+    this.targetAccountId = const Value.absent(),
+    this.targetConfirmedAt = const Value.absent(),
+    this.targetMatchReason = const Value.absent(),
     required DateTime importedAt,
     this.totalRows = const Value.absent(),
     this.validRows = const Value.absent(),
@@ -12081,6 +12699,19 @@ class ImportBatchesCompanion extends UpdateCompanion<ImportBatchRow> {
     Expression<String>? fileHash,
     Expression<String>? fileFormat,
     Expression<String>? provider,
+    Expression<String>? statementType,
+    Expression<String>? statementAccountId,
+    Expression<String>? statementBankId,
+    Expression<String>? statementBranchId,
+    Expression<String>? statementAccountType,
+    Expression<String>? currencyCode,
+    Expression<DateTime>? periodStart,
+    Expression<DateTime>? periodEnd,
+    Expression<int>? ledgerBalanceCents,
+    Expression<int>? availableBalanceCents,
+    Expression<String>? targetAccountId,
+    Expression<DateTime>? targetConfirmedAt,
+    Expression<String>? targetMatchReason,
     Expression<DateTime>? importedAt,
     Expression<int>? totalRows,
     Expression<int>? validRows,
@@ -12097,6 +12728,23 @@ class ImportBatchesCompanion extends UpdateCompanion<ImportBatchRow> {
       if (fileHash != null) 'file_hash': fileHash,
       if (fileFormat != null) 'file_format': fileFormat,
       if (provider != null) 'provider': provider,
+      if (statementType != null) 'statement_type': statementType,
+      if (statementAccountId != null)
+        'statement_account_id': statementAccountId,
+      if (statementBankId != null) 'statement_bank_id': statementBankId,
+      if (statementBranchId != null) 'statement_branch_id': statementBranchId,
+      if (statementAccountType != null)
+        'statement_account_type': statementAccountType,
+      if (currencyCode != null) 'currency_code': currencyCode,
+      if (periodStart != null) 'period_start': periodStart,
+      if (periodEnd != null) 'period_end': periodEnd,
+      if (ledgerBalanceCents != null)
+        'ledger_balance_cents': ledgerBalanceCents,
+      if (availableBalanceCents != null)
+        'available_balance_cents': availableBalanceCents,
+      if (targetAccountId != null) 'target_account_id': targetAccountId,
+      if (targetConfirmedAt != null) 'target_confirmed_at': targetConfirmedAt,
+      if (targetMatchReason != null) 'target_match_reason': targetMatchReason,
       if (importedAt != null) 'imported_at': importedAt,
       if (totalRows != null) 'total_rows': totalRows,
       if (validRows != null) 'valid_rows': validRows,
@@ -12115,6 +12763,19 @@ class ImportBatchesCompanion extends UpdateCompanion<ImportBatchRow> {
     Value<String>? fileHash,
     Value<String>? fileFormat,
     Value<String>? provider,
+    Value<String>? statementType,
+    Value<String?>? statementAccountId,
+    Value<String?>? statementBankId,
+    Value<String?>? statementBranchId,
+    Value<String?>? statementAccountType,
+    Value<String>? currencyCode,
+    Value<DateTime?>? periodStart,
+    Value<DateTime?>? periodEnd,
+    Value<int?>? ledgerBalanceCents,
+    Value<int?>? availableBalanceCents,
+    Value<String?>? targetAccountId,
+    Value<DateTime?>? targetConfirmedAt,
+    Value<String?>? targetMatchReason,
     Value<DateTime>? importedAt,
     Value<int>? totalRows,
     Value<int>? validRows,
@@ -12131,6 +12792,20 @@ class ImportBatchesCompanion extends UpdateCompanion<ImportBatchRow> {
       fileHash: fileHash ?? this.fileHash,
       fileFormat: fileFormat ?? this.fileFormat,
       provider: provider ?? this.provider,
+      statementType: statementType ?? this.statementType,
+      statementAccountId: statementAccountId ?? this.statementAccountId,
+      statementBankId: statementBankId ?? this.statementBankId,
+      statementBranchId: statementBranchId ?? this.statementBranchId,
+      statementAccountType: statementAccountType ?? this.statementAccountType,
+      currencyCode: currencyCode ?? this.currencyCode,
+      periodStart: periodStart ?? this.periodStart,
+      periodEnd: periodEnd ?? this.periodEnd,
+      ledgerBalanceCents: ledgerBalanceCents ?? this.ledgerBalanceCents,
+      availableBalanceCents:
+          availableBalanceCents ?? this.availableBalanceCents,
+      targetAccountId: targetAccountId ?? this.targetAccountId,
+      targetConfirmedAt: targetConfirmedAt ?? this.targetConfirmedAt,
+      targetMatchReason: targetMatchReason ?? this.targetMatchReason,
       importedAt: importedAt ?? this.importedAt,
       totalRows: totalRows ?? this.totalRows,
       validRows: validRows ?? this.validRows,
@@ -12162,6 +12837,49 @@ class ImportBatchesCompanion extends UpdateCompanion<ImportBatchRow> {
     }
     if (provider.present) {
       map['provider'] = Variable<String>(provider.value);
+    }
+    if (statementType.present) {
+      map['statement_type'] = Variable<String>(statementType.value);
+    }
+    if (statementAccountId.present) {
+      map['statement_account_id'] = Variable<String>(statementAccountId.value);
+    }
+    if (statementBankId.present) {
+      map['statement_bank_id'] = Variable<String>(statementBankId.value);
+    }
+    if (statementBranchId.present) {
+      map['statement_branch_id'] = Variable<String>(statementBranchId.value);
+    }
+    if (statementAccountType.present) {
+      map['statement_account_type'] = Variable<String>(
+        statementAccountType.value,
+      );
+    }
+    if (currencyCode.present) {
+      map['currency_code'] = Variable<String>(currencyCode.value);
+    }
+    if (periodStart.present) {
+      map['period_start'] = Variable<DateTime>(periodStart.value);
+    }
+    if (periodEnd.present) {
+      map['period_end'] = Variable<DateTime>(periodEnd.value);
+    }
+    if (ledgerBalanceCents.present) {
+      map['ledger_balance_cents'] = Variable<int>(ledgerBalanceCents.value);
+    }
+    if (availableBalanceCents.present) {
+      map['available_balance_cents'] = Variable<int>(
+        availableBalanceCents.value,
+      );
+    }
+    if (targetAccountId.present) {
+      map['target_account_id'] = Variable<String>(targetAccountId.value);
+    }
+    if (targetConfirmedAt.present) {
+      map['target_confirmed_at'] = Variable<DateTime>(targetConfirmedAt.value);
+    }
+    if (targetMatchReason.present) {
+      map['target_match_reason'] = Variable<String>(targetMatchReason.value);
     }
     if (importedAt.present) {
       map['imported_at'] = Variable<DateTime>(importedAt.value);
@@ -12199,6 +12917,19 @@ class ImportBatchesCompanion extends UpdateCompanion<ImportBatchRow> {
           ..write('fileHash: $fileHash, ')
           ..write('fileFormat: $fileFormat, ')
           ..write('provider: $provider, ')
+          ..write('statementType: $statementType, ')
+          ..write('statementAccountId: $statementAccountId, ')
+          ..write('statementBankId: $statementBankId, ')
+          ..write('statementBranchId: $statementBranchId, ')
+          ..write('statementAccountType: $statementAccountType, ')
+          ..write('currencyCode: $currencyCode, ')
+          ..write('periodStart: $periodStart, ')
+          ..write('periodEnd: $periodEnd, ')
+          ..write('ledgerBalanceCents: $ledgerBalanceCents, ')
+          ..write('availableBalanceCents: $availableBalanceCents, ')
+          ..write('targetAccountId: $targetAccountId, ')
+          ..write('targetConfirmedAt: $targetConfirmedAt, ')
+          ..write('targetMatchReason: $targetMatchReason, ')
           ..write('importedAt: $importedAt, ')
           ..write('totalRows: $totalRows, ')
           ..write('validRows: $validRows, ')
@@ -20803,6 +21534,19 @@ typedef $$ImportBatchesTableCreateCompanionBuilder =
       required String fileHash,
       required String fileFormat,
       required String provider,
+      Value<String> statementType,
+      Value<String?> statementAccountId,
+      Value<String?> statementBankId,
+      Value<String?> statementBranchId,
+      Value<String?> statementAccountType,
+      Value<String> currencyCode,
+      Value<DateTime?> periodStart,
+      Value<DateTime?> periodEnd,
+      Value<int?> ledgerBalanceCents,
+      Value<int?> availableBalanceCents,
+      Value<String?> targetAccountId,
+      Value<DateTime?> targetConfirmedAt,
+      Value<String?> targetMatchReason,
       required DateTime importedAt,
       Value<int> totalRows,
       Value<int> validRows,
@@ -20820,6 +21564,19 @@ typedef $$ImportBatchesTableUpdateCompanionBuilder =
       Value<String> fileHash,
       Value<String> fileFormat,
       Value<String> provider,
+      Value<String> statementType,
+      Value<String?> statementAccountId,
+      Value<String?> statementBankId,
+      Value<String?> statementBranchId,
+      Value<String?> statementAccountType,
+      Value<String> currencyCode,
+      Value<DateTime?> periodStart,
+      Value<DateTime?> periodEnd,
+      Value<int?> ledgerBalanceCents,
+      Value<int?> availableBalanceCents,
+      Value<String?> targetAccountId,
+      Value<DateTime?> targetConfirmedAt,
+      Value<String?> targetMatchReason,
       Value<DateTime> importedAt,
       Value<int> totalRows,
       Value<int> validRows,
@@ -20866,6 +21623,71 @@ class $$ImportBatchesTableFilterComposer
 
   ColumnFilters<String> get provider => $composableBuilder(
     column: $table.provider,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get statementType => $composableBuilder(
+    column: $table.statementType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get statementAccountId => $composableBuilder(
+    column: $table.statementAccountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get statementBankId => $composableBuilder(
+    column: $table.statementBankId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get statementBranchId => $composableBuilder(
+    column: $table.statementBranchId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get statementAccountType => $composableBuilder(
+    column: $table.statementAccountType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get currencyCode => $composableBuilder(
+    column: $table.currencyCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get periodStart => $composableBuilder(
+    column: $table.periodStart,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get periodEnd => $composableBuilder(
+    column: $table.periodEnd,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get ledgerBalanceCents => $composableBuilder(
+    column: $table.ledgerBalanceCents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get availableBalanceCents => $composableBuilder(
+    column: $table.availableBalanceCents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetAccountId => $composableBuilder(
+    column: $table.targetAccountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get targetConfirmedAt => $composableBuilder(
+    column: $table.targetConfirmedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get targetMatchReason => $composableBuilder(
+    column: $table.targetMatchReason,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -20944,6 +21766,71 @@ class $$ImportBatchesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get statementType => $composableBuilder(
+    column: $table.statementType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get statementAccountId => $composableBuilder(
+    column: $table.statementAccountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get statementBankId => $composableBuilder(
+    column: $table.statementBankId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get statementBranchId => $composableBuilder(
+    column: $table.statementBranchId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get statementAccountType => $composableBuilder(
+    column: $table.statementAccountType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get currencyCode => $composableBuilder(
+    column: $table.currencyCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get periodStart => $composableBuilder(
+    column: $table.periodStart,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get periodEnd => $composableBuilder(
+    column: $table.periodEnd,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get ledgerBalanceCents => $composableBuilder(
+    column: $table.ledgerBalanceCents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get availableBalanceCents => $composableBuilder(
+    column: $table.availableBalanceCents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetAccountId => $composableBuilder(
+    column: $table.targetAccountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get targetConfirmedAt => $composableBuilder(
+    column: $table.targetConfirmedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get targetMatchReason => $composableBuilder(
+    column: $table.targetMatchReason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get importedAt => $composableBuilder(
     column: $table.importedAt,
     builder: (column) => ColumnOrderings(column),
@@ -21010,6 +21897,69 @@ class $$ImportBatchesTableAnnotationComposer
 
   GeneratedColumn<String> get provider =>
       $composableBuilder(column: $table.provider, builder: (column) => column);
+
+  GeneratedColumn<String> get statementType => $composableBuilder(
+    column: $table.statementType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get statementAccountId => $composableBuilder(
+    column: $table.statementAccountId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get statementBankId => $composableBuilder(
+    column: $table.statementBankId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get statementBranchId => $composableBuilder(
+    column: $table.statementBranchId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get statementAccountType => $composableBuilder(
+    column: $table.statementAccountType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get currencyCode => $composableBuilder(
+    column: $table.currencyCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get periodStart => $composableBuilder(
+    column: $table.periodStart,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get periodEnd =>
+      $composableBuilder(column: $table.periodEnd, builder: (column) => column);
+
+  GeneratedColumn<int> get ledgerBalanceCents => $composableBuilder(
+    column: $table.ledgerBalanceCents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get availableBalanceCents => $composableBuilder(
+    column: $table.availableBalanceCents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get targetAccountId => $composableBuilder(
+    column: $table.targetAccountId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get targetConfirmedAt => $composableBuilder(
+    column: $table.targetConfirmedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get targetMatchReason => $composableBuilder(
+    column: $table.targetMatchReason,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<DateTime> get importedAt => $composableBuilder(
     column: $table.importedAt,
@@ -21078,6 +22028,19 @@ class $$ImportBatchesTableTableManager
                 Value<String> fileHash = const Value.absent(),
                 Value<String> fileFormat = const Value.absent(),
                 Value<String> provider = const Value.absent(),
+                Value<String> statementType = const Value.absent(),
+                Value<String?> statementAccountId = const Value.absent(),
+                Value<String?> statementBankId = const Value.absent(),
+                Value<String?> statementBranchId = const Value.absent(),
+                Value<String?> statementAccountType = const Value.absent(),
+                Value<String> currencyCode = const Value.absent(),
+                Value<DateTime?> periodStart = const Value.absent(),
+                Value<DateTime?> periodEnd = const Value.absent(),
+                Value<int?> ledgerBalanceCents = const Value.absent(),
+                Value<int?> availableBalanceCents = const Value.absent(),
+                Value<String?> targetAccountId = const Value.absent(),
+                Value<DateTime?> targetConfirmedAt = const Value.absent(),
+                Value<String?> targetMatchReason = const Value.absent(),
                 Value<DateTime> importedAt = const Value.absent(),
                 Value<int> totalRows = const Value.absent(),
                 Value<int> validRows = const Value.absent(),
@@ -21093,6 +22056,19 @@ class $$ImportBatchesTableTableManager
                 fileHash: fileHash,
                 fileFormat: fileFormat,
                 provider: provider,
+                statementType: statementType,
+                statementAccountId: statementAccountId,
+                statementBankId: statementBankId,
+                statementBranchId: statementBranchId,
+                statementAccountType: statementAccountType,
+                currencyCode: currencyCode,
+                periodStart: periodStart,
+                periodEnd: periodEnd,
+                ledgerBalanceCents: ledgerBalanceCents,
+                availableBalanceCents: availableBalanceCents,
+                targetAccountId: targetAccountId,
+                targetConfirmedAt: targetConfirmedAt,
+                targetMatchReason: targetMatchReason,
                 importedAt: importedAt,
                 totalRows: totalRows,
                 validRows: validRows,
@@ -21110,6 +22086,19 @@ class $$ImportBatchesTableTableManager
                 required String fileHash,
                 required String fileFormat,
                 required String provider,
+                Value<String> statementType = const Value.absent(),
+                Value<String?> statementAccountId = const Value.absent(),
+                Value<String?> statementBankId = const Value.absent(),
+                Value<String?> statementBranchId = const Value.absent(),
+                Value<String?> statementAccountType = const Value.absent(),
+                Value<String> currencyCode = const Value.absent(),
+                Value<DateTime?> periodStart = const Value.absent(),
+                Value<DateTime?> periodEnd = const Value.absent(),
+                Value<int?> ledgerBalanceCents = const Value.absent(),
+                Value<int?> availableBalanceCents = const Value.absent(),
+                Value<String?> targetAccountId = const Value.absent(),
+                Value<DateTime?> targetConfirmedAt = const Value.absent(),
+                Value<String?> targetMatchReason = const Value.absent(),
                 required DateTime importedAt,
                 Value<int> totalRows = const Value.absent(),
                 Value<int> validRows = const Value.absent(),
@@ -21125,6 +22114,19 @@ class $$ImportBatchesTableTableManager
                 fileHash: fileHash,
                 fileFormat: fileFormat,
                 provider: provider,
+                statementType: statementType,
+                statementAccountId: statementAccountId,
+                statementBankId: statementBankId,
+                statementBranchId: statementBranchId,
+                statementAccountType: statementAccountType,
+                currencyCode: currencyCode,
+                periodStart: periodStart,
+                periodEnd: periodEnd,
+                ledgerBalanceCents: ledgerBalanceCents,
+                availableBalanceCents: availableBalanceCents,
+                targetAccountId: targetAccountId,
+                targetConfirmedAt: targetConfirmedAt,
+                targetMatchReason: targetMatchReason,
                 importedAt: importedAt,
                 totalRows: totalRows,
                 validRows: validRows,

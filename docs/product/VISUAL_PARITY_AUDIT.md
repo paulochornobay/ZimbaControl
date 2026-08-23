@@ -11,11 +11,11 @@
 ## 1. Resultado executivo
 
 O app Flutter preserva mais comportamento financeiro real que o protótipo e as
-Fases 1–2 já eliminaram as divergências críticas de Movimentações, confirmação,
-descrição, identidade de instrumentos, classificações e reset. Ainda não há
-paridade total: a associação de OFX ao instrumento e o domínio de faturas são
-as maiores lacunas funcionais, seguidas pelo acabamento das telas restantes e
-pela homologação Android integral.
+Fases 1–3 já eliminaram as divergências críticas de Movimentações, confirmação,
+descrição, identidade de instrumentos, classificações, reset e associação da
+importação ao instrumento. Ainda não há paridade total: o domínio de faturas é
+a maior lacuna funcional, seguido pelo acabamento das telas restantes e pela
+homologação Android integral.
 
 A próxima etapa não é uma troca de tecnologia nem uma cópia do React. É a
 tradução sistemática da hierarquia visual do protótipo para widgets Flutter,
@@ -23,13 +23,14 @@ mantendo Drift, parsers e ações reais.
 
 ### Atualização de implementação — 2026-08-23
 
-As Fases 1 e 2 resolveram localmente os itens 6.1, 6.2, 6.3, 6.5 e 6.6:
+As Fases 1, 2 e 3 resolveram localmente os itens 6.1 a 6.6:
 navegação e Movimentações compactas, snackbar temporário, detalhe com título
 amigável, instrumentos identificáveis, classificações visuais e reset
 coordenado. Seis goldens cobrem Revisão, Movimentações e Detalhe em 360×800 e
 390×844; testes adicionais cobrem criação inline, migração/backup e todos os
-stores do reset. Os itens 6.4 e 6.7 permanecem no roadmap, e a homologação
-Android integral continua pendente para a Fase 5.
+stores do reset. A Importação agora preserva identidade do demonstrativo,
+confirma o destino e bloqueia ambiguidade; o item 6.7 permanece no roadmap, e
+a homologação Android integral continua pendente para a Fase 5.
 
 ## 2. Evidências e limites da auditoria
 
@@ -80,7 +81,7 @@ diferenças deliberadas exigem registro.
 | `/backup` | `BackupSettingsPage` em `family_structure_page.dart` | exportação/restauração reais | fluxo visual e histórico diferem; não reproduzir “nuvem automática” mockada | média |
 | `/rules` | `RulesPreviewPage` em `feature_availability_page.dart` | CRUD local básico e explicável | composição visual e profundidade de explicação; recursos futuros devem continuar honestos | média |
 | `/sync-privacy` | `SyncPrivacyPreviewPage` em `feature_availability_page.dart` | fila e configuração reais quando habilitadas | consolidar estados e linguagem sem prometer sync ativo quando desligado | média |
-| `/import` | `import_page.dart` | CSV/OFX, staging e promoção reais | não identifica/ confirma conta ou cartão do demonstrativo; fluxo visual não segue as etapas do protótipo | crítica |
+| `/import` | `import_page.dart` | CSV/OFX com identificação, destino confirmado, prévia, histórico e promoção real | acabamento e homologação física restantes | média |
 | `/duplicates` | `duplicates_page.dart` | conciliação real | densidade, comparação visual e ações secundárias ainda divergem | alta |
 
 ### Redirecionamento
@@ -137,6 +138,12 @@ não preserva `BANKACCTFROM`, `CCACCTFROM` ou `ACCTID`. Depois, a promoção cha
 `_accountForProvider`, que retorna a primeira conta ativa daquele provedor.
 Com conta corrente e cartão Nubank cadastrados, a escolha pode ser ambígua ou
 incorreta e os detalhes do cartão desaparecem do lote.
+
+**Resolvido na Fase 3:** o parser preserva `BANKACCTFROM`, `CCACCTFROM`,
+`ACCTID`, moeda, período e saldos; o lote exige `targetAccountId` confirmado e
+a promoção/conciliação não consulta mais a primeira conta ou cartão. Empates,
+tipo/final incompatíveis e identificador ausente permanecem bloqueados até a
+escolha explícita.
 
 ### 6.5 Descrição sem semântica clara
 

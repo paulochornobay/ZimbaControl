@@ -11,8 +11,8 @@
 - Fase 1 — fundação visual e correções críticas: concluída tecnicamente.
 - Fase 2 — instrumentos, ícones, criação inline e reset completo: concluída
   tecnicamente.
-- Fase 3 — importação vinculada ao instrumento: próxima.
-- Fase 4 — faturas completas por etapas: pendente.
+- Fase 3 — importação vinculada ao instrumento: concluída tecnicamente.
+- Fase 4 — faturas completas por etapas: próxima.
 - Fase 5 — paridade restante, homologação e release: pendente.
 
 Baseline visual vigente: `pixel-perfect-pixels@2848fc6`. Baselines citados nos
@@ -43,6 +43,22 @@ marcos abaixo pertencem aos respectivos ciclos históricos.
   explicitamente preservadas.
 - `flutter analyze` e os 72 testes Flutter passaram. A associação explícita do
   demonstrativo importado à conta/cartão é o próximo trabalho, na Fase 3.
+
+### Fase 3 — conclusão técnica em 2026-08-23
+
+- OFX preserva identidade do demonstrativo, incluindo conta versus cartão,
+  `ACCTID`, moeda, período e saldos disponíveis; CSV não inventa identidade
+  quando não há evidência.
+- Cada lote exige confirmação de um instrumento compatível. Sugestão por
+  provedor/tipo/final não substitui a confirmação, e empates permanecem
+  bloqueados.
+- Conta ou cartão ausente pode ser criado no próprio fluxo; o lote e seu
+  histórico mostram o destino e os metadados persistidos pela migração 13.
+- Promoção, conciliação e parcelas usam o `targetAccountId` confirmado, sem
+  “primeira conta do provedor” ou “primeiro cartão”.
+- Regressão cobre dois instrumentos Nubank, destino incorreto, `ACCTID`
+  ausente, reimportação, backup antigo e telas responsivas. A próxima etapa é
+  o domínio de faturas da Fase 4.
 
 ## Status Geral
 

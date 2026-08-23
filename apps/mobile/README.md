@@ -44,5 +44,13 @@ financeiros, importações em staging, regras, estado de sync, fila nativa,
 preferências internas e sessão, retornando ao onboarding. Permissões já
 concedidas pelo Android precisam ser revogadas nas configurações do sistema.
 
+## Importação CSV/OFX
+
+O arquivo é processado localmente. OFX preserva conta versus cartão, `ACCTID`,
+moeda, período e saldos quando disponíveis; CSV pode exigir mapeamento manual.
+Antes da promoção, o usuário precisa confirmar uma conta/cartão compatível. O
+app nunca escolhe silenciosamente quando há empate ou identidade insuficiente,
+e permite cadastrar o instrumento ausente dentro do próprio lote.
+
 O escopo e a ordem dos próximos trabalhos estão em
 `../../docs/product/IMPLEMENTATION_ROADMAP.md`.

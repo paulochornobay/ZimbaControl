@@ -7,13 +7,49 @@ class ImportParseResult {
     required this.fileHash,
     required this.fileFormat,
     required this.provider,
+    required this.statementIdentity,
     required this.records,
   });
 
   final String fileHash;
   final String fileFormat;
   final String provider;
+  final StatementIdentity statementIdentity;
   final List<CanonicalImportRecord> records;
+}
+
+class StatementIdentity {
+  const StatementIdentity({
+    required this.statementType,
+    required this.provider,
+    required this.currencyCode,
+    this.accountId,
+    this.bankId,
+    this.branchId,
+    this.accountType,
+    this.periodStart,
+    this.periodEnd,
+    this.ledgerBalanceCents,
+    this.availableBalanceCents,
+  });
+
+  final String statementType;
+  final String provider;
+  final String currencyCode;
+  final String? accountId;
+  final String? bankId;
+  final String? branchId;
+  final String? accountType;
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
+  final int? ledgerBalanceCents;
+  final int? availableBalanceCents;
+
+  String? get last4 {
+    final digits = accountId?.replaceAll(RegExp('[^0-9A-Za-z]'), '');
+    if (digits == null || digits.isEmpty) return null;
+    return digits.length <= 4 ? digits : digits.substring(digits.length - 4);
+  }
 }
 
 class CanonicalImportRecord {
@@ -171,6 +207,11 @@ ImportParseResult _parseCsv({
       fileHash: fileHash,
       fileFormat: 'csv',
       provider: 'unknown',
+      statementIdentity: const StatementIdentity(
+        statementType: 'unknown',
+        provider: 'unknown',
+        currencyCode: 'BRL',
+      ),
       records: const [],
     );
   }
@@ -244,6 +285,7 @@ ImportParseResult _parseCsv({
     fileHash: fileHash,
     fileFormat: 'csv',
     provider: provider,
+    statementIdentity: _csvStatementIdentity(provider, records),
     records: records,
   );
 }
@@ -256,6 +298,7 @@ ImportParseResult _parseOfx({required String text, required String fileHash}) {
     dotAll: true,
   ).allMatches(normalized).toList(growable: false);
   final provider = _detectOfxProvider(normalized);
+  final statementIdentity = _ofxStatementIdentity(normalized, provider);
   final records = <CanonicalImportRecord>[];
 
   for (var index = 0; index < blocks.length; index += 1) {
@@ -287,6 +330,7 @@ ImportParseResult _parseOfx({required String text, required String fileHash}) {
         postedAt: occurredAt,
         description: description.isEmpty ? null : description,
         amountCents: amount,
+        currencyCode: statementIdentity.currencyCode,
         accountHint: provider,
         status: isValid ? 'valid' : 'invalid',
         errorMessage: isValid ? null : 'Registro OFX incompleto ou invalido',
@@ -299,8 +343,69 @@ ImportParseResult _parseOfx({required String text, required String fileHash}) {
     fileHash: fileHash,
     fileFormat: 'ofx',
     provider: provider,
+    statementIdentity: statementIdentity,
     records: records,
   );
+}
+
+StatementIdentity _csvStatementIdentity(
+  String provider,
+  List<CanonicalImportRecord> records,
+) {
+  DateTime? periodStart;
+  DateTime? periodEnd;
+  for (final record in records) {
+    final date = record.postedAt ?? record.occurredAt;
+    if (date == null) continue;
+    if (periodStart == null || date.isBefore(periodStart)) periodStart = date;
+    if (periodEnd == null || date.isAfter(periodEnd)) periodEnd = date;
+  }
+  return StatementIdentity(
+    statementType: 'unknown',
+    provider: provider,
+    currencyCode: records.isEmpty ? 'BRL' : records.first.currencyCode,
+    periodStart: periodStart,
+    periodEnd: periodEnd,
+  );
+}
+
+StatementIdentity _ofxStatementIdentity(String text, String provider) {
+  final hasCreditCard = RegExp(
+    r'<CCACCTFROM>',
+    caseSensitive: false,
+  ).hasMatch(text);
+  final hasBankAccount = RegExp(
+    r'<BANKACCTFROM>',
+    caseSensitive: false,
+  ).hasMatch(text);
+  final statementType = hasCreditCard
+      ? 'credit_card'
+      : hasBankAccount
+      ? 'bank'
+      : 'unknown';
+  return StatementIdentity(
+    statementType: statementType,
+    provider: provider,
+    currencyCode: (_ofxTag(text, 'CURDEF') ?? 'BRL').toUpperCase(),
+    accountId: _ofxTag(text, 'ACCTID'),
+    bankId: _ofxTag(text, 'BANKID'),
+    branchId: _ofxTag(text, 'BRANCHID'),
+    accountType: _ofxTag(text, 'ACCTTYPE'),
+    periodStart: parseOfxDate(_ofxTag(text, 'DTSTART') ?? ''),
+    periodEnd: parseOfxDate(_ofxTag(text, 'DTEND') ?? ''),
+    ledgerBalanceCents: _ofxBalance(text, 'LEDGERBAL'),
+    availableBalanceCents: _ofxBalance(text, 'AVAILBAL'),
+  );
+}
+
+int? _ofxBalance(String text, String sectionTag) {
+  final section = RegExp(
+    '<$sectionTag>(.*?)(?=</$sectionTag>|<LEDGERBAL>|<AVAILBAL>|</OFX>|\$)',
+    caseSensitive: false,
+    dotAll: true,
+  ).firstMatch(text)?.group(1);
+  if (section == null) return null;
+  return parseAmountCents(_ofxTag(section, 'BALAMT') ?? '');
 }
 
 String? _ofxTag(String block, String tag) {
@@ -331,9 +436,7 @@ String _detectCsvProvider(String fileName, List<String> header) {
   if (fileName.toLowerCase().contains('nubank')) {
     return 'nubank';
   }
-  if (joined.contains('nubank') ||
-      joined.contains('identificador') ||
-      joined.contains('valor') && joined.contains('descricao')) {
+  if (joined.contains('nubank') || joined.contains('identificador')) {
     return 'nubank';
   }
   if (joined.contains('mercado') ||
