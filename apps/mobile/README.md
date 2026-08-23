@@ -1,17 +1,48 @@
-# zimba_control
+# ZimbaControl Mobile
 
-A new Flutter project.
+Aplicativo Flutter offline-first do ZimbaControl. O banco principal é SQLite
+via Drift; importações, classificação, revisão e backup funcionam localmente.
 
-## Getting Started
+## Desenvolvimento
 
-This project is a starting point for a Flutter application.
+```powershell
+flutter pub get
+flutter analyze
+flutter test
+flutter run
+```
 
-A few resources to get you started if this is your first Flutter project:
+Para regenerar o código do Drift após alterar tabelas:
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+```powershell
+dart run build_runner build --delete-conflicting-outputs
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Android release
+
+Gerar a APK:
+
+```powershell
+flutter build apk --release
+```
+
+Instalar ou atualizar no aparelho conectado, preservando os dados:
+
+```powershell
+adb install -r build\app\outputs\flutter-apk\app-release.apk
+```
+
+O artefato atual é adequado para desenvolvimento e homologação pessoal. A
+assinatura própria e o release final de distribuição pertencem à Fase 5 do
+roadmap.
+
+## Dados locais
+
+Em **Ajustes > Dados locais**, “Zerar aplicativo” mostra contagens, oferece um
+backup e só habilita a exclusão após digitar `ZERAR`. O fluxo remove dados
+financeiros, importações em staging, regras, estado de sync, fila nativa,
+preferências internas e sessão, retornando ao onboarding. Permissões já
+concedidas pelo Android precisam ser revogadas nas configurações do sistema.
+
+O escopo e a ordem dos próximos trabalhos estão em
+`../../docs/product/IMPLEMENTATION_ROADMAP.md`.

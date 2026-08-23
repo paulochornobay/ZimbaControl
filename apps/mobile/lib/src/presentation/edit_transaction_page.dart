@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../data/local/app_database.dart';
 import 'dashboard_page.dart' show formatBrl;
+import 'design/instrument_display.dart';
 import 'design/zimba_theme.dart';
 import 'design/zimba_ui.dart';
+import 'registries_page.dart';
 
 class EditTransactionPage extends StatefulWidget {
   const EditTransactionPage({
@@ -189,6 +191,31 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
     if (value != null && mounted) onSelected(value.id);
   }
 
+  Future<void> createCategoryInline() async {
+    final id = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => CategoryFormPage(
+          database: widget.database,
+          initialKind: kind == 'income' ? 'income' : 'expense',
+        ),
+      ),
+    );
+    if (id == null || !mounted) return;
+    await load();
+    if (mounted) setState(() => categoryId = id);
+  }
+
+  Future<void> createCostCenterInline() async {
+    final id = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => CostCenterFormPage(database: widget.database),
+      ),
+    );
+    if (id == null || !mounted) return;
+    await load();
+    if (mounted) setState(() => costCenterId = id);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (loading) {
@@ -220,6 +247,9 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
             .map((item) => item.account.name)
             .firstOrNull ??
         'Conta não definida';
+    final selectedAccount = visibleAccounts
+        .where((item) => item.account.id == accountId)
+        .firstOrNull;
     final categoryName =
         visibleCategories
             .where((item) => item.id == categoryId)
@@ -320,7 +350,21 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
                         options: [
                           const _PickerOption(null, 'Sem categoria'),
                           for (final item in visibleCategories)
-                            _PickerOption(item.id, item.name),
+                            _PickerOption(
+                              item.id,
+                              item.name,
+                              content: Row(
+                                children: [
+                                  ClassificationBadge(
+                                    iconKey: item.iconKey,
+                                    colorKey: item.colorKey,
+                                    compact: true,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(child: Text(item.name)),
+                                ],
+                              ),
+                            ),
                         ],
                         onSelected: (value) =>
                             setState(() => categoryId = value),
@@ -338,7 +382,21 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
                         options: [
                           const _PickerOption(null, 'Sem centro de custo'),
                           for (final item in visibleCostCenters)
-                            _PickerOption(item.id, item.name),
+                            _PickerOption(
+                              item.id,
+                              item.name,
+                              content: Row(
+                                children: [
+                                  ClassificationBadge(
+                                    iconKey: item.iconKey,
+                                    colorKey: item.colorKey,
+                                    compact: true,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(child: Text(item.name)),
+                                ],
+                              ),
+                            ),
                         ],
                         onSelected: (value) =>
                             setState(() => costCenterId = value),
@@ -348,6 +406,9 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
               _DetailSelectRow(
                 label: 'Conta / Cartão',
                 value: accountName,
+                valueWidget: selectedAccount == null
+                    ? null
+                    : InstrumentDisplay.account(selectedAccount, compact: true),
                 onTap: editing
                     ? () => pickValue(
                         title: 'Conta / Cartão',
@@ -355,7 +416,11 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
                         options: [
                           const _PickerOption(null, 'Conta não definida'),
                           for (final item in visibleAccounts)
-                            _PickerOption(item.account.id, item.account.name),
+                            _PickerOption(
+                              item.account.id,
+                              item.account.name,
+                              content: InstrumentDisplay.account(item),
+                            ),
                         ],
                         onSelected: (value) =>
                             setState(() => accountId = value),
@@ -369,6 +434,25 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
               ),
             ],
           ),
+          if (editing && kind != 'transfer') ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: createCategoryInline,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Criar categoria'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: createCostCenterInline,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Criar centro'),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 24),
           const ZimbaSectionTitle('Beneficiários'),
           ZimbaCard(
@@ -734,12 +818,14 @@ class _DetailSelectRow extends StatelessWidget {
     required this.value,
     required this.onTap,
     this.enabled = true,
+    this.valueWidget,
   });
 
   final String label;
   final String value;
   final VoidCallback? onTap;
   final bool enabled;
+  final Widget? valueWidget;
 
   @override
   Widget build(BuildContext context) => _DetailRow(
@@ -747,6 +833,7 @@ class _DetailSelectRow extends StatelessWidget {
     value: value,
     enabled: enabled,
     onTap: enabled ? onTap : null,
+    valueWidget: valueWidget,
   );
 }
 
@@ -769,6 +856,7 @@ class _DetailRow extends StatelessWidget {
     this.onTap,
     this.icon,
     this.enabled = true,
+    this.valueWidget,
   });
 
   final String label;
@@ -776,6 +864,7 @@ class _DetailRow extends StatelessWidget {
   final VoidCallback? onTap;
   final IconData? icon;
   final bool enabled;
+  final Widget? valueWidget;
 
   @override
   Widget build(BuildContext context) {
@@ -804,17 +893,20 @@ class _DetailRow extends StatelessWidget {
                       const SizedBox(width: 6),
                     ],
                     Expanded(
-                      child: Text(
-                        value,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          color: enabled
-                              ? ZimbaColors.foreground
-                              : ZimbaColors.secondaryText,
-                        ),
-                      ),
+                      child:
+                          valueWidget ??
+                          Text(
+                            value,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyLarge
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w500,
+                                  color: enabled
+                                      ? ZimbaColors.foreground
+                                      : ZimbaColors.secondaryText,
+                                ),
+                          ),
                     ),
                   ],
                 ),
@@ -887,10 +979,11 @@ class _BeneficiaryChip extends StatelessWidget {
 }
 
 class _PickerOption {
-  const _PickerOption(this.id, this.label);
+  const _PickerOption(this.id, this.label, {this.content});
 
   final String? id;
   final String label;
+  final Widget? content;
 }
 
 class _PickedValue {
@@ -953,7 +1046,7 @@ class _PickerSheet extends StatelessWidget {
                   final selected = option.id == selectedId;
                   return ListTile(
                     onTap: () => onSelected(_PickedValue(option.id)),
-                    title: Text(option.label),
+                    title: option.content ?? Text(option.label),
                     trailing: selected
                         ? const Icon(Icons.check, color: ZimbaColors.accent)
                         : null,

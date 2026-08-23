@@ -10,12 +10,12 @@
 
 ## 1. Resultado executivo
 
-O app Flutter preserva mais comportamento financeiro real que o protótipo,
-mas ainda não possui paridade visual suficiente. A maior divergência está em
-Movimentações: painel permanente de filtros, resumo redundante, linhas altas,
-espaçamentos e iconografia diferentes da fonte oficial. Também são críticos a
-identificação de contas/cartões, a associação de OFX ao instrumento e o
-feedback de confirmação que permanece na tela.
+O app Flutter preserva mais comportamento financeiro real que o protótipo e as
+Fases 1–2 já eliminaram as divergências críticas de Movimentações, confirmação,
+descrição, identidade de instrumentos, classificações e reset. Ainda não há
+paridade total: a associação de OFX ao instrumento e o domínio de faturas são
+as maiores lacunas funcionais, seguidas pelo acabamento das telas restantes e
+pela homologação Android integral.
 
 A próxima etapa não é uma troca de tecnologia nem uma cópia do React. É a
 tradução sistemática da hierarquia visual do protótipo para widgets Flutter,
@@ -23,11 +23,13 @@ mantendo Drift, parsers e ações reais.
 
 ### Atualização de implementação — 2026-08-23
 
-A Fase 1 resolveu localmente os itens 6.1, 6.2 e 6.5: navegação e
-Movimentações compactas, snackbar temporário e detalhe com título amigável
-separado da descrição original. Seis goldens cobrem Revisão, Movimentações e
-Detalhe em 360×800 e 390×844. Os demais itens permanecem no roadmap, e a
-homologação Android física continua pendente para a Fase 5.
+As Fases 1 e 2 resolveram localmente os itens 6.1, 6.2, 6.3, 6.5 e 6.6:
+navegação e Movimentações compactas, snackbar temporário, detalhe com título
+amigável, instrumentos identificáveis, classificações visuais e reset
+coordenado. Seis goldens cobrem Revisão, Movimentações e Detalhe em 360×800 e
+390×844; testes adicionais cobrem criação inline, migração/backup e todos os
+stores do reset. Os itens 6.4 e 6.7 permanecem no roadmap, e a homologação
+Android integral continua pendente para a Fase 5.
 
 ## 2. Evidências e limites da auditoria
 
@@ -70,7 +72,7 @@ diferenças deliberadas exigem registro.
 | --- | --- | --- | --- | --- |
 | `/` | `review_page.dart` | ações Drift reais; estrutura parcialmente migrada | densidade, hierarquia dos cards e feedback persistente após confirmar | crítica |
 | `/summary` | `dashboard_page.dart` | resumo real e responsivo | espaçamento, iconografia e hierarquia ainda diferem em blocos do mês | média |
-| `/transaction/new` | `new_transaction_page.dart` | criação real | conta/cartão só pelo nome; categoria/centro sem ícone ou criação inline | crítica |
+| `/transaction/new` | `new_transaction_page.dart` | criação real com instrumentos identificáveis e classificação inline | acabamento visual restante | média |
 | `/transaction/$id` | `edit_transaction_page.dart` | detalhe e edição reais na mesma jornada | campo de descrição ambíguo; falta separar leitura, edição, título e texto original | crítica |
 | `/movimentacoes` | `movements_page.dart` | busca e filtros funcionais | painel grande sempre aberto, totais redundantes, linhas altas, espaçamento e menu incorretos | crítica |
 | `/settings` | `settings_home_page.dart` | hub real com estados locais | acabamento e densidade; precisa manter a organização do protótipo sem esconder ações reais | média |
@@ -97,7 +99,7 @@ sistema visual sem inventar uma referência inexistente:
 | Cadastros | `registries_page.dart` | separar contas, cartões, categorias e centros com ícones e estados claros |
 | Compromissos | `commitments_page.dart` | preservar recorrências e parcelas reais; usar cards responsivos e CTAs acessíveis |
 | Captura Android | `NotificationSettingsPage` | mostrar permissão, allowlist, fila e erro reais; sem equivalência web fictícia |
-| Dados locais/reset | `DataEnvironmentPage` | tornar “zerar tudo” visível, completo e seguro; retornar ao onboarding |
+| Dados locais/reset | `DataEnvironmentPage` | entregue na Fase 2; homologar backup, teclado e reset em Android físico |
 
 ## 6. Defeitos comprovados e causa técnica
 
@@ -124,6 +126,10 @@ banco armazene provedor, tipo, titular e últimos quatro dígitos, a seleção n
 usa esses dados. Categorias e centros também possuem apenas nome no modelo
 atual, sem chave de ícone ou cor.
 
+**Resolvido na Fase 2:** `InstrumentDisplay` apresenta nome, provedor, tipo,
+titular e últimos dígitos; categorias e centros persistem `iconKey` e
+`colorKey`, com fallback, sugestão e seletor vetorial.
+
 ### 6.4 OFX associado pelo banco, não pelo instrumento
 
 O parser atual percorre `STMTTRN`, lê data, valor, `NAME`, `MEMO` e `FITID`, mas
@@ -144,6 +150,11 @@ editável da descrição original somente leitura.
 encontrável. `clearLocalData()` não remove atualmente `syncAppliedEvents` nem
 `syncConflicts` e não coordena a fila SQLite nativa, preferências fora do Drift
 ou sessão segura. Portanto, não equivale ainda a “começar do zero”.
+
+**Resolvido na Fase 2:** a área de perigo ficou visível em Dados locais, exige
+`ZERAR`, oferece backup, mostra contagens e coordena Drift, staging, sync, fila
+nativa, preferências e sessão antes do retorno ao onboarding. A tela explica
+que permissões concedidas pelo Android permanecem.
 
 ### 6.7 Fatura sem entidade própria
 

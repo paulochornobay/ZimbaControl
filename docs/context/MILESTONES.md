@@ -9,8 +9,9 @@
 
 - Item 0 — documentação canônica e auditoria completa: concluído.
 - Fase 1 — fundação visual e correções críticas: concluída tecnicamente.
-- Fase 2 — instrumentos, ícones, criação inline e reset completo: próxima.
-- Fase 3 — importação vinculada ao instrumento: pendente.
+- Fase 2 — instrumentos, ícones, criação inline e reset completo: concluída
+  tecnicamente.
+- Fase 3 — importação vinculada ao instrumento: próxima.
 - Fase 4 — faturas completas por etapas: pendente.
 - Fase 5 — paridade restante, homologação e release: pendente.
 
@@ -27,6 +28,21 @@ marcos abaixo pertencem aos respectivos ciclos históricos.
   amigável usa `displayDescription` sincronizável.
 - A regressão inclui seis goldens em 360×800 e 390×844 e testes funcionais dos
   comportamentos críticos.
+
+### Fase 2 — conclusão técnica em 2026-08-23
+
+- Contas e cartões usam uma apresentação compartilhada com provedor, tipo,
+  titular e últimos dígitos nas jornadas em que o instrumento é exibido ou
+  selecionado.
+- Categorias e centros de custo persistem ícone e cor, recebem fallback em
+  migrações/backups antigos e oferecem sugestão e escolha vetorial no CRUD.
+- Novo e Editar criam categoria/centro em contexto e retomam o lançamento com
+  o novo item selecionado.
+- “Zerar aplicativo” exige `ZERAR`, oferece backup e coordena Drift, staging,
+  sync, fila nativa, preferências e sessão; permissões do Android são
+  explicitamente preservadas.
+- `flutter analyze` e os 72 testes Flutter passaram. A associação explícita do
+  demonstrativo importado à conta/cartão é o próximo trabalho, na Fase 3.
 
 ## Status Geral
 

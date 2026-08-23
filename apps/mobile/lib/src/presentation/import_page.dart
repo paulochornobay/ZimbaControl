@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../application/import_parser.dart';
 import '../data/local/app_database.dart';
 import 'dashboard_page.dart';
+import 'design/instrument_display.dart';
 import 'design/zimba_theme.dart';
 import 'design/zimba_ui.dart';
 
@@ -311,9 +312,13 @@ class ImportBatchView extends StatelessWidget {
                 style: const TextStyle(fontWeight: FontWeight.w800),
               ),
               const SizedBox(height: 4),
-              Text(
-                '${_providerLabel(batch.provider)} · ${batch.fileFormat.toUpperCase()}',
-                style: Theme.of(context).textTheme.bodySmall,
+              InstrumentDisplay(
+                name: _providerLabel(batch.provider),
+                provider: batch.provider,
+                type: 'statement',
+                compact: true,
+                subtitleOverride:
+                    '${batch.fileFormat.toUpperCase()} · conta/cartão de destino ainda não confirmado',
               ),
               const SizedBox(height: 12),
               GridView.count(

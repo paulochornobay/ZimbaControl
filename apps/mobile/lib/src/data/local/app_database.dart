@@ -63,6 +63,8 @@ class Categories extends Table {
   TextColumn get parentId => text().nullable()();
   TextColumn get name => text()();
   TextColumn get kind => text()();
+  TextColumn get iconKey => text().withDefault(const Constant('tag'))();
+  TextColumn get colorKey => text().withDefault(const Constant('slate'))();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   BoolColumn get active => boolean().withDefault(const Constant(true))();
 
@@ -75,6 +77,8 @@ class CostCenters extends Table {
   TextColumn get id => text()();
   TextColumn get householdId => text()();
   TextColumn get name => text()();
+  TextColumn get iconKey => text().withDefault(const Constant('tag'))();
+  TextColumn get colorKey => text().withDefault(const Constant('slate'))();
   BoolColumn get active => boolean().withDefault(const Constant(true))();
 
   @override
@@ -451,7 +455,7 @@ class AppDatabase extends _$AppDatabase {
       'notification_capture_retention_days';
 
   @override
-  int get schemaVersion => 11;
+  int get schemaVersion => 12;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -516,6 +520,51 @@ class AppDatabase extends _$AppDatabase {
           'SET display_description = description_raw '
           'WHERE display_description IS NULL',
         );
+      }
+      if (from < 12) {
+        await migrator.addColumn(categories, categories.iconKey);
+        await migrator.addColumn(categories, categories.colorKey);
+        await migrator.addColumn(costCenters, costCenters.iconKey);
+        await migrator.addColumn(costCenters, costCenters.colorKey);
+        await customStatement('''
+          UPDATE categories SET
+            icon_key = CASE
+              WHEN lower(name) LIKE '%mercad%' OR lower(name) LIKE '%aliment%' THEN 'cart'
+              WHEN lower(name) LIKE '%saud%' THEN 'health'
+              WHEN lower(name) LIKE '%educ%' OR lower(name) LIKE '%escola%' THEN 'education'
+              WHEN lower(name) LIKE '%transport%' OR lower(name) LIKE '%uber%' THEN 'transport'
+              WHEN lower(name) LIKE '%casa%' OR lower(name) LIKE '%moradia%' THEN 'home'
+              WHEN lower(name) LIKE '%lazer%' THEN 'leisure'
+              WHEN kind = 'income' OR lower(name) LIKE '%renda%' THEN 'income'
+              ELSE 'tag'
+            END,
+            color_key = CASE
+              WHEN kind = 'income' THEN 'green'
+              WHEN lower(name) LIKE '%saud%' THEN 'red'
+              WHEN lower(name) LIKE '%educ%' OR lower(name) LIKE '%escola%' THEN 'blue'
+              WHEN lower(name) LIKE '%lazer%' THEN 'purple'
+              WHEN lower(name) LIKE '%mercad%' OR lower(name) LIKE '%aliment%' THEN 'amber'
+              ELSE 'slate'
+            END
+        ''');
+        await customStatement('''
+          UPDATE cost_centers SET
+            icon_key = CASE
+              WHEN lower(name) LIKE '%casa%' THEN 'home'
+              WHEN lower(name) LIKE '%filh%' OR lower(name) LIKE '%crian%' THEN 'child'
+              WHEN lower(name) LIKE '%carro%' OR lower(name) LIKE '%veicul%' THEN 'car'
+              WHEN lower(name) LIKE '%trabalh%' THEN 'work'
+              WHEN lower(name) LIKE '%pessoal%' THEN 'personal'
+              ELSE 'tag'
+            END,
+            color_key = CASE
+              WHEN lower(name) LIKE '%filh%' OR lower(name) LIKE '%crian%' THEN 'purple'
+              WHEN lower(name) LIKE '%trabalh%' THEN 'blue'
+              WHEN lower(name) LIKE '%carro%' OR lower(name) LIKE '%veicul%' THEN 'cyan'
+              WHEN lower(name) LIKE '%casa%' THEN 'green'
+              ELSE 'slate'
+            END
+        ''');
       }
     },
   );
@@ -1876,6 +1925,7 @@ class AppDatabase extends _$AppDatabase {
       accounts: (await select(accounts).get()).length,
       creditCards: (await select(creditCards).get()).length,
       categories: (await select(categories).get()).length,
+      costCenters: (await select(costCenters).get()).length,
       transactions: (await select(transactions).get()).length,
       pendingReview: (await (select(
         transactions,
@@ -1884,6 +1934,12 @@ class AppDatabase extends _$AppDatabase {
       duplicateCandidates: (await select(duplicateCandidates).get()).length,
       recurringSchedules: (await select(recurringSchedules).get()).length,
       installmentPlans: (await select(installmentPlans).get()).length,
+      classificationRules: (await select(classificationRules).get()).length,
+      syncRecords:
+          (await select(syncOutbox).get()).length +
+          (await select(syncAppliedEvents).get()).length +
+          (await select(syncConflicts).get()).length,
+      capturedNotifications: (await select(rawNotificationEvents).get()).length,
     );
   }
 
@@ -2003,6 +2059,8 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> clearLocalData() async {
     await transaction(() async {
+      await delete(syncConflicts).go();
+      await delete(syncAppliedEvents).go();
       await delete(rawNotificationEvents).go();
       await delete(duplicateCandidates).go();
       await delete(stagedSourceRecords).go();
@@ -2014,6 +2072,7 @@ class AppDatabase extends _$AppDatabase {
       await delete(syncOutbox).go();
       await delete(transactionSources).go();
       await delete(transactionBeneficiaries).go();
+      await delete(classificationRules).go();
       await delete(reviewInbox).go();
       await delete(transactions).go();
       await delete(merchants).go();
@@ -2824,6 +2883,8 @@ class AppDatabase extends _$AppDatabase {
     String? parentId,
     required String name,
     required String kind,
+    String iconKey = 'tag',
+    String colorKey = 'slate',
     required int sortOrder,
     bool active = true,
   }) async {
@@ -2836,6 +2897,8 @@ class AppDatabase extends _$AppDatabase {
         parentId: Value(parentId),
         name: name.trim(),
         kind: kind,
+        iconKey: Value(iconKey),
+        colorKey: Value(colorKey),
         sortOrder: Value(sortOrder),
         active: Value(active),
       ),
@@ -2852,6 +2915,8 @@ class AppDatabase extends _$AppDatabase {
   Future<String> upsertCostCenter({
     String? id,
     required String name,
+    String iconKey = 'tag',
+    String colorKey = 'slate',
     bool active = true,
   }) async {
     final costCenterId =
@@ -2861,6 +2926,8 @@ class AppDatabase extends _$AppDatabase {
         id: costCenterId,
         householdId: householdMain,
         name: name.trim(),
+        iconKey: Value(iconKey),
+        colorKey: Value(colorKey),
         active: Value(active),
       ),
     );
@@ -3386,8 +3453,25 @@ class AppDatabase extends _$AppDatabase {
       people: _decodeRows(data, 'people', PersonRow.fromJson),
       accounts: _decodeRows(data, 'accounts', AccountRow.fromJson),
       creditCards: _decodeRows(data, 'creditCards', CreditCardRow.fromJson),
-      categories: _decodeRows(data, 'categories', CategoryRow.fromJson),
-      costCenters: _decodeRows(data, 'costCenters', CostCenterRow.fromJson),
+      categories: _decodeRows(data, 'categories', (json) {
+        final visual = _classificationVisual(
+          json['name'] as String? ?? '',
+          kind: json['kind'] as String? ?? 'expense',
+        );
+        return CategoryRow.fromJson({
+          ...json,
+          'iconKey': json['iconKey'] ?? visual.$1,
+          'colorKey': json['colorKey'] ?? visual.$2,
+        });
+      }),
+      costCenters: _decodeRows(data, 'costCenters', (json) {
+        final visual = _costCenterVisual(json['name'] as String? ?? '');
+        return CostCenterRow.fromJson({
+          ...json,
+          'iconKey': json['iconKey'] ?? visual.$1,
+          'colorKey': json['colorKey'] ?? visual.$2,
+        });
+      }),
       merchants: _decodeRows(data, 'merchants', MerchantRow.fromJson),
       transactions: _decodeRows(
         data,
@@ -4266,20 +4350,26 @@ class AppDatabase extends _$AppDatabase {
     int sortOrder, {
     String kind = 'expense',
   }) {
+    final visual = _classificationVisual(name, kind: kind);
     return CategoriesCompanion.insert(
       id: id,
       householdId: householdMain,
       name: name,
       kind: kind,
+      iconKey: Value(visual.$1),
+      colorKey: Value(visual.$2),
       sortOrder: Value(sortOrder),
     );
   }
 
   CostCentersCompanion _costCenter(String id, String name) {
+    final visual = _costCenterVisual(name);
     return CostCentersCompanion.insert(
       id: id,
       householdId: householdMain,
       name: name,
+      iconKey: Value(visual.$1),
+      colorKey: Value(visual.$2),
     );
   }
 
@@ -4749,34 +4839,97 @@ class LocalDataStatus {
     required this.accounts,
     required this.creditCards,
     required this.categories,
+    required this.costCenters,
     required this.transactions,
     required this.pendingReview,
     required this.importBatches,
     required this.duplicateCandidates,
     required this.recurringSchedules,
     required this.installmentPlans,
+    required this.classificationRules,
+    required this.syncRecords,
+    required this.capturedNotifications,
   });
 
   final int people;
   final int accounts;
   final int creditCards;
   final int categories;
+  final int costCenters;
   final int transactions;
   final int pendingReview;
   final int importBatches;
   final int duplicateCandidates;
   final int recurringSchedules;
   final int installmentPlans;
+  final int classificationRules;
+  final int syncRecords;
+  final int capturedNotifications;
 
   bool get isEmpty =>
       people == 0 &&
       accounts == 0 &&
       creditCards == 0 &&
       categories == 0 &&
+      costCenters == 0 &&
       transactions == 0 &&
       importBatches == 0 &&
       recurringSchedules == 0 &&
-      installmentPlans == 0;
+      installmentPlans == 0 &&
+      classificationRules == 0 &&
+      syncRecords == 0 &&
+      capturedNotifications == 0;
+
+  int get totalRecords =>
+      people +
+      accounts +
+      creditCards +
+      categories +
+      costCenters +
+      transactions +
+      importBatches +
+      duplicateCandidates +
+      recurringSchedules +
+      installmentPlans +
+      classificationRules +
+      syncRecords +
+      capturedNotifications;
+}
+
+(String, String) _classificationVisual(String name, {required String kind}) {
+  final normalized = name.toLowerCase();
+  if (kind == 'income' || normalized.contains('renda')) {
+    return ('income', 'green');
+  }
+  if (normalized.contains('mercad') || normalized.contains('aliment')) {
+    return ('cart', 'amber');
+  }
+  if (normalized.contains('saud')) return ('health', 'red');
+  if (normalized.contains('educ') || normalized.contains('escola')) {
+    return ('education', 'blue');
+  }
+  if (normalized.contains('transport') || normalized.contains('uber')) {
+    return ('transport', 'cyan');
+  }
+  if (normalized.contains('casa') || normalized.contains('moradia')) {
+    return ('home', 'green');
+  }
+  if (normalized.contains('lazer')) return ('leisure', 'purple');
+  return ('tag', 'slate');
+}
+
+(String, String) _costCenterVisual(String name) {
+  final normalized = name.toLowerCase();
+  if (normalized.contains('casa')) return ('home', 'green');
+  if (normalized.contains('filh') || normalized.contains('crian')) {
+    return ('child', 'purple');
+  }
+  if (normalized.contains('carro') || normalized.contains('veicul')) {
+    return ('car', 'cyan');
+  }
+  if (normalized.contains('trabalh')) return ('work', 'blue');
+  if (normalized.contains('pessoal')) return ('personal', 'slate');
+  return ('tag', 'slate');
 }
 
 class DuplicateCandidateDetails {

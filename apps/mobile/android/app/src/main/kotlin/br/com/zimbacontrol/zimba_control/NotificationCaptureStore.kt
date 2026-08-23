@@ -181,6 +181,14 @@ object NotificationCaptureStore {
         )
     }
 
+    fun resetLocalData(context: Context) {
+        context.deleteDatabase(databaseName)
+        context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
+            .edit()
+            .clear()
+            .commit()
+    }
+
     fun queueStatus(context: Context): Map<String, Any?> {
         val database = helper(context).readableDatabase
         val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/local/app_database.dart';
 import 'dashboard_page.dart' show EmptyCompactState, formatBrl;
+import 'design/instrument_display.dart';
 import 'design/zimba_theme.dart';
 import 'design/zimba_ui.dart';
 import 'edit_transaction_page.dart';
@@ -505,6 +506,17 @@ class MovementTransactionRow extends StatelessWidget {
                 runSpacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                  if (details.account != null)
+                    SizedBox(
+                      width: 178,
+                      child: InstrumentDisplay(
+                        name: details.account!.name,
+                        provider: details.account!.provider,
+                        type: details.account!.type,
+                        last4: details.account!.last4,
+                        compact: true,
+                      ),
+                    ),
                   if (details.beneficiaries.isNotEmpty)
                     MovementInitials(people: details.beneficiaries),
                   ZimbaBadge(

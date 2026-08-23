@@ -1663,6 +1663,30 @@ class $CategoriesTable extends Categories
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _iconKeyMeta = const VerificationMeta(
+    'iconKey',
+  );
+  @override
+  late final GeneratedColumn<String> iconKey = GeneratedColumn<String>(
+    'icon_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('tag'),
+  );
+  static const VerificationMeta _colorKeyMeta = const VerificationMeta(
+    'colorKey',
+  );
+  @override
+  late final GeneratedColumn<String> colorKey = GeneratedColumn<String>(
+    'color_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('slate'),
+  );
   static const VerificationMeta _sortOrderMeta = const VerificationMeta(
     'sortOrder',
   );
@@ -1695,6 +1719,8 @@ class $CategoriesTable extends Categories
     parentId,
     name,
     kind,
+    iconKey,
+    colorKey,
     sortOrder,
     active,
   ];
@@ -1748,6 +1774,18 @@ class $CategoriesTable extends Categories
     } else if (isInserting) {
       context.missing(_kindMeta);
     }
+    if (data.containsKey('icon_key')) {
+      context.handle(
+        _iconKeyMeta,
+        iconKey.isAcceptableOrUnknown(data['icon_key']!, _iconKeyMeta),
+      );
+    }
+    if (data.containsKey('color_key')) {
+      context.handle(
+        _colorKeyMeta,
+        colorKey.isAcceptableOrUnknown(data['color_key']!, _colorKeyMeta),
+      );
+    }
     if (data.containsKey('sort_order')) {
       context.handle(
         _sortOrderMeta,
@@ -1789,6 +1827,14 @@ class $CategoriesTable extends Categories
         DriftSqlType.string,
         data['${effectivePrefix}kind'],
       )!,
+      iconKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon_key'],
+      )!,
+      colorKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color_key'],
+      )!,
       sortOrder: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
@@ -1812,6 +1858,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
   final String? parentId;
   final String name;
   final String kind;
+  final String iconKey;
+  final String colorKey;
   final int sortOrder;
   final bool active;
   const CategoryRow({
@@ -1820,6 +1868,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     this.parentId,
     required this.name,
     required this.kind,
+    required this.iconKey,
+    required this.colorKey,
     required this.sortOrder,
     required this.active,
   });
@@ -1833,6 +1883,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     }
     map['name'] = Variable<String>(name);
     map['kind'] = Variable<String>(kind);
+    map['icon_key'] = Variable<String>(iconKey);
+    map['color_key'] = Variable<String>(colorKey);
     map['sort_order'] = Variable<int>(sortOrder);
     map['active'] = Variable<bool>(active);
     return map;
@@ -1847,6 +1899,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
           : Value(parentId),
       name: Value(name),
       kind: Value(kind),
+      iconKey: Value(iconKey),
+      colorKey: Value(colorKey),
       sortOrder: Value(sortOrder),
       active: Value(active),
     );
@@ -1863,6 +1917,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       parentId: serializer.fromJson<String?>(json['parentId']),
       name: serializer.fromJson<String>(json['name']),
       kind: serializer.fromJson<String>(json['kind']),
+      iconKey: serializer.fromJson<String>(json['iconKey']),
+      colorKey: serializer.fromJson<String>(json['colorKey']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
       active: serializer.fromJson<bool>(json['active']),
     );
@@ -1876,6 +1932,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       'parentId': serializer.toJson<String?>(parentId),
       'name': serializer.toJson<String>(name),
       'kind': serializer.toJson<String>(kind),
+      'iconKey': serializer.toJson<String>(iconKey),
+      'colorKey': serializer.toJson<String>(colorKey),
       'sortOrder': serializer.toJson<int>(sortOrder),
       'active': serializer.toJson<bool>(active),
     };
@@ -1887,6 +1945,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     Value<String?> parentId = const Value.absent(),
     String? name,
     String? kind,
+    String? iconKey,
+    String? colorKey,
     int? sortOrder,
     bool? active,
   }) => CategoryRow(
@@ -1895,6 +1955,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
     parentId: parentId.present ? parentId.value : this.parentId,
     name: name ?? this.name,
     kind: kind ?? this.kind,
+    iconKey: iconKey ?? this.iconKey,
+    colorKey: colorKey ?? this.colorKey,
     sortOrder: sortOrder ?? this.sortOrder,
     active: active ?? this.active,
   );
@@ -1907,6 +1969,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
       parentId: data.parentId.present ? data.parentId.value : this.parentId,
       name: data.name.present ? data.name.value : this.name,
       kind: data.kind.present ? data.kind.value : this.kind,
+      iconKey: data.iconKey.present ? data.iconKey.value : this.iconKey,
+      colorKey: data.colorKey.present ? data.colorKey.value : this.colorKey,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
       active: data.active.present ? data.active.value : this.active,
     );
@@ -1920,6 +1984,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
           ..write('parentId: $parentId, ')
           ..write('name: $name, ')
           ..write('kind: $kind, ')
+          ..write('iconKey: $iconKey, ')
+          ..write('colorKey: $colorKey, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('active: $active')
           ..write(')'))
@@ -1927,8 +1993,17 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, householdId, parentId, name, kind, sortOrder, active);
+  int get hashCode => Object.hash(
+    id,
+    householdId,
+    parentId,
+    name,
+    kind,
+    iconKey,
+    colorKey,
+    sortOrder,
+    active,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1938,6 +2013,8 @@ class CategoryRow extends DataClass implements Insertable<CategoryRow> {
           other.parentId == this.parentId &&
           other.name == this.name &&
           other.kind == this.kind &&
+          other.iconKey == this.iconKey &&
+          other.colorKey == this.colorKey &&
           other.sortOrder == this.sortOrder &&
           other.active == this.active);
 }
@@ -1948,6 +2025,8 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
   final Value<String?> parentId;
   final Value<String> name;
   final Value<String> kind;
+  final Value<String> iconKey;
+  final Value<String> colorKey;
   final Value<int> sortOrder;
   final Value<bool> active;
   final Value<int> rowid;
@@ -1957,6 +2036,8 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     this.parentId = const Value.absent(),
     this.name = const Value.absent(),
     this.kind = const Value.absent(),
+    this.iconKey = const Value.absent(),
+    this.colorKey = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.active = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1967,6 +2048,8 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     this.parentId = const Value.absent(),
     required String name,
     required String kind,
+    this.iconKey = const Value.absent(),
+    this.colorKey = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.active = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1980,6 +2063,8 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     Expression<String>? parentId,
     Expression<String>? name,
     Expression<String>? kind,
+    Expression<String>? iconKey,
+    Expression<String>? colorKey,
     Expression<int>? sortOrder,
     Expression<bool>? active,
     Expression<int>? rowid,
@@ -1990,6 +2075,8 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
       if (parentId != null) 'parent_id': parentId,
       if (name != null) 'name': name,
       if (kind != null) 'kind': kind,
+      if (iconKey != null) 'icon_key': iconKey,
+      if (colorKey != null) 'color_key': colorKey,
       if (sortOrder != null) 'sort_order': sortOrder,
       if (active != null) 'active': active,
       if (rowid != null) 'rowid': rowid,
@@ -2002,6 +2089,8 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     Value<String?>? parentId,
     Value<String>? name,
     Value<String>? kind,
+    Value<String>? iconKey,
+    Value<String>? colorKey,
     Value<int>? sortOrder,
     Value<bool>? active,
     Value<int>? rowid,
@@ -2012,6 +2101,8 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
       parentId: parentId ?? this.parentId,
       name: name ?? this.name,
       kind: kind ?? this.kind,
+      iconKey: iconKey ?? this.iconKey,
+      colorKey: colorKey ?? this.colorKey,
       sortOrder: sortOrder ?? this.sortOrder,
       active: active ?? this.active,
       rowid: rowid ?? this.rowid,
@@ -2036,6 +2127,12 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
     if (kind.present) {
       map['kind'] = Variable<String>(kind.value);
     }
+    if (iconKey.present) {
+      map['icon_key'] = Variable<String>(iconKey.value);
+    }
+    if (colorKey.present) {
+      map['color_key'] = Variable<String>(colorKey.value);
+    }
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
@@ -2056,6 +2153,8 @@ class CategoriesCompanion extends UpdateCompanion<CategoryRow> {
           ..write('parentId: $parentId, ')
           ..write('name: $name, ')
           ..write('kind: $kind, ')
+          ..write('iconKey: $iconKey, ')
+          ..write('colorKey: $colorKey, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('active: $active, ')
           ..write('rowid: $rowid')
@@ -2099,6 +2198,30 @@ class $CostCentersTable extends CostCenters
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _iconKeyMeta = const VerificationMeta(
+    'iconKey',
+  );
+  @override
+  late final GeneratedColumn<String> iconKey = GeneratedColumn<String>(
+    'icon_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('tag'),
+  );
+  static const VerificationMeta _colorKeyMeta = const VerificationMeta(
+    'colorKey',
+  );
+  @override
+  late final GeneratedColumn<String> colorKey = GeneratedColumn<String>(
+    'color_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('slate'),
+  );
   static const VerificationMeta _activeMeta = const VerificationMeta('active');
   @override
   late final GeneratedColumn<bool> active = GeneratedColumn<bool>(
@@ -2113,7 +2236,14 @@ class $CostCentersTable extends CostCenters
     defaultValue: const Constant(true),
   );
   @override
-  List<GeneratedColumn> get $columns => [id, householdId, name, active];
+  List<GeneratedColumn> get $columns => [
+    id,
+    householdId,
+    name,
+    iconKey,
+    colorKey,
+    active,
+  ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2150,6 +2280,18 @@ class $CostCentersTable extends CostCenters
     } else if (isInserting) {
       context.missing(_nameMeta);
     }
+    if (data.containsKey('icon_key')) {
+      context.handle(
+        _iconKeyMeta,
+        iconKey.isAcceptableOrUnknown(data['icon_key']!, _iconKeyMeta),
+      );
+    }
+    if (data.containsKey('color_key')) {
+      context.handle(
+        _colorKeyMeta,
+        colorKey.isAcceptableOrUnknown(data['color_key']!, _colorKeyMeta),
+      );
+    }
     if (data.containsKey('active')) {
       context.handle(
         _activeMeta,
@@ -2177,6 +2319,14 @@ class $CostCentersTable extends CostCenters
         DriftSqlType.string,
         data['${effectivePrefix}name'],
       )!,
+      iconKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon_key'],
+      )!,
+      colorKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}color_key'],
+      )!,
       active: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}active'],
@@ -2194,11 +2344,15 @@ class CostCenterRow extends DataClass implements Insertable<CostCenterRow> {
   final String id;
   final String householdId;
   final String name;
+  final String iconKey;
+  final String colorKey;
   final bool active;
   const CostCenterRow({
     required this.id,
     required this.householdId,
     required this.name,
+    required this.iconKey,
+    required this.colorKey,
     required this.active,
   });
   @override
@@ -2207,6 +2361,8 @@ class CostCenterRow extends DataClass implements Insertable<CostCenterRow> {
     map['id'] = Variable<String>(id);
     map['household_id'] = Variable<String>(householdId);
     map['name'] = Variable<String>(name);
+    map['icon_key'] = Variable<String>(iconKey);
+    map['color_key'] = Variable<String>(colorKey);
     map['active'] = Variable<bool>(active);
     return map;
   }
@@ -2216,6 +2372,8 @@ class CostCenterRow extends DataClass implements Insertable<CostCenterRow> {
       id: Value(id),
       householdId: Value(householdId),
       name: Value(name),
+      iconKey: Value(iconKey),
+      colorKey: Value(colorKey),
       active: Value(active),
     );
   }
@@ -2229,6 +2387,8 @@ class CostCenterRow extends DataClass implements Insertable<CostCenterRow> {
       id: serializer.fromJson<String>(json['id']),
       householdId: serializer.fromJson<String>(json['householdId']),
       name: serializer.fromJson<String>(json['name']),
+      iconKey: serializer.fromJson<String>(json['iconKey']),
+      colorKey: serializer.fromJson<String>(json['colorKey']),
       active: serializer.fromJson<bool>(json['active']),
     );
   }
@@ -2239,6 +2399,8 @@ class CostCenterRow extends DataClass implements Insertable<CostCenterRow> {
       'id': serializer.toJson<String>(id),
       'householdId': serializer.toJson<String>(householdId),
       'name': serializer.toJson<String>(name),
+      'iconKey': serializer.toJson<String>(iconKey),
+      'colorKey': serializer.toJson<String>(colorKey),
       'active': serializer.toJson<bool>(active),
     };
   }
@@ -2247,11 +2409,15 @@ class CostCenterRow extends DataClass implements Insertable<CostCenterRow> {
     String? id,
     String? householdId,
     String? name,
+    String? iconKey,
+    String? colorKey,
     bool? active,
   }) => CostCenterRow(
     id: id ?? this.id,
     householdId: householdId ?? this.householdId,
     name: name ?? this.name,
+    iconKey: iconKey ?? this.iconKey,
+    colorKey: colorKey ?? this.colorKey,
     active: active ?? this.active,
   );
   CostCenterRow copyWithCompanion(CostCentersCompanion data) {
@@ -2261,6 +2427,8 @@ class CostCenterRow extends DataClass implements Insertable<CostCenterRow> {
           ? data.householdId.value
           : this.householdId,
       name: data.name.present ? data.name.value : this.name,
+      iconKey: data.iconKey.present ? data.iconKey.value : this.iconKey,
+      colorKey: data.colorKey.present ? data.colorKey.value : this.colorKey,
       active: data.active.present ? data.active.value : this.active,
     );
   }
@@ -2271,13 +2439,16 @@ class CostCenterRow extends DataClass implements Insertable<CostCenterRow> {
           ..write('id: $id, ')
           ..write('householdId: $householdId, ')
           ..write('name: $name, ')
+          ..write('iconKey: $iconKey, ')
+          ..write('colorKey: $colorKey, ')
           ..write('active: $active')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, householdId, name, active);
+  int get hashCode =>
+      Object.hash(id, householdId, name, iconKey, colorKey, active);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2285,6 +2456,8 @@ class CostCenterRow extends DataClass implements Insertable<CostCenterRow> {
           other.id == this.id &&
           other.householdId == this.householdId &&
           other.name == this.name &&
+          other.iconKey == this.iconKey &&
+          other.colorKey == this.colorKey &&
           other.active == this.active);
 }
 
@@ -2292,12 +2465,16 @@ class CostCentersCompanion extends UpdateCompanion<CostCenterRow> {
   final Value<String> id;
   final Value<String> householdId;
   final Value<String> name;
+  final Value<String> iconKey;
+  final Value<String> colorKey;
   final Value<bool> active;
   final Value<int> rowid;
   const CostCentersCompanion({
     this.id = const Value.absent(),
     this.householdId = const Value.absent(),
     this.name = const Value.absent(),
+    this.iconKey = const Value.absent(),
+    this.colorKey = const Value.absent(),
     this.active = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -2305,6 +2482,8 @@ class CostCentersCompanion extends UpdateCompanion<CostCenterRow> {
     required String id,
     required String householdId,
     required String name,
+    this.iconKey = const Value.absent(),
+    this.colorKey = const Value.absent(),
     this.active = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -2314,6 +2493,8 @@ class CostCentersCompanion extends UpdateCompanion<CostCenterRow> {
     Expression<String>? id,
     Expression<String>? householdId,
     Expression<String>? name,
+    Expression<String>? iconKey,
+    Expression<String>? colorKey,
     Expression<bool>? active,
     Expression<int>? rowid,
   }) {
@@ -2321,6 +2502,8 @@ class CostCentersCompanion extends UpdateCompanion<CostCenterRow> {
       if (id != null) 'id': id,
       if (householdId != null) 'household_id': householdId,
       if (name != null) 'name': name,
+      if (iconKey != null) 'icon_key': iconKey,
+      if (colorKey != null) 'color_key': colorKey,
       if (active != null) 'active': active,
       if (rowid != null) 'rowid': rowid,
     });
@@ -2330,6 +2513,8 @@ class CostCentersCompanion extends UpdateCompanion<CostCenterRow> {
     Value<String>? id,
     Value<String>? householdId,
     Value<String>? name,
+    Value<String>? iconKey,
+    Value<String>? colorKey,
     Value<bool>? active,
     Value<int>? rowid,
   }) {
@@ -2337,6 +2522,8 @@ class CostCentersCompanion extends UpdateCompanion<CostCenterRow> {
       id: id ?? this.id,
       householdId: householdId ?? this.householdId,
       name: name ?? this.name,
+      iconKey: iconKey ?? this.iconKey,
+      colorKey: colorKey ?? this.colorKey,
       active: active ?? this.active,
       rowid: rowid ?? this.rowid,
     );
@@ -2354,6 +2541,12 @@ class CostCentersCompanion extends UpdateCompanion<CostCenterRow> {
     if (name.present) {
       map['name'] = Variable<String>(name.value);
     }
+    if (iconKey.present) {
+      map['icon_key'] = Variable<String>(iconKey.value);
+    }
+    if (colorKey.present) {
+      map['color_key'] = Variable<String>(colorKey.value);
+    }
     if (active.present) {
       map['active'] = Variable<bool>(active.value);
     }
@@ -2369,6 +2562,8 @@ class CostCentersCompanion extends UpdateCompanion<CostCenterRow> {
           ..write('id: $id, ')
           ..write('householdId: $householdId, ')
           ..write('name: $name, ')
+          ..write('iconKey: $iconKey, ')
+          ..write('colorKey: $colorKey, ')
           ..write('active: $active, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -15795,6 +15990,8 @@ typedef $$CategoriesTableCreateCompanionBuilder =
       Value<String?> parentId,
       required String name,
       required String kind,
+      Value<String> iconKey,
+      Value<String> colorKey,
       Value<int> sortOrder,
       Value<bool> active,
       Value<int> rowid,
@@ -15806,6 +16003,8 @@ typedef $$CategoriesTableUpdateCompanionBuilder =
       Value<String?> parentId,
       Value<String> name,
       Value<String> kind,
+      Value<String> iconKey,
+      Value<String> colorKey,
       Value<int> sortOrder,
       Value<bool> active,
       Value<int> rowid,
@@ -15842,6 +16041,16 @@ class $$CategoriesTableFilterComposer
 
   ColumnFilters<String> get kind => $composableBuilder(
     column: $table.kind,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get iconKey => $composableBuilder(
+    column: $table.iconKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get colorKey => $composableBuilder(
+    column: $table.colorKey,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -15890,6 +16099,16 @@ class $$CategoriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get iconKey => $composableBuilder(
+    column: $table.iconKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get colorKey => $composableBuilder(
+    column: $table.colorKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get sortOrder => $composableBuilder(
     column: $table.sortOrder,
     builder: (column) => ColumnOrderings(column),
@@ -15926,6 +16145,12 @@ class $$CategoriesTableAnnotationComposer
 
   GeneratedColumn<String> get kind =>
       $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get iconKey =>
+      $composableBuilder(column: $table.iconKey, builder: (column) => column);
+
+  GeneratedColumn<String> get colorKey =>
+      $composableBuilder(column: $table.colorKey, builder: (column) => column);
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
@@ -15970,6 +16195,8 @@ class $$CategoriesTableTableManager
                 Value<String?> parentId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String> kind = const Value.absent(),
+                Value<String> iconKey = const Value.absent(),
+                Value<String> colorKey = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
                 Value<bool> active = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -15979,6 +16206,8 @@ class $$CategoriesTableTableManager
                 parentId: parentId,
                 name: name,
                 kind: kind,
+                iconKey: iconKey,
+                colorKey: colorKey,
                 sortOrder: sortOrder,
                 active: active,
                 rowid: rowid,
@@ -15990,6 +16219,8 @@ class $$CategoriesTableTableManager
                 Value<String?> parentId = const Value.absent(),
                 required String name,
                 required String kind,
+                Value<String> iconKey = const Value.absent(),
+                Value<String> colorKey = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
                 Value<bool> active = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -15999,6 +16230,8 @@ class $$CategoriesTableTableManager
                 parentId: parentId,
                 name: name,
                 kind: kind,
+                iconKey: iconKey,
+                colorKey: colorKey,
                 sortOrder: sortOrder,
                 active: active,
                 rowid: rowid,
@@ -16033,6 +16266,8 @@ typedef $$CostCentersTableCreateCompanionBuilder =
       required String id,
       required String householdId,
       required String name,
+      Value<String> iconKey,
+      Value<String> colorKey,
       Value<bool> active,
       Value<int> rowid,
     });
@@ -16041,6 +16276,8 @@ typedef $$CostCentersTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> householdId,
       Value<String> name,
+      Value<String> iconKey,
+      Value<String> colorKey,
       Value<bool> active,
       Value<int> rowid,
     });
@@ -16066,6 +16303,16 @@ class $$CostCentersTableFilterComposer
 
   ColumnFilters<String> get name => $composableBuilder(
     column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get iconKey => $composableBuilder(
+    column: $table.iconKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get colorKey => $composableBuilder(
+    column: $table.colorKey,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -16099,6 +16346,16 @@ class $$CostCentersTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get iconKey => $composableBuilder(
+    column: $table.iconKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get colorKey => $composableBuilder(
+    column: $table.colorKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get active => $composableBuilder(
     column: $table.active,
     builder: (column) => ColumnOrderings(column),
@@ -16124,6 +16381,12 @@ class $$CostCentersTableAnnotationComposer
 
   GeneratedColumn<String> get name =>
       $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get iconKey =>
+      $composableBuilder(column: $table.iconKey, builder: (column) => column);
+
+  GeneratedColumn<String> get colorKey =>
+      $composableBuilder(column: $table.colorKey, builder: (column) => column);
 
   GeneratedColumn<bool> get active =>
       $composableBuilder(column: $table.active, builder: (column) => column);
@@ -16163,12 +16426,16 @@ class $$CostCentersTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> householdId = const Value.absent(),
                 Value<String> name = const Value.absent(),
+                Value<String> iconKey = const Value.absent(),
+                Value<String> colorKey = const Value.absent(),
                 Value<bool> active = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CostCentersCompanion(
                 id: id,
                 householdId: householdId,
                 name: name,
+                iconKey: iconKey,
+                colorKey: colorKey,
                 active: active,
                 rowid: rowid,
               ),
@@ -16177,12 +16444,16 @@ class $$CostCentersTableTableManager
                 required String id,
                 required String householdId,
                 required String name,
+                Value<String> iconKey = const Value.absent(),
+                Value<String> colorKey = const Value.absent(),
                 Value<bool> active = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CostCentersCompanion.insert(
                 id: id,
                 householdId: householdId,
                 name: name,
+                iconKey: iconKey,
+                colorKey: colorKey,
                 active: active,
                 rowid: rowid,
               ),

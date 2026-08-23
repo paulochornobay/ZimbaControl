@@ -12,8 +12,8 @@
 | --- | --- | --- |
 | 0 | documentação canônica, auditoria completa e roteiro reproduzível | concluída em 2026-08-23 |
 | 1 | fundação visual e correções críticas de interação | concluída em 2026-08-23 |
-| 2 | instrumentos, ícones, criação inline e reset completo | próxima |
-| 3 | importação vinculada à conta/cartão correto | pendente |
+| 2 | instrumentos, ícones, criação inline e reset completo | concluída em 2026-08-23 |
+| 3 | importação vinculada à conta/cartão correto | próxima |
 | 4 | faturas completas por etapas | pendente |
 | 5 | paridade restante, homologação Android e release | pendente |
 
@@ -115,6 +115,29 @@ realmente completa do app.
 - teste de integração comprova ausência de dados em todos os stores e retorno
   ao onboarding;
 - backup anterior ao reset continua restaurável.
+
+### Entregue em 2026-08-23
+
+- `InstrumentDisplay` compartilhado identifica nome, provedor, tipo, titular e
+  últimos dígitos em Novo, Editar, Movimentações, Importação e Cadastros;
+- categorias e centros ganharam `iconKey`/`colorKey` na migração Drift 12,
+  backfill, fallback para backups antigos, sugestões em português e seletor
+  vetorial;
+- Novo e Editar permitem criar categoria ou centro sem abandonar o lançamento
+  e retornam com o registro recém-criado selecionado;
+- Ajustes > Dados locais ganhou a área de perigo “Zerar aplicativo”, contagens,
+  atalho para backup, explicação das permissões Android preservadas e
+  confirmação digitada `ZERAR`;
+- o reset coordenado limpa tabelas financeiras, staging, regras, stores de
+  sync, fila SQLite nativa, preferências da captura e sessão segura antes de
+  retornar ao onboarding;
+- testes cobrem instrumentos do mesmo provedor, criação inline, fallback de
+  backup e reset de todos os stores com restauração posterior. A suíte completa
+  soma 72 testes aprovados, com `flutter analyze` sem avisos.
+
+A associação do arquivo OFX ao instrumento correto permanece deliberadamente
+na Fase 3: nesta fase o histórico de importação passou a mostrar a identidade
+disponível, mas não infere um destino que o parser ainda não comprovou.
 
 ## 5. Fase 3 — Importação orientada ao instrumento
 
@@ -250,3 +273,9 @@ testes então existentes. A APK `1.1.0+2` foi gerada em
 Esse artefato é diagnóstico, não o release final: ele usa certificado de debug
 e o manifesto principal não declara `INTERNET`. Uma nova APK só deve ser
 considerada candidata após a Fase 5 e a homologação física.
+
+Após a Fase 2, a APK release `1.1.0+2` foi reconstruída e instalada por
+atualização no Samsung `SM-S908E`. O SHA-256 do artefato diagnóstico é
+`9422CC20D010FB0F483ADDD24530B42B39B55864D72B7BF12775F7EC34F84003`.
+Isso comprova compilação e instalação, mas não altera a política: assinatura
+própria e homologação integral continuam sendo critérios da Fase 5.

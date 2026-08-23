@@ -58,6 +58,10 @@ class MainActivity : FlutterActivity() {
                     val olderThanDays = call.argument<Int>("olderThanDays") ?: 30
                     result.success(NotificationCaptureStore.pruneRawEvents(this, olderThanDays))
                 }
+                "resetLocalCapture" -> {
+                    NotificationCaptureStore.resetLocalData(this)
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         }

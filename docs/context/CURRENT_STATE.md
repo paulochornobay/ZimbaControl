@@ -11,9 +11,10 @@
 
 - Item 0 do plano de continuidade concluído: requisitos, auditoria das 12
   telas do protótipo e roadmap por fases foram consolidados em `docs/product`.
-- Fase 1 concluída tecnicamente: Movimentações compacta com bottom sheet de
-  filtros, navegação “Movim.”, detalhe em leitura, snackbar temporário e título
-  amigável separado da descrição original. A Fase 2 é a próxima.
+- Fases 1 e 2 concluídas tecnicamente. Além da fundação visual, o app agora
+  distingue conta/cartão, persiste ícones e cores de categorias/centros,
+  permite criação inline e oferece reset coordenado com confirmação `ZERAR`.
+  A Fase 3, associação explícita da importação ao instrumento, é a próxima.
 - Referência visual oficial local: `C:\dev\pixel-perfect-pixels@2848fc6`.
 - Código do app auditado: `ZimbaControl@cd67fcb`.
 - Lacunas críticas confirmadas: Movimentações, snackbar persistente,
@@ -24,8 +25,10 @@
   `36C922AE12AA35C1BE22C4305C1DF8E08E2EB714D76ACCD58D3AB074750C2C57`.
   Ela é um artefato diagnóstico: usa certificado de debug e não é a candidata
   final de distribuição.
-- ADB não enumerou aparelho durante a auditoria; homologação física continua
-  pendente.
+- O aparelho Samsung `SM-S908E` passou a ser enumerado pelo ADB e recebeu a
+  build release da Fase 2 por atualização (`adb install -r`), preservando os
+  dados. O processo iniciou normalmente; a homologação física completa
+  continua reservada à Fase 5.
 
 ## Estado Atual
 
@@ -81,6 +84,11 @@
   validacao antes de restaurar, restauracao transacional, exportacao CSV de
   movimentacoes, salvamento por seletor nativo e compartilhamento Android via
   `share_plus`.
+- A Fase 2 adicionou identidade compartilhada para contas/cartões, ícones e
+  cores persistidos para categorias/centros, criação contextual dentro de
+  Novo/Editar e reset integral coordenado. O reset também limpa regras,
+  staging, stores de sync, fila SQLite nativa, preferências da captura e sessão
+  segura; permissões concedidas pelo Android permanecem no sistema.
 - Marco 11A iniciado/concluido para sync tecnico: API tem store MongoDB/memoria,
   `.env.example`, colecoes/indices planejados no Atlas, push idempotente,
   pull incremental, conflito por `baseVersion` e painel mobile de sync via
@@ -209,10 +217,10 @@ Antes de continuar qualquer marco, leia:
 
 ## Próximo ciclo
 
-Executar a Fase 1 de `docs/product/IMPLEMENTATION_ROADMAP.md`: fundação visual,
-Movimentações, correção do feedback de confirmação e separação entre título
-amigável e descrição original. A homologação Android física continua
-obrigatória antes de uma candidata final de release.
+Executar a Fase 3 de `docs/product/IMPLEMENTATION_ROADMAP.md`: extrair a
+identidade do demonstrativo, exigir confirmação da conta/cartão de destino e
+promover o lote somente para o instrumento confirmado. A homologação Android
+física completa continua obrigatória antes de uma candidata final de release.
 
 Sequencia recomendada:
 

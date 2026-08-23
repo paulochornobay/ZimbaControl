@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../data/local/app_database.dart';
+import 'design/instrument_display.dart';
 import 'design/zimba_theme.dart';
 import 'design/zimba_ui.dart';
+import 'registries_page.dart';
 
 class NewTransactionPage extends StatefulWidget {
   const NewTransactionPage({
@@ -136,6 +138,43 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
     }
   }
 
+  Future<void> createCategoryInline() async {
+    final id = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => CategoryFormPage(
+          database: widget.database,
+          initialKind: kind == 'income' ? 'income' : 'expense',
+        ),
+      ),
+    );
+    if (id == null || !mounted) return;
+    final registry = await widget.database.getRegistrySnapshot(
+      includeInactive: false,
+    );
+    if (!mounted) return;
+    setState(() {
+      categoryId = id;
+      dataFuture = Future.value(_NewTransactionData(registry));
+    });
+  }
+
+  Future<void> createCostCenterInline() async {
+    final id = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => CostCenterFormPage(database: widget.database),
+      ),
+    );
+    if (id == null || !mounted) return;
+    final registry = await widget.database.getRegistrySnapshot(
+      includeInactive: false,
+    );
+    if (!mounted) return;
+    setState(() {
+      costCenterId = id;
+      dataFuture = Future.value(_NewTransactionData(registry));
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -177,6 +216,7 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
                       ),
                     ),
                     TextField(
+                      key: const ValueKey('new-transaction-amount'),
                       controller: amountController,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
@@ -205,6 +245,7 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
               ZimbaCard(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: TextField(
+                  key: const ValueKey('new-transaction-description'),
                   controller: descriptionController,
                   textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
@@ -218,19 +259,27 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
               ),
               const SizedBox(height: 20),
               const ZimbaSectionTitle('Conta'),
-              _OptionWrap(
+              Column(
                 children: [
                   for (final item in registry.accounts)
-                    _FormOption(
-                      label: item.account.name,
-                      selected: accountId == item.account.id,
-                      onTap: () => setState(() => accountId = item.account.id),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: InstrumentChoice(
+                        instrument: InstrumentDisplay.account(item),
+                        selected: accountId == item.account.id,
+                        onTap: () =>
+                            setState(() => accountId = item.account.id),
+                      ),
                     ),
                 ],
               ),
               if (kind != 'transfer') ...[
                 const SizedBox(height: 20),
-                const ZimbaSectionTitle('Categoria'),
+                _SectionHeader(
+                  title: 'Categoria',
+                  actionLabel: 'Criar',
+                  onAction: createCategoryInline,
+                ),
                 _OptionWrap(
                   children: [
                     for (final category in registry.categories.where(
@@ -238,6 +287,11 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
                     ))
                       _FormOption(
                         label: category.name,
+                        leading: ClassificationBadge(
+                          iconKey: category.iconKey,
+                          colorKey: category.colorKey,
+                          compact: true,
+                        ),
                         selected: categoryId == category.id,
                         onTap: () => setState(
                           () => categoryId = categoryId == category.id
@@ -248,12 +302,21 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                const ZimbaSectionTitle('Centro de custo'),
+                _SectionHeader(
+                  title: 'Centro de custo',
+                  actionLabel: 'Criar',
+                  onAction: createCostCenterInline,
+                ),
                 _OptionWrap(
                   children: [
                     for (final center in registry.costCenters)
                       _FormOption(
                         label: center.name,
+                        leading: ClassificationBadge(
+                          iconKey: center.iconKey,
+                          colorKey: center.colorKey,
+                          compact: true,
+                        ),
                         selected: costCenterId == center.id,
                         onTap: () => setState(
                           () => costCenterId = costCenterId == center.id
@@ -424,11 +487,13 @@ class _FormOption extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.leading,
   });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
+  final Widget? leading;
 
   @override
   Widget build(BuildContext context) {
@@ -448,19 +513,53 @@ class _FormOption extends StatelessWidget {
           ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 260),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: selected
-                    ? ZimbaColors.accent
-                    : ZimbaColors.secondaryText,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (leading != null) ...[leading!, const SizedBox(width: 6)],
+                Flexible(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: selected
+                          ? ZimbaColors.accent
+                          : ZimbaColors.secondaryText,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.title,
+    required this.actionLabel,
+    required this.onAction,
+  });
+
+  final String title;
+  final String actionLabel;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: ZimbaSectionTitle(title)),
+        TextButton.icon(
+          onPressed: onAction,
+          icon: const Icon(Icons.add, size: 18),
+          label: Text(actionLabel),
+        ),
+      ],
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../data/local/app_database.dart';
+import 'design/instrument_display.dart';
 import 'design/zimba_theme.dart';
 import 'design/zimba_ui.dart';
 
@@ -51,7 +52,7 @@ class _RegistriesPageState extends State<RegistriesPage>
     if (!mounted) {
       return;
     }
-    final result = await Navigator.of(context).push<bool>(
+    final result = await Navigator.of(context).push<Object?>(
       MaterialPageRoute(
         builder: (_) => switch (tabController.index) {
           0 => PersonFormPage(database: widget.database),
@@ -68,7 +69,7 @@ class _RegistriesPageState extends State<RegistriesPage>
         },
       ),
     );
-    if (result == true && mounted) {
+    if (result != null && mounted) {
       refresh();
     }
   }
@@ -239,13 +240,8 @@ class _AccountList extends StatelessWidget {
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final item = accounts[index];
-        return _RegistryTile(
-          icon: item.account.type == 'credit_card'
-              ? Icons.credit_card_outlined
-              : Icons.account_balance_wallet_outlined,
-          title: item.account.name,
-          subtitle:
-              '${_providerLabel(item.account.provider)} · ${item.ownerLabel}',
+        return _InstrumentRegistryTile(
+          instrument: InstrumentDisplay.account(item),
           inactive: !item.account.active,
           onTap: () async {
             final result = await Navigator.of(context).push<bool>(
@@ -303,11 +299,10 @@ class _CardList extends StatelessWidget {
       itemBuilder: (context, index) {
         final item = cards[index];
         final card = item.creditCard;
-        return _RegistryTile(
-          icon: Icons.credit_card_outlined,
-          title: card.name,
-          subtitle:
-              '${card.brand ?? 'Cartao'} · ${item.ownerLabel} · fecha ${card.billingDay ?? '-'} · vence ${card.dueDay ?? '-'}',
+        return _InstrumentRegistryTile(
+          instrument: InstrumentDisplay.card(item),
+          footer:
+              '${card.brand ?? 'Cartão'} · fecha ${card.billingDay ?? '-'} · vence ${card.dueDay ?? '-'}',
           inactive: !card.active,
           onTap: () async {
             final result = await Navigator.of(context).push<bool>(
@@ -360,19 +355,22 @@ class _CategoryList extends StatelessWidget {
       itemBuilder: (context, index) {
         final category = categories[index];
         return _RegistryTile(
-          icon: Icons.category_outlined,
+          leading: ClassificationBadge(
+            iconKey: category.iconKey,
+            colorKey: category.colorKey,
+          ),
           title: category.name,
           subtitle:
               '${_kindLabel(category.kind)} · ordem ${category.sortOrder}',
           inactive: !category.active,
           onTap: () async {
-            final result = await Navigator.of(context).push<bool>(
+            final result = await Navigator.of(context).push<String>(
               MaterialPageRoute(
                 builder: (_) =>
                     CategoryFormPage(database: database, category: category),
               ),
             );
-            if (result == true) {
+            if (result != null) {
               onChanged();
             }
           },
@@ -416,18 +414,21 @@ class _CostCenterList extends StatelessWidget {
       itemBuilder: (context, index) {
         final center = costCenters[index];
         return _RegistryTile(
-          icon: Icons.account_tree_outlined,
+          leading: ClassificationBadge(
+            iconKey: center.iconKey,
+            colorKey: center.colorKey,
+          ),
           title: center.name,
           subtitle: center.active ? 'Ativo' : 'Arquivado',
           inactive: !center.active,
           onTap: () async {
-            final result = await Navigator.of(context).push<bool>(
+            final result = await Navigator.of(context).push<String>(
               MaterialPageRoute(
                 builder: (_) =>
                     CostCenterFormPage(database: database, costCenter: center),
               ),
             );
-            if (result == true) {
+            if (result != null) {
               onChanged();
             }
           },
@@ -861,10 +862,16 @@ bool _isValidDay(int? value) {
 }
 
 class CategoryFormPage extends StatefulWidget {
-  const CategoryFormPage({required this.database, this.category, super.key});
+  const CategoryFormPage({
+    required this.database,
+    this.category,
+    this.initialKind = 'expense',
+    super.key,
+  });
 
   final AppDatabase database;
   final CategoryRow? category;
+  final String initialKind;
 
   @override
   State<CategoryFormPage> createState() => _CategoryFormPageState();
@@ -874,6 +881,8 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
   late final TextEditingController nameController;
   late final TextEditingController sortOrderController;
   late String kind;
+  late String iconKey;
+  late String colorKey;
   late bool active;
 
   @override
@@ -884,7 +893,13 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
     sortOrderController = TextEditingController(
       text: (category?.sortOrder ?? 100).toString(),
     );
-    kind = category?.kind ?? 'expense';
+    kind = category?.kind ?? widget.initialKind;
+    final visual = suggestClassificationVisual(
+      category?.name ?? '',
+      kind: kind,
+    );
+    iconKey = category?.iconKey ?? visual.$1;
+    colorKey = category?.colorKey ?? visual.$2;
     active = category?.active ?? true;
   }
 
@@ -899,16 +914,18 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
     if (nameController.text.trim().isEmpty) {
       return;
     }
-    await widget.database.upsertCategory(
+    final id = await widget.database.upsertCategory(
       id: widget.category?.id,
       parentId: widget.category?.parentId,
       name: nameController.text,
       kind: kind,
+      iconKey: iconKey,
+      colorKey: colorKey,
       sortOrder: int.tryParse(sortOrderController.text) ?? 100,
       active: active,
     );
     if (mounted) {
-      Navigator.of(context).pop(true);
+      Navigator.of(context).pop(id);
     }
   }
 
@@ -938,6 +955,23 @@ class _CategoryFormPageState extends State<CategoryFormPage> {
             DropdownMenuItem(value: 'income', child: Text('Receita')),
           ],
           onChanged: (value) => setState(() => kind = value ?? 'expense'),
+        ),
+        const SizedBox(height: 12),
+        _ClassificationVisualEditor(
+          iconKey: iconKey,
+          colorKey: colorKey,
+          onIconChanged: (value) => setState(() => iconKey = value),
+          onColorChanged: (value) => setState(() => colorKey = value),
+          onSuggest: () {
+            final visual = suggestClassificationVisual(
+              nameController.text,
+              kind: kind,
+            );
+            setState(() {
+              iconKey = visual.$1;
+              colorKey = visual.$2;
+            });
+          },
         ),
         const SizedBox(height: 12),
         TextField(
@@ -976,12 +1010,20 @@ class CostCenterFormPage extends StatefulWidget {
 class _CostCenterFormPageState extends State<CostCenterFormPage> {
   late final TextEditingController nameController;
   late bool active;
+  late String iconKey;
+  late String colorKey;
 
   @override
   void initState() {
     super.initState();
     nameController = TextEditingController(text: widget.costCenter?.name ?? '');
     active = widget.costCenter?.active ?? true;
+    final visual = suggestClassificationVisual(
+      widget.costCenter?.name ?? '',
+      costCenter: true,
+    );
+    iconKey = widget.costCenter?.iconKey ?? visual.$1;
+    colorKey = widget.costCenter?.colorKey ?? visual.$2;
   }
 
   @override
@@ -994,13 +1036,15 @@ class _CostCenterFormPageState extends State<CostCenterFormPage> {
     if (nameController.text.trim().isEmpty) {
       return;
     }
-    await widget.database.upsertCostCenter(
+    final id = await widget.database.upsertCostCenter(
       id: widget.costCenter?.id,
       name: nameController.text,
+      iconKey: iconKey,
+      colorKey: colorKey,
       active: active,
     );
     if (mounted) {
-      Navigator.of(context).pop(true);
+      Navigator.of(context).pop(id);
     }
   }
 
@@ -1016,6 +1060,23 @@ class _CostCenterFormPageState extends State<CostCenterFormPage> {
             labelText: 'Nome',
             border: OutlineInputBorder(),
           ),
+        ),
+        const SizedBox(height: 12),
+        _ClassificationVisualEditor(
+          iconKey: iconKey,
+          colorKey: colorKey,
+          onIconChanged: (value) => setState(() => iconKey = value),
+          onColorChanged: (value) => setState(() => colorKey = value),
+          onSuggest: () {
+            final visual = suggestClassificationVisual(
+              nameController.text,
+              costCenter: true,
+            );
+            setState(() {
+              iconKey = visual.$1;
+              colorKey = visual.$2;
+            });
+          },
         ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
@@ -1075,7 +1136,8 @@ class _RegistryFormScaffold extends StatelessWidget {
 
 class _RegistryTile extends StatelessWidget {
   const _RegistryTile({
-    required this.icon,
+    this.icon,
+    this.leading,
     required this.title,
     required this.subtitle,
     required this.inactive,
@@ -1083,7 +1145,8 @@ class _RegistryTile extends StatelessWidget {
     required this.onArchive,
   });
 
-  final IconData icon;
+  final IconData? icon;
+  final Widget? leading;
   final String title;
   final String subtitle;
   final bool inactive;
@@ -1102,23 +1165,24 @@ class _RegistryTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: inactive
-                      ? ZimbaColors.surfaceMuted
-                      : ZimbaColors.accentSoft,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: inactive
-                      ? ZimbaColors.secondaryText
-                      : ZimbaColors.accent,
-                ),
-              ),
+              leading ??
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: inactive
+                          ? ZimbaColors.surfaceMuted
+                          : ZimbaColors.accentSoft,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      icon ?? Icons.sell_outlined,
+                      size: 20,
+                      color: inactive
+                          ? ZimbaColors.secondaryText
+                          : ZimbaColors.accent,
+                    ),
+                  ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -1173,6 +1237,167 @@ class _RegistryTile extends StatelessWidget {
   }
 }
 
+class _InstrumentRegistryTile extends StatelessWidget {
+  const _InstrumentRegistryTile({
+    required this.instrument,
+    required this.inactive,
+    required this.onTap,
+    required this.onArchive,
+    this.footer,
+  });
+
+  final InstrumentDisplay instrument;
+  final String? footer;
+  final bool inactive;
+  final VoidCallback onTap;
+  final VoidCallback onArchive;
+
+  @override
+  Widget build(BuildContext context) {
+    return ZimbaCard(
+      padding: EdgeInsets.zero,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(ZimbaLayout.cardRadius),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 8, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Opacity(opacity: inactive ? .55 : 1, child: instrument),
+              if (footer != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  footer!,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: ZimbaColors.secondaryText,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  ZimbaBadge(
+                    label: inactive ? 'Arquivado' : 'Ativo',
+                    tone: inactive ? ZimbaTone.neutral : ZimbaTone.success,
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: inactive ? 'Reativar' : 'Arquivar',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: onArchive,
+                    icon: Icon(
+                      inactive
+                          ? Icons.unarchive_outlined
+                          : Icons.archive_outlined,
+                      size: 19,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ClassificationVisualEditor extends StatelessWidget {
+  const _ClassificationVisualEditor({
+    required this.iconKey,
+    required this.colorKey,
+    required this.onIconChanged,
+    required this.onColorChanged,
+    required this.onSuggest,
+  });
+
+  final String iconKey;
+  final String colorKey;
+  final ValueChanged<String> onIconChanged;
+  final ValueChanged<String> onColorChanged;
+  final VoidCallback onSuggest;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(child: Text('Ícone e cor')),
+            TextButton.icon(
+              onPressed: onSuggest,
+              icon: const Icon(Icons.auto_awesome_outlined, size: 17),
+              label: const Text('Sugerir'),
+            ),
+          ],
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final key in classificationIconKeys)
+              InkWell(
+                onTap: () => onIconChanged(key),
+                borderRadius: BorderRadius.circular(10),
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: iconKey == key
+                        ? classificationColor(colorKey).withValues(alpha: .15)
+                        : ZimbaColors.surfaceMuted,
+                    border: Border.all(
+                      color: iconKey == key
+                          ? classificationColor(colorKey)
+                          : Colors.transparent,
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    classificationIcon(key),
+                    size: 20,
+                    color: classificationColor(colorKey),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (final key in classificationColorKeys)
+              InkWell(
+                onTap: () => onColorChanged(key),
+                customBorder: const CircleBorder(),
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: classificationColor(key),
+                    border: Border.all(
+                      color: colorKey == key
+                          ? ZimbaColors.foreground
+                          : Colors.transparent,
+                      width: 3,
+                    ),
+                  ),
+                  child: colorKey == key
+                      ? const Icon(Icons.check, color: Colors.white, size: 17)
+                      : null,
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
 class _EmptyRegistryState extends StatelessWidget {
   const _EmptyRegistryState({
     required this.icon,
@@ -1201,15 +1426,6 @@ class _EmptyRegistryState extends StatelessWidget {
             ),
     );
   }
-}
-
-String _providerLabel(String provider) {
-  return switch (provider) {
-    'mercado_pago' => 'Mercado Pago',
-    'nubank' => 'Nubank',
-    'manual' => 'Manual',
-    _ => provider,
-  };
 }
 
 String _kindLabel(String kind) {

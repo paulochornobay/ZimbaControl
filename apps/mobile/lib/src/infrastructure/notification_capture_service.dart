@@ -109,6 +109,14 @@ class NotificationCaptureService {
       return 0;
     }
   }
+
+  Future<void> resetLocalCapture() async {
+    try {
+      await _channel.invokeMethod<void>('resetLocalCapture');
+    } on MissingPluginException {
+      return;
+    }
+  }
 }
 
 class NotificationCaptureStatus {

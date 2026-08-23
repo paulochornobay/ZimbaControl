@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../application/app_reset_coordinator.dart';
 import '../data/local/app_database.dart';
 import '../infrastructure/api_sync_client.dart';
 import '../infrastructure/google_session_client.dart';
@@ -325,6 +326,44 @@ class DataEnvironmentPage extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 20),
+          const ZimbaSectionTitle('Área de perigo'),
+          ZimbaCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: ZimbaColors.destructive,
+                  size: 30,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Começar do zero',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Faça um backup antes se quiser recuperar os lançamentos e cadastros depois.',
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => BackupSettingsPage(database: database),
+                      ),
+                    ),
+                    icon: const Icon(Icons.archive_outlined),
+                    label: const Text('Fazer backup antes'),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -424,24 +463,13 @@ class _EnvironmentPanelState extends State<EnvironmentPanel> {
   }
 
   Future<void> clearLocalData() async {
-    final confirmed = await showDialog<bool>(
+    final status = await statusFuture;
+    if (!mounted) return;
+    final confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Apagar dados locais?'),
-        content: const Text(
-          'Isto remove lancamentos, cadastros, importacoes, backup em staging, preferencias e outbox local deste aparelho.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Apagar'),
-          ),
-        ],
-      ),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _ResetConfirmationSheet(status: status),
     );
     if (confirmed != true) {
       return;
@@ -450,15 +478,22 @@ class _EnvironmentPanelState extends State<EnvironmentPanel> {
       loading = true;
       message = null;
     });
-    await widget.database.clearLocalData();
-    if (!mounted) {
-      return;
+    try {
+      await AppResetCoordinator(database: widget.database).resetEverything();
+      if (!mounted) return;
+      setState(() {
+        loading = false;
+        message = 'Aplicativo zerado com segurança.';
+      });
+      refresh();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        loading = false;
+        message =
+            'Não foi possível zerar tudo. Seus dados financeiros foram preservados.';
+      });
     }
-    setState(() {
-      loading = false;
-      message = 'Ambiente local zerado.';
-    });
-    refresh();
   }
 
   @override
@@ -500,14 +535,131 @@ class _EnvironmentPanelState extends State<EnvironmentPanel> {
                 ),
                 OutlinedButton.icon(
                   onPressed: loading ? null : clearLocalData,
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Apagar dados locais'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: ZimbaColors.destructive,
+                  ),
+                  icon: const Icon(Icons.delete_forever_outlined),
+                  label: const Text('Zerar aplicativo'),
                 ),
               ],
             ),
           ],
         );
       },
+    );
+  }
+}
+
+class _ResetConfirmationSheet extends StatefulWidget {
+  const _ResetConfirmationSheet({required this.status});
+
+  final LocalDataStatus status;
+
+  @override
+  State<_ResetConfirmationSheet> createState() =>
+      _ResetConfirmationSheetState();
+}
+
+class _ResetConfirmationSheetState extends State<_ResetConfirmationSheet> {
+  final controller = TextEditingController();
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = controller.text.trim().toUpperCase() == 'ZERAR';
+    final status = widget.status;
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(
+          20,
+          18,
+          20,
+          16 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        decoration: const BoxDecoration(
+          color: ZimbaColors.surface,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Zerar aplicativo',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Fechar',
+                    onPressed: () => Navigator.of(context).pop(false),
+                    icon: const Icon(Icons.close),
+                  ),
+                ],
+              ),
+              const Text(
+                'Esta ação remove dados financeiros, importações, regras, sync, fila de notificações e sessão deste aparelho.',
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: ZimbaColors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '${status.transactions} lançamentos · ${status.accounts + status.creditCards} instrumentos\n'
+                  '${status.categories + status.costCenters} classificações · ${status.importBatches} importações\n'
+                  '${status.classificationRules} regras · ${status.syncRecords} registros de sync',
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'As permissões concedidas pelo Android, como acesso às notificações, permanecem ativas.',
+                style: TextStyle(color: ZimbaColors.secondaryText),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                textCapitalization: TextCapitalization.characters,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'Digite ZERAR para confirmar',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: enabled
+                      ? () => Navigator.of(context).pop(true)
+                      : null,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: ZimbaColors.destructive,
+                  ),
+                  icon: const Icon(Icons.delete_forever_outlined),
+                  label: const Text('Apagar tudo e voltar ao início'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

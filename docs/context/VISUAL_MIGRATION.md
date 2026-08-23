@@ -19,16 +19,17 @@
 ## Situação
 
 A Fase 1 corrigiu Movimentações, o destino “Movim.”, o feedback de confirmação
-e a separação entre título amigável e descrição original. Há goldens de
-Revisão, Movimentações e Detalhe nos dois viewports de referência.
+e a separação entre título amigável e descrição original. A Fase 2 adicionou
+identidade inequívoca de contas/cartões, ícones e cores em classificações,
+criação inline e a área segura para zerar o app. Os goldens de Movimentações e
+Detalhe foram atualizados para a nova identidade nos dois viewports.
 
 As maiores lacunas restantes são:
 
-1. contas e cartões indistinguíveis nos seletores;
-2. categoria/centro sem ícone padrão e sem criação inline;
-3. OFX sem identidade do demonstrativo e sem confirmação do instrumento;
-4. reset escondido/incompleto;
-5. ausência de fatura como entidade.
+1. OFX sem identidade do demonstrativo e sem confirmação do instrumento;
+2. ausência de fatura como entidade;
+3. paridade restante de Resumo, Ajustes, Família e jornadas auxiliares;
+4. homologação integral em Android físico.
 
 ## Contrato resumido
 

@@ -53,6 +53,14 @@ class GoogleSessionClient {
 
   Future<String?> readSessionEmail() => storage.read(key: _emailKey);
 
+  static Future<void> clearStoredSession({
+    FlutterSecureStorage? storage,
+  }) async {
+    final secureStorage = storage ?? const FlutterSecureStorage();
+    await secureStorage.delete(key: _tokenKey);
+    await secureStorage.delete(key: _emailKey);
+  }
+
   Future<ApiSession> signIn() async {
     await _initializeGoogle();
     final account = await GoogleSignIn.instance.authenticate();
