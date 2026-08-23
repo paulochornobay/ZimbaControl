@@ -11,10 +11,11 @@
 ## 1. Resultado executivo
 
 O app Flutter preserva mais comportamento financeiro real que o protótipo e as
-Fases 1–3 já eliminaram as divergências críticas de Movimentações, confirmação,
+Fases 1–3 e 4A já eliminaram as divergências críticas de Movimentações, confirmação,
 descrição, identidade de instrumentos, classificações, reset e associação da
-importação ao instrumento. Ainda não há paridade total: o domínio de faturas é
-a maior lacuna funcional, seguido pelo acabamento das telas restantes e pela
+importação ao instrumento e modelo calculável de faturas. Ainda não há paridade
+total: a visão e conciliação de faturas são a maior lacuna funcional, seguidas
+pelo acabamento das telas restantes e pela
 homologação Android integral.
 
 A próxima etapa não é uma troca de tecnologia nem uma cópia do React. É a
@@ -169,6 +170,12 @@ Cartões já armazenam dia de fechamento e vencimento e há helpers de cálculo 
 mês/vencimento. Não existe, porém, entidade de fatura, pagamento, estado ou
 tela de consolidação. O helper atual não substitui uma fatura auditável e não
 cobre sozinho corte, estorno, pagamento parcial e correção manual.
+
+**Modelo resolvido na Fase 4A:** Drift 14 passou a persistir fatura, pagamento,
+estado derivado, vínculo da transação e auditoria de correções. Permanecem
+pendentes nesta auditoria a tela de consolidação da Fase 4B e a conciliação da
+Fase 4C; o protótipo vigente não oferece uma rota completa de fatura para
+comparação direta.
 
 ## 7. Critérios de paridade
 

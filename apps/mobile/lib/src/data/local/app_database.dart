@@ -116,6 +116,9 @@ class Transactions extends Table {
   TextColumn get transferToAccountId => text().nullable()();
   TextColumn get recurringScheduleId => text().nullable()();
   TextColumn get installmentPlanId => text().nullable()();
+  TextColumn get creditCardInvoiceId => text().nullable()();
+  TextColumn get invoiceAssignmentSource => text().nullable()();
+  DateTimeColumn get invoiceAssignedAt => dateTime().nullable()();
   TextColumn get merchantId => text().nullable()();
   TextColumn get categoryId => text().nullable()();
   TextColumn get costCenterId => text().nullable()();
@@ -320,6 +323,58 @@ class InstallmentPlans extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@DataClassName('CreditCardInvoiceRow')
+class CreditCardInvoices extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get creditCardId => text()();
+  TextColumn get competenceMonth => text()();
+  DateTimeColumn get periodStart => dateTime()();
+  DateTimeColumn get periodEnd => dateTime()();
+  DateTimeColumn get closingDate => dateTime()();
+  DateTimeColumn get dueDate => dateTime()();
+  TextColumn get currencyCode => text().withDefault(const Constant('BRL'))();
+  TextColumn get origin => text().withDefault(const Constant('derived'))();
+  TextColumn get effectiveState => text().withDefault(const Constant('open'))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('InvoicePaymentRow')
+class InvoicePayments extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get invoiceId => text()();
+  TextColumn get transactionId => text().nullable()();
+  IntColumn get amountCents => integer()();
+  DateTimeColumn get paidAt => dateTime()();
+  TextColumn get origin => text().withDefault(const Constant('manual'))();
+  TextColumn get status => text().withDefault(const Constant('active'))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DataClassName('InvoiceAssignmentAuditRow')
+class InvoiceAssignmentAudits extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get transactionId => text()();
+  TextColumn get fromInvoiceId => text().nullable()();
+  TextColumn get toInvoiceId => text().nullable()();
+  TextColumn get origin => text()();
+  TextColumn get reason => text()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DataClassName('ImportBatchRow')
 class ImportBatches extends Table {
   TextColumn get id => text()();
@@ -444,6 +499,9 @@ class RawNotificationEvents extends Table {
     AuthUsers,
     RecurringSchedules,
     InstallmentPlans,
+    CreditCardInvoices,
+    InvoicePayments,
+    InvoiceAssignmentAudits,
     ImportBatches,
     StagedSourceRecords,
     DuplicateCandidates,
@@ -469,7 +527,7 @@ class AppDatabase extends _$AppDatabase {
       'notification_capture_retention_days';
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -615,6 +673,20 @@ class AppDatabase extends _$AppDatabase {
           importBatches,
           importBatches.targetMatchReason,
         );
+      }
+      if (from < 14) {
+        await migrator.createTable(creditCardInvoices);
+        await migrator.createTable(invoicePayments);
+        await migrator.createTable(invoiceAssignmentAudits);
+        await migrator.addColumn(
+          transactions,
+          transactions.creditCardInvoiceId,
+        );
+        await migrator.addColumn(
+          transactions,
+          transactions.invoiceAssignmentSource,
+        );
+        await migrator.addColumn(transactions, transactions.invoiceAssignedAt);
       }
     },
   );
@@ -855,6 +927,275 @@ class AppDatabase extends _$AppDatabase {
       ..where((row) => row.householdId.equals(householdMain))
       ..orderBy([(row) => OrderingTerm.asc(row.dueDay)]);
     return query.get();
+  }
+
+  Future<List<CreditCardInvoiceRow>> listCreditCardInvoices({
+    String? creditCardId,
+  }) {
+    final query = select(creditCardInvoices)
+      ..where((row) => row.householdId.equals(householdMain))
+      ..orderBy([
+        (row) => OrderingTerm.desc(row.competenceMonth),
+        (row) => OrderingTerm.asc(row.creditCardId),
+      ]);
+    if (creditCardId != null) {
+      query.where((row) => row.creditCardId.equals(creditCardId));
+    }
+    return query.get();
+  }
+
+  Future<CreditCardInvoiceRow?> getCreditCardInvoice(String id) {
+    return (select(
+      creditCardInvoices,
+    )..where((row) => row.id.equals(id))).getSingleOrNull();
+  }
+
+  Future<List<InvoicePaymentRow>> listInvoicePayments(String invoiceId) {
+    final query = select(invoicePayments)
+      ..where((row) => row.invoiceId.equals(invoiceId))
+      ..orderBy([(row) => OrderingTerm.asc(row.paidAt)]);
+    return query.get();
+  }
+
+  Future<List<InvoiceAssignmentAuditRow>> listInvoiceAssignmentAudits(
+    String transactionId,
+  ) {
+    final query = select(invoiceAssignmentAudits)
+      ..where((row) => row.transactionId.equals(transactionId))
+      ..orderBy([(row) => OrderingTerm.asc(row.createdAt)]);
+    return query.get();
+  }
+
+  InvoiceCycle invoiceCycleFor(CreditCardRow card, DateTime transactionAt) {
+    final closingDay = _validDayOrNull(card.billingDay) ?? transactionAt.day;
+    final dueDay = _validDayOrNull(card.dueDay) ?? 1;
+    final localDate = _dateOnly(transactionAt);
+    final closeThisMonth = DateTime(
+      localDate.year,
+      localDate.month,
+      _clampDay(localDate.year, localDate.month, closingDay),
+    );
+    final invoiceMonth = localDate.isAfter(closeThisMonth)
+        ? _shiftMonth(localDate, 1)
+        : DateTime(localDate.year, localDate.month, 1);
+    final closingDate = DateTime(
+      invoiceMonth.year,
+      invoiceMonth.month,
+      _clampDay(invoiceMonth.year, invoiceMonth.month, closingDay),
+    );
+    final previousMonth = _shiftMonth(invoiceMonth, -1);
+    final previousClosing = DateTime(
+      previousMonth.year,
+      previousMonth.month,
+      _clampDay(previousMonth.year, previousMonth.month, closingDay),
+    );
+    final dueMonth = dueDay > closingDay
+        ? invoiceMonth
+        : _shiftMonth(invoiceMonth, 1);
+    final dueDate = DateTime(
+      dueMonth.year,
+      dueMonth.month,
+      _clampDay(dueMonth.year, dueMonth.month, dueDay),
+    );
+    return InvoiceCycle(
+      competenceMonth: _monthKey(invoiceMonth),
+      periodStart: previousClosing.add(const Duration(days: 1)),
+      periodEnd: closingDate,
+      closingDate: closingDate,
+      dueDate: dueDate,
+    );
+  }
+
+  Future<int> rebuildCreditCardInvoices({DateTime? now}) async {
+    final calculatedAt = now ?? DateTime.now();
+    final rows = await (select(
+      transactions,
+    )..where((row) => row.deletedAt.isNull())).get();
+    var assigned = 0;
+    for (final item in rows) {
+      if (await _assignTransactionToDerivedInvoice(
+        item.id,
+        assignedAt: calculatedAt,
+      )) {
+        assigned += 1;
+      }
+    }
+    return assigned;
+  }
+
+  Future<void> correctInvoiceAssignment({
+    required String transactionId,
+    required String? invoiceId,
+    required String reason,
+    DateTime? correctedAt,
+  }) async {
+    final cleanReason = reason.trim();
+    if (cleanReason.isEmpty) {
+      throw ArgumentError('Informe o motivo da correcao de fatura.');
+    }
+    final item = await getTransaction(transactionId);
+    if (item == null || item.deletedAt != null) {
+      throw StateError('Transacao nao encontrada.');
+    }
+    if (item.kind == 'transfer') {
+      throw StateError('Transferencias nao compoem compras de fatura.');
+    }
+    if (invoiceId != null) {
+      final invoice = await getCreditCardInvoice(invoiceId);
+      if (invoice == null) {
+        throw StateError('Fatura nao encontrada.');
+      }
+      final card = await getCreditCard(invoice.creditCardId);
+      if (card == null || card.accountId != item.accountId) {
+        throw StateError('A fatura pertence a outro cartao.');
+      }
+    }
+    final previousInvoiceId = item.creditCardInvoiceId;
+    await _writeInvoiceAssignment(
+      transactionRow: item,
+      invoiceId: invoiceId,
+      origin: 'manual',
+      reason: cleanReason,
+      assignedAt: correctedAt ?? DateTime.now(),
+      enqueueSync: true,
+    );
+    for (final id in {previousInvoiceId, invoiceId}.whereType<String>()) {
+      await getCreditCardInvoiceSummary(id, now: correctedAt);
+    }
+  }
+
+  Future<String> recordInvoicePayment({
+    String? id,
+    required String invoiceId,
+    required int amountCents,
+    required DateTime paidAt,
+    String? transactionId,
+    String origin = 'manual',
+  }) async {
+    if (amountCents <= 0) {
+      throw ArgumentError('O pagamento deve ser maior que zero.');
+    }
+    final invoice = await getCreditCardInvoice(invoiceId);
+    if (invoice == null) {
+      throw StateError('Fatura nao encontrada.');
+    }
+    if (transactionId != null) {
+      final paymentTransaction = await getTransaction(transactionId);
+      if (paymentTransaction == null || paymentTransaction.deletedAt != null) {
+        throw StateError('Transacao de pagamento nao encontrada.');
+      }
+      if (paymentTransaction.kind != 'transfer') {
+        throw StateError('Pagamento de fatura deve ser uma transferencia.');
+      }
+      final duplicate =
+          await (select(invoicePayments)
+                ..where((row) => row.transactionId.equals(transactionId))
+                ..where((row) => row.status.equals('active'))
+                ..limit(1))
+              .getSingleOrNull();
+      if (duplicate != null && duplicate.id != id) {
+        throw StateError('Esta transferencia ja paga outra fatura.');
+      }
+    }
+    final now = DateTime.now();
+    final paymentId = id ?? 'invoice-payment-${now.microsecondsSinceEpoch}';
+    await into(invoicePayments).insertOnConflictUpdate(
+      InvoicePaymentsCompanion.insert(
+        id: paymentId,
+        householdId: householdMain,
+        invoiceId: invoiceId,
+        transactionId: Value(transactionId),
+        amountCents: amountCents,
+        paidAt: paidAt,
+        origin: Value(origin),
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+    await getCreditCardInvoiceSummary(invoiceId, now: now);
+    return paymentId;
+  }
+
+  Future<void> cancelInvoicePayment(String id, {DateTime? cancelledAt}) async {
+    final payment = await (select(
+      invoicePayments,
+    )..where((row) => row.id.equals(id))).getSingleOrNull();
+    if (payment == null) {
+      throw StateError('Pagamento de fatura nao encontrado.');
+    }
+    final effectiveAt = cancelledAt ?? DateTime.now();
+    await (update(invoicePayments)..where((row) => row.id.equals(id))).write(
+      InvoicePaymentsCompanion(
+        status: const Value('cancelled'),
+        updatedAt: Value(effectiveAt),
+      ),
+    );
+    await getCreditCardInvoiceSummary(payment.invoiceId, now: effectiveAt);
+  }
+
+  Future<CreditCardInvoiceSummary> getCreditCardInvoiceSummary(
+    String invoiceId, {
+    DateTime? now,
+  }) async {
+    final invoice = await getCreditCardInvoice(invoiceId);
+    if (invoice == null) {
+      throw StateError('Fatura nao encontrada.');
+    }
+    final items =
+        await (select(transactions)
+              ..where((row) => row.creditCardInvoiceId.equals(invoiceId))
+              ..where((row) => row.deletedAt.isNull())
+              ..where((row) => row.kind.equals('transfer').not()))
+            .get();
+    final payments =
+        await (select(invoicePayments)
+              ..where((row) => row.invoiceId.equals(invoiceId))
+              ..where((row) => row.status.equals('active')))
+            .get();
+    final purchasesCents = items
+        .where((item) => item.amountCents < 0)
+        .fold<int>(0, (sum, item) => sum + item.amountCents.abs());
+    final refundsCents = items
+        .where((item) => item.amountCents > 0)
+        .fold<int>(0, (sum, item) => sum + item.amountCents);
+    final totalCents = purchasesCents - refundsCents;
+    final paidCents = payments.fold<int>(
+      0,
+      (sum, payment) => sum + payment.amountCents,
+    );
+    final outstandingCents = totalCents - paidCents;
+    final effectiveAt = _dateOnly(now ?? DateTime.now());
+    final state = _invoiceEffectiveState(
+      totalCents: totalCents,
+      paidCents: paidCents,
+      outstandingCents: outstandingCents,
+      closingDate: invoice.closingDate,
+      dueDate: invoice.dueDate,
+      now: effectiveAt,
+    );
+    if (invoice.effectiveState != state) {
+      await (update(
+        creditCardInvoices,
+      )..where((row) => row.id.equals(invoiceId))).write(
+        CreditCardInvoicesCompanion(
+          effectiveState: Value(state),
+          updatedAt: Value(now ?? DateTime.now()),
+        ),
+      );
+    }
+    return CreditCardInvoiceSummary(
+      invoice: invoice.effectiveState == state
+          ? invoice
+          : invoice.copyWith(effectiveState: state),
+      transactions: items,
+      payments: payments,
+      purchasesCents: purchasesCents,
+      refundsCents: refundsCents,
+      totalCents: totalCents,
+      paidCents: paidCents,
+      outstandingCents: outstandingCents,
+      effectiveState: state,
+    );
   }
 
   Future<List<ImportBatchRow>> listImportBatches() {
@@ -1276,6 +1617,9 @@ class AppDatabase extends _$AppDatabase {
         transferToAccountId: Value(value.transferToAccountId),
         recurringScheduleId: Value(value.recurringScheduleId),
         installmentPlanId: Value(value.installmentPlanId),
+        creditCardInvoiceId: Value(value.creditCardInvoiceId),
+        invoiceAssignmentSource: Value(value.invoiceAssignmentSource),
+        invoiceAssignedAt: Value(value.invoiceAssignedAt),
         merchantId: Value(value.merchantId),
         categoryId: Value(value.categoryId),
         costCenterId: Value(value.costCenterId),
@@ -1355,6 +1699,11 @@ class AppDatabase extends _$AppDatabase {
       'authUsers': _toJsonRows(await select(authUsers).get()),
       'recurringSchedules': _toJsonRows(await select(recurringSchedules).get()),
       'installmentPlans': _toJsonRows(await select(installmentPlans).get()),
+      'creditCardInvoices': _toJsonRows(await select(creditCardInvoices).get()),
+      'invoicePayments': _toJsonRows(await select(invoicePayments).get()),
+      'invoiceAssignmentAudits': _toJsonRows(
+        await select(invoiceAssignmentAudits).get(),
+      ),
       'importBatches': _toJsonRows(await select(importBatches).get()),
       'stagedSourceRecords': _toJsonRows(
         await select(stagedSourceRecords).get(),
@@ -1412,6 +1761,9 @@ class AppDatabase extends _$AppDatabase {
   Future<BackupValidationResult> restoreBackupBytes(List<int> bytes) async {
     final backup = _decodeBackup(bytes);
     await transaction(() async {
+      await delete(invoiceAssignmentAudits).go();
+      await delete(invoicePayments).go();
+      await delete(creditCardInvoices).go();
       await delete(syncConflicts).go();
       await delete(syncAppliedEvents).go();
       await delete(rawNotificationEvents).go();
@@ -1456,6 +1808,12 @@ class AppDatabase extends _$AppDatabase {
       await _insertBackupRows(authUsers, backup.authUsers);
       await _insertBackupRows(recurringSchedules, backup.recurringSchedules);
       await _insertBackupRows(installmentPlans, backup.installmentPlans);
+      await _insertBackupRows(creditCardInvoices, backup.creditCardInvoices);
+      await _insertBackupRows(invoicePayments, backup.invoicePayments);
+      await _insertBackupRows(
+        invoiceAssignmentAudits,
+        backup.invoiceAssignmentAudits,
+      );
       await _insertBackupRows(importBatches, backup.importBatches);
       await _insertBackupRows(stagedSourceRecords, backup.stagedSourceRecords);
       await _insertBackupRows(duplicateCandidates, backup.duplicateCandidates);
@@ -2088,6 +2446,7 @@ class AppDatabase extends _$AppDatabase {
           categoryId: classification.categoryId,
           costCenterId: classification.costCenterId,
           occurredAt: row.occurredAt!,
+          postedAt: row.postedAt,
           confidence: row.confidence,
           payerPersonId: primaryPersonId,
         ),
@@ -2129,6 +2488,10 @@ class AppDatabase extends _$AppDatabase {
           candidateTransactionId: Value(txId),
           status: const Value('pending_review'),
         ),
+      );
+      await _assignTransactionToDerivedInvoice(
+        txId,
+        assignedAt: DateTime.now(),
       );
       await _enqueueOutbox(txId, 'create');
       promoted += 1;
@@ -2302,6 +2665,9 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> clearLocalData() async {
     await transaction(() async {
+      await delete(invoiceAssignmentAudits).go();
+      await delete(invoicePayments).go();
+      await delete(creditCardInvoices).go();
       await delete(syncConflicts).go();
       await delete(syncAppliedEvents).go();
       await delete(rawNotificationEvents).go();
@@ -2845,6 +3211,7 @@ class AppDatabase extends _$AppDatabase {
     );
     await _resolveReviewItem(id);
     await _resolveSyncConflicts(id, 'convert_transfer');
+    await _assignTransactionToDerivedInvoice(id, assignedAt: DateTime.now());
     await _enqueueOutbox(id, 'update');
   }
 
@@ -2866,6 +3233,7 @@ class AppDatabase extends _$AppDatabase {
         updatedAt: Value(DateTime.now()),
       ),
     );
+    await _assignTransactionToDerivedInvoice(id, assignedAt: DateTime.now());
     await _enqueueOutbox(id, 'update');
   }
 
@@ -2921,6 +3289,7 @@ class AppDatabase extends _$AppDatabase {
         });
       }
     });
+    await _assignTransactionToDerivedInvoice(id, assignedAt: DateTime.now());
     await _enqueueOutbox(id, 'update');
   }
 
@@ -3003,6 +3372,7 @@ class AppDatabase extends _$AppDatabase {
         ).insert(_reviewItem(id, 'manual_needs_classification', now));
       }
     });
+    await _assignTransactionToDerivedInvoice(id, assignedAt: now);
     await _enqueueOutbox(id, 'create');
     return id;
   }
@@ -3495,6 +3865,9 @@ class AppDatabase extends _$AppDatabase {
         'transferToAccountId': transaction.transferToAccountId,
         'recurringScheduleId': transaction.recurringScheduleId,
         'installmentPlanId': transaction.installmentPlanId,
+        'creditCardInvoiceId': transaction.creditCardInvoiceId,
+        'invoiceAssignmentSource': transaction.invoiceAssignmentSource,
+        'invoiceAssignedAt': transaction.invoiceAssignedAt?.toIso8601String(),
         'merchantId': transaction.merchantId,
         'categoryId': transaction.categoryId,
         'costCenterId': transaction.costCenterId,
@@ -3723,11 +4096,14 @@ class AppDatabase extends _$AppDatabase {
         });
       }),
       merchants: _decodeRows(data, 'merchants', MerchantRow.fromJson),
-      transactions: _decodeRows(
-        data,
-        'transactions',
-        FinanceTransaction.fromJson,
-      ),
+      transactions: _decodeRows(data, 'transactions', (json) {
+        return FinanceTransaction.fromJson({
+          ...json,
+          'creditCardInvoiceId': json['creditCardInvoiceId'],
+          'invoiceAssignmentSource': json['invoiceAssignmentSource'],
+          'invoiceAssignedAt': json['invoiceAssignedAt'],
+        });
+      }),
       reviewInbox: _decodeRows(data, 'reviewInbox', ReviewInboxRow.fromJson),
       transactionBeneficiaries: _decodeRows(
         data,
@@ -3770,6 +4146,21 @@ class AppDatabase extends _$AppDatabase {
         data,
         'installmentPlans',
         InstallmentPlanRow.fromJson,
+      ),
+      creditCardInvoices: _decodeRows(
+        data,
+        'creditCardInvoices',
+        CreditCardInvoiceRow.fromJson,
+      ),
+      invoicePayments: _decodeRows(
+        data,
+        'invoicePayments',
+        InvoicePaymentRow.fromJson,
+      ),
+      invoiceAssignmentAudits: _decodeRows(
+        data,
+        'invoiceAssignmentAudits',
+        InvoiceAssignmentAuditRow.fromJson,
       ),
       importBatches: _decodeRows(
         data,
@@ -4182,7 +4573,8 @@ class AppDatabase extends _$AppDatabase {
       mode: InsertMode.insertOrIgnore,
     );
     if (row.confidence > transaction.sourceConfidence ||
-        transaction.accountId == null) {
+        transaction.accountId == null ||
+        (transaction.postedAt == null && row.postedAt != null)) {
       await (update(
         transactions,
       )..where((item) => item.id.equals(transactionId))).write(
@@ -4190,6 +4582,9 @@ class AppDatabase extends _$AppDatabase {
           sourceConfidence: Value(row.confidence),
           accountId: transaction.accountId == null
               ? Value(targetAccountId)
+              : const Value.absent(),
+          postedAt: transaction.postedAt == null && row.postedAt != null
+              ? Value(row.postedAt)
               : const Value.absent(),
           updatedAt: Value(now),
         ),
@@ -4212,6 +4607,7 @@ class AppDatabase extends _$AppDatabase {
         resolvedAt: Value(now),
       ),
     );
+    await _assignTransactionToDerivedInvoice(transactionId, assignedAt: now);
     await _enqueueOutbox(transactionId, 'update');
   }
 
@@ -4433,23 +4829,209 @@ class AppDatabase extends _$AppDatabase {
   }
 
   String invoiceMonthFor(CreditCardRow card, DateTime occurredAt) {
-    final closingDay = _validDayOrNull(card.billingDay) ?? occurredAt.day;
-    final invoiceBase = occurredAt.day <= closingDay
-        ? occurredAt
-        : _shiftMonth(occurredAt, 1);
-    return _monthKey(invoiceBase);
+    return invoiceCycleFor(card, occurredAt).competenceMonth;
   }
 
   DateTime invoiceDueDateFor(CreditCardRow card, DateTime occurredAt) {
-    final invoiceMonth = invoiceMonthFor(card, occurredAt);
-    final base = _dateFromMonthKey(invoiceMonth);
-    final dueDay = _validDayOrNull(card.dueDay) ?? 1;
-    return DateTime(
-      base.year,
-      base.month,
-      _clampDay(base.year, base.month, dueDay),
-    );
+    return invoiceCycleFor(card, occurredAt).dueDate;
   }
+
+  Future<bool> _assignTransactionToDerivedInvoice(
+    String transactionId, {
+    required DateTime assignedAt,
+  }) async {
+    final item = await getTransaction(transactionId);
+    if (item == null || item.deletedAt != null) {
+      return false;
+    }
+    if (item.kind == 'transfer' || item.accountId == null) {
+      return _detachInvalidInvoiceAssignment(item, assignedAt);
+    }
+    final card =
+        await (select(creditCards)
+              ..where((row) => row.accountId.equals(item.accountId!))
+              ..where((row) => row.active.equals(true))
+              ..limit(1))
+            .getSingleOrNull();
+    if (card == null) {
+      return _detachInvalidInvoiceAssignment(item, assignedAt);
+    }
+    if (item.invoiceAssignmentSource == 'manual') {
+      if (item.creditCardInvoiceId == null) {
+        return false;
+      }
+      final manualInvoice = await getCreditCardInvoice(
+        item.creditCardInvoiceId!,
+      );
+      if (manualInvoice?.creditCardId == card.id) {
+        return false;
+      }
+      return _detachInvalidInvoiceAssignment(item, assignedAt);
+    }
+    final cycle = invoiceCycleFor(card, item.postedAt ?? item.occurredAt);
+    final invoice = await _ensureCreditCardInvoice(
+      card: card,
+      cycle: cycle,
+      origin: 'derived',
+      now: assignedAt,
+    );
+    if (item.creditCardInvoiceId == invoice.id &&
+        item.invoiceAssignmentSource == 'derived') {
+      return false;
+    }
+    await _writeInvoiceAssignment(
+      transactionRow: item,
+      invoiceId: invoice.id,
+      origin: 'derived',
+      reason: item.creditCardInvoiceId == null
+          ? 'Associacao automatica por data efetiva e ciclo do cartao.'
+          : 'Recalculo automatico apos alteracao do ciclo do cartao.',
+      assignedAt: assignedAt,
+      enqueueSync: false,
+    );
+    await getCreditCardInvoiceSummary(invoice.id, now: assignedAt);
+    return true;
+  }
+
+  Future<bool> _detachInvalidInvoiceAssignment(
+    FinanceTransaction item,
+    DateTime assignedAt,
+  ) async {
+    final previousInvoiceId = item.creditCardInvoiceId;
+    if (previousInvoiceId == null) {
+      return false;
+    }
+    await _writeInvoiceAssignment(
+      transactionRow: item,
+      invoiceId: null,
+      origin: 'derived',
+      reason: 'Vinculo removido porque a transacao nao e uma compra de cartao.',
+      assignedAt: assignedAt,
+      enqueueSync: false,
+    );
+    await getCreditCardInvoiceSummary(previousInvoiceId, now: assignedAt);
+    return true;
+  }
+
+  Future<CreditCardInvoiceRow> _ensureCreditCardInvoice({
+    required CreditCardRow card,
+    required InvoiceCycle cycle,
+    required String origin,
+    required DateTime now,
+  }) async {
+    final id = 'invoice-${card.id}-${cycle.competenceMonth}';
+    final existing = await getCreditCardInvoice(id);
+    var currencyCode = 'BRL';
+    if (card.accountId != null) {
+      final account = await (select(
+        accounts,
+      )..where((row) => row.id.equals(card.accountId!))).getSingleOrNull();
+      currencyCode = account?.currencyCode ?? currencyCode;
+    }
+    if (existing == null) {
+      await into(creditCardInvoices).insert(
+        CreditCardInvoicesCompanion.insert(
+          id: id,
+          householdId: householdMain,
+          creditCardId: card.id,
+          competenceMonth: cycle.competenceMonth,
+          periodStart: cycle.periodStart,
+          periodEnd: cycle.periodEnd,
+          closingDate: cycle.closingDate,
+          dueDate: cycle.dueDate,
+          currencyCode: Value(currencyCode),
+          origin: Value(origin),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
+    } else if (existing.periodStart != cycle.periodStart ||
+        existing.periodEnd != cycle.periodEnd ||
+        existing.closingDate != cycle.closingDate ||
+        existing.dueDate != cycle.dueDate ||
+        existing.currencyCode != currencyCode) {
+      await (update(
+        creditCardInvoices,
+      )..where((row) => row.id.equals(id))).write(
+        CreditCardInvoicesCompanion(
+          periodStart: Value(cycle.periodStart),
+          periodEnd: Value(cycle.periodEnd),
+          closingDate: Value(cycle.closingDate),
+          dueDate: Value(cycle.dueDate),
+          currencyCode: Value(currencyCode),
+          updatedAt: Value(now),
+        ),
+      );
+    }
+    return (await getCreditCardInvoice(id))!;
+  }
+
+  Future<void> _writeInvoiceAssignment({
+    required FinanceTransaction transactionRow,
+    required String? invoiceId,
+    required String origin,
+    required String reason,
+    required DateTime assignedAt,
+    required bool enqueueSync,
+  }) async {
+    await (update(
+      transactions,
+    )..where((row) => row.id.equals(transactionRow.id))).write(
+      TransactionsCompanion(
+        creditCardInvoiceId: Value(invoiceId),
+        invoiceAssignmentSource: Value(origin),
+        invoiceAssignedAt: Value(assignedAt),
+        updatedAt: Value(assignedAt),
+      ),
+    );
+    await into(invoiceAssignmentAudits).insert(
+      InvoiceAssignmentAuditsCompanion.insert(
+        id:
+            'invoice-audit-${transactionRow.id}-'
+            '${assignedAt.microsecondsSinceEpoch}',
+        householdId: householdMain,
+        transactionId: transactionRow.id,
+        fromInvoiceId: Value(transactionRow.creditCardInvoiceId),
+        toInvoiceId: Value(invoiceId),
+        origin: origin,
+        reason: reason,
+        createdAt: assignedAt,
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+    if (enqueueSync) {
+      await _enqueueOutbox(transactionRow.id, 'update');
+    }
+  }
+
+  String _invoiceEffectiveState({
+    required int totalCents,
+    required int paidCents,
+    required int outstandingCents,
+    required DateTime closingDate,
+    required DateTime dueDate,
+    required DateTime now,
+  }) {
+    if (totalCents < 0) {
+      return 'credit';
+    }
+    if (totalCents > 0 && outstandingCents <= 0) {
+      return 'paid';
+    }
+    if (totalCents > 0 && now.isAfter(_dateOnly(dueDate))) {
+      return 'overdue';
+    }
+    if (paidCents > 0 && outstandingCents > 0) {
+      return 'partially_paid';
+    }
+    if (!now.isBefore(_dateOnly(closingDate))) {
+      return 'closed';
+    }
+    return 'open';
+  }
+
+  DateTime _dateOnly(DateTime value) =>
+      DateTime(value.year, value.month, value.day);
 
   DateTime installmentDueDateFor(InstallmentPlanRow plan, DateTime reference) {
     final base = _dateFromMonthKey(plan.startMonth);
@@ -4674,6 +5256,7 @@ class AppDatabase extends _$AppDatabase {
     required String description,
     required DateTime occurredAt,
     required double confidence,
+    DateTime? postedAt,
     String? accountId,
     String? transferFromAccountId,
     String? transferToAccountId,
@@ -4696,6 +5279,7 @@ class AppDatabase extends _$AppDatabase {
       reviewStatus: reviewStatus,
       duplicateStatus: duplicateStatus,
       occurredAt: occurredAt,
+      postedAt: Value(postedAt),
       competenceMonth: month,
       amountCents: amountCents,
       descriptionRaw: description,
@@ -5132,6 +5716,46 @@ class CreditCardWithOwner {
   final PersonRow? owner;
 
   String get ownerLabel => owner?.displayName ?? 'Sem proprietario';
+}
+
+class InvoiceCycle {
+  const InvoiceCycle({
+    required this.competenceMonth,
+    required this.periodStart,
+    required this.periodEnd,
+    required this.closingDate,
+    required this.dueDate,
+  });
+
+  final String competenceMonth;
+  final DateTime periodStart;
+  final DateTime periodEnd;
+  final DateTime closingDate;
+  final DateTime dueDate;
+}
+
+class CreditCardInvoiceSummary {
+  const CreditCardInvoiceSummary({
+    required this.invoice,
+    required this.transactions,
+    required this.payments,
+    required this.purchasesCents,
+    required this.refundsCents,
+    required this.totalCents,
+    required this.paidCents,
+    required this.outstandingCents,
+    required this.effectiveState,
+  });
+
+  final CreditCardInvoiceRow invoice;
+  final List<FinanceTransaction> transactions;
+  final List<InvoicePaymentRow> payments;
+  final int purchasesCents;
+  final int refundsCents;
+  final int totalCents;
+  final int paidCents;
+  final int outstandingCents;
+  final String effectiveState;
 }
 
 class FamilyStructureSnapshot {
@@ -5598,6 +6222,9 @@ class _RemoteTransactionData {
     required this.transferToAccountId,
     required this.recurringScheduleId,
     required this.installmentPlanId,
+    required this.creditCardInvoiceId,
+    required this.invoiceAssignmentSource,
+    required this.invoiceAssignedAt,
     required this.merchantId,
     required this.categoryId,
     required this.costCenterId,
@@ -5625,6 +6252,9 @@ class _RemoteTransactionData {
   final String? transferToAccountId;
   final String? recurringScheduleId;
   final String? installmentPlanId;
+  final String? creditCardInvoiceId;
+  final String? invoiceAssignmentSource;
+  final DateTime? invoiceAssignedAt;
   final String? merchantId;
   final String? categoryId;
   final String? costCenterId;
@@ -5653,6 +6283,9 @@ class _RemoteTransactionData {
       transferToAccountId: json['transferToAccountId'] as String?,
       recurringScheduleId: json['recurringScheduleId'] as String?,
       installmentPlanId: json['installmentPlanId'] as String?,
+      creditCardInvoiceId: json['creditCardInvoiceId'] as String?,
+      invoiceAssignmentSource: json['invoiceAssignmentSource'] as String?,
+      invoiceAssignedAt: _syncNullableDateTime(json['invoiceAssignedAt']),
       merchantId: json['merchantId'] as String?,
       categoryId: json['categoryId'] as String?,
       costCenterId: json['costCenterId'] as String?,
@@ -5746,6 +6379,9 @@ class _DecodedBackup {
     required this.authUsers,
     required this.recurringSchedules,
     required this.installmentPlans,
+    required this.creditCardInvoices,
+    required this.invoicePayments,
+    required this.invoiceAssignmentAudits,
     required this.importBatches,
     required this.stagedSourceRecords,
     required this.duplicateCandidates,
@@ -5773,6 +6409,9 @@ class _DecodedBackup {
   final List<AuthUserRow> authUsers;
   final List<RecurringScheduleRow> recurringSchedules;
   final List<InstallmentPlanRow> installmentPlans;
+  final List<CreditCardInvoiceRow> creditCardInvoices;
+  final List<InvoicePaymentRow> invoicePayments;
+  final List<InvoiceAssignmentAuditRow> invoiceAssignmentAudits;
   final List<ImportBatchRow> importBatches;
   final List<StagedSourceRecordRow> stagedSourceRecords;
   final List<DuplicateCandidateRow> duplicateCandidates;

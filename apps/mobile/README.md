@@ -52,5 +52,14 @@ Antes da promoção, o usuário precisa confirmar uma conta/cartão compatível.
 app nunca escolhe silenciosamente quando há empate ou identidade insuficiente,
 e permite cadastrar o instrumento ausente dentro do próprio lote.
 
+## Faturas de cartão — Fase 4A
+
+O banco local associa compras de cartão ao ciclo calculado pela data de
+postagem, usando a data da compra quando a postagem não existe. Fechamento,
+vencimento, estornos, pagamentos e atraso geram totais e estados derivados.
+Pagamento de fatura é registrado separadamente e continua sendo transferência,
+sem virar uma segunda despesa. Ajustes manuais de competência exigem motivo e
+ficam na auditoria; a visualização completa pertence à Fase 4B.
+
 O escopo e a ordem dos próximos trabalhos estão em
 `../../docs/product/IMPLEMENTATION_ROADMAP.md`.

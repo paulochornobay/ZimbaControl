@@ -25,10 +25,12 @@ criação inline e a área segura para zerar o app. Os goldens de Movimentaçõe
 Detalhe foram atualizados para a nova identidade nos dois viewports. A Fase 3
 traduziu o stepper de Importação para etapas reais e acrescentou identificação,
 confirmação de destino, prévia e histórico ligados ao Drift.
+O domínio não visual da Fase 4A já calcula ciclos, totais, pagamentos e estados
+auditáveis; a interface correspondente começa na Fase 4B.
 
 As maiores lacunas restantes são:
 
-1. ausência de fatura como entidade;
+1. ausência da visão e conciliação completas de fatura;
 2. paridade restante de Resumo, Ajustes, Família e jornadas auxiliares;
 3. homologação integral em Android físico.
 

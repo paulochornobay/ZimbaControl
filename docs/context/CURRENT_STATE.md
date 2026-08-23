@@ -11,15 +11,15 @@
 
 - Item 0 do plano de continuidade concluído: requisitos, auditoria das 12
   telas do protótipo e roadmap por fases foram consolidados em `docs/product`.
-- Fases 1, 2 e 3 concluídas tecnicamente. Além da fundação visual, o app agora
+- Fases 1, 2, 3 e 4A concluídas tecnicamente. Além da fundação visual, o app agora
   distingue conta/cartão, persiste ícones e cores de categorias/centros,
   permite criação inline, oferece reset coordenado e exige instrumento
-  confirmado em toda importação. A Fase 4, domínio completo de faturas, é a
-  próxima.
+  confirmado em toda importação e possui o modelo calculável e auditável de
+  faturas. A Fase 4B, visão de fatura, é a próxima.
 - Referência visual oficial local: `C:\dev\pixel-perfect-pixels@2848fc6`.
 - Código do app auditado: `ZimbaControl@cd67fcb`.
-- Lacunas críticas restantes: domínio auditável de faturas, paridade das telas
-  restantes e homologação Android integral.
+- Lacunas críticas restantes: visão e conciliação de faturas, paridade das
+  telas restantes e homologação Android integral.
 - A APK release `1.1.0+2` foi gerada com sucesso em
   `apps/mobile/build/app/outputs/flutter-apk/app-release.apk`, SHA-256
   `36C922AE12AA35C1BE22C4305C1DF8E08E2EB714D76ACCD58D3AB074750C2C57`.
@@ -72,6 +72,11 @@
   moeda, período e saldos do OFX; o lote persiste o destino confirmado e não
   promove nem concilia enquanto houver ambiguidade. Conta/cartão pode ser
   criado no fluxo, e o histórico mostra metadados e instrumento de cada lote.
+- A Fase 4A introduziu a migração Drift 14 com faturas, pagamentos e auditoria
+  de associação. Compras usam `postedAt` com fallback para `occurredAt`, corte
+  e vencimento funcionam em meses curtos e virada anual, estornos reduzem o
+  total e pagamentos permanecem transferências fora das despesas. Correções
+  manuais ficam protegidas do recálculo e registram motivo/origem.
 - Mobile tem conciliacao financeira do Marco 07: candidatos de duplicidade,
   merge de fontes sem criar nova despesa, fatura como transferencia, parcelas
   de cartao em `installment_plans` e consorcio ligado ao plano do carro.

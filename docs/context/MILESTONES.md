@@ -12,7 +12,8 @@
 - Fase 2 — instrumentos, ícones, criação inline e reset completo: concluída
   tecnicamente.
 - Fase 3 — importação vinculada ao instrumento: concluída tecnicamente.
-- Fase 4 — faturas completas por etapas: próxima.
+- Fase 4A — modelo e cálculo de faturas: concluída tecnicamente.
+- Fase 4B — visão de fatura: próxima.
 - Fase 5 — paridade restante, homologação e release: pendente.
 
 Baseline visual vigente: `pixel-perfect-pixels@2848fc6`. Baselines citados nos
@@ -59,6 +60,20 @@ marcos abaixo pertencem aos respectivos ciclos históricos.
 - Regressão cobre dois instrumentos Nubank, destino incorreto, `ACCTID`
   ausente, reimportação, backup antigo e telas responsivas. A próxima etapa é
   o domínio de faturas da Fase 4.
+
+### Fase 4A — conclusão técnica em 2026-08-23
+
+- `CreditCardInvoice`, `InvoicePayment` e a auditoria de associação passaram a
+  integrar o banco local; a transação ganhou vínculo opcional sincronizável.
+- O ciclo deriva período, fechamento, vencimento e competência por `postedAt`,
+  com fallback para `occurredAt`, sem reescrever competência ou valor antigo.
+- Compras, estornos, pagamentos parcial/total, cancelamento e atraso produzem
+  totais e estado efetivo a partir dos dados reais; pagamento continua sendo
+  transferência e não infla despesas.
+- Correção manual exige motivo, gera trilha e não é sobrescrita pelo recálculo
+  automático. Backup anterior continua restaurável pela migração 14.
+- A regressão total soma 88 testes Flutter aprovados. A próxima etapa é a
+  Fase 4B, que expõe o domínio em uma visão por cartão e fatura.
 
 ## Status Geral
 

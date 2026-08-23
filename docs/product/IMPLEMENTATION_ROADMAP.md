@@ -211,6 +211,27 @@ fatura como nova despesa.
   manual auditável;
 - migrar helpers atuais sem mudar dados históricos silenciosamente.
 
+#### Entregue em 2026-08-23
+
+- a migração Drift 14 criou `credit_card_invoices`, `invoice_payments` e
+  `invoice_assignment_audits`, além do vínculo opcional e sua origem/data na
+  transação;
+- ciclos determinísticos calculam período, fechamento e vencimento antes, no e
+  depois do corte, inclusive fevereiro, dia 31 e virada anual;
+- a associação usa `postedAt` e recorre a `occurredAt`; recálculo derivado não
+  altera competência nem valor histórico e respeita correção manual;
+- total e estado efetivo derivam compras, estornos e pagamentos ativos;
+  pagamentos vinculados exigem transação do tipo transferência e não entram
+  novamente como despesa;
+- correção e remoção de vínculo deixam trilha com origem, motivo, fatura
+  anterior e nova; backup/restore anterior permanece aceito;
+- o payload sincronizável da transação inclui o vínculo da fatura, e 8 testes
+  dedicados cobrem os casos de aceite dentro da regressão total de 88 testes.
+
+A Etapa 4B é a próxima: a referência visual vigente ainda não possui uma tela
+de fatura completa, portanto a interface será composta com o design system
+Flutter existente e somente dados reais deste domínio.
+
 ### Etapa 4B — Visão de fatura
 
 - visão por cartão com fatura atual/próxima, total, datas e estado;
