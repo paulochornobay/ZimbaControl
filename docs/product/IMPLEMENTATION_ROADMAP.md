@@ -14,8 +14,8 @@
 | 1 | fundação visual e correções críticas de interação | concluída em 2026-08-23 |
 | 2 | instrumentos, ícones, criação inline e reset completo | concluída em 2026-08-23 |
 | 3 | importação vinculada à conta/cartão correto | concluída em 2026-08-23 |
-| 4 | faturas completas por etapas | próxima |
-| 5 | paridade restante, homologação Android e release | pendente |
+| 4 | faturas completas por etapas | concluída em 2026-08-23 |
+| 5 | paridade restante, homologação Android e release | próxima |
 
 As fases são sequenciais por dependência de domínio. Correções pequenas e
 isoladas da Fase 1 podem compartilhar um ciclo, mas nenhuma fase deve ser
@@ -250,15 +250,28 @@ fatura como nova despesa.
 - testes cobrem 360×800 e 390×844, texto 1,3, dois cartões com nomes longos,
   valor grande, estorno, pagamento parcial e ausência de cartão.
 
-A Etapa 4C é a próxima e deve introduzir apenas sugestões confirmáveis de
-pagamento/conciliação e projeção de parcelas, preservando os totais da 4A e a
-visão real da 4B.
-
 ### Etapa 4C — Conciliação e projeção
 
 - sugerir pagamento de fatura como transferência, sempre com confirmação;
 - reconciliar OFX bancário com pagamento e OFX/cartão com compras;
 - projetar parcelas nas faturas seguintes sem duplicar a despesa.
+
+#### Entregue em 2026-08-23
+
+- transferências candidatas são pontuadas por descrição, provedor, cartão,
+  valor e proximidade do vencimento, mas permanecem apenas sugestões;
+- a confirmação possui diálogo explícito, vincula conta de origem ao cartão e
+  registra `InvoicePayment` sem incluir a transferência no total de despesas;
+- fontes OFX bancárias preservadas na transação produzem pagamento com origem
+  `ofx_reconciled`; compras de OFX/cartão seguem o instrumento confirmado e
+  entram automaticamente no ciclo correto;
+- planos de compra parcelada passaram a ter identidade estável por cartão,
+  compra e mês inicial, permitindo reconhecer parcelas sucessivas;
+- parcelas restantes criam competências de planejamento e linhas projetadas,
+  sem inserir transações e sem alterar compras, total ou saldo da fatura;
+- a tela separa sugestões, pagamentos confirmados e projeções, explicando que
+  previsão não é nova despesa; quatro testes dedicados cobrem regra, OFX ponta
+  a ponta, cancelamento da confirmação e responsividade em 360×800/390×844.
 
 ### Aceite
 

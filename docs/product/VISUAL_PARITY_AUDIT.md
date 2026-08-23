@@ -11,12 +11,11 @@
 ## 1. Resultado executivo
 
 O app Flutter preserva mais comportamento financeiro real que o protótipo e as
-Fases 1–3, 4A e 4B já eliminaram as divergências críticas de Movimentações, confirmação,
+Fases 1–3 e 4A–4C já eliminaram as divergências críticas de Movimentações, confirmação,
 descrição, identidade de instrumentos, classificações, reset e associação da
 importação ao instrumento e faturas calculáveis/visíveis. Ainda não há paridade
-total: a conciliação e projeção de faturas são a maior lacuna funcional, seguidas
-pelo acabamento das telas restantes e pela
-homologação Android integral.
+total: permanecem o acabamento das telas restantes e a homologação Android
+integral.
 
 A próxima etapa não é uma troca de tecnologia nem uma cópia do React. É a
 tradução sistemática da hierarquia visual do protótipo para widgets Flutter,
@@ -175,10 +174,13 @@ cobre sozinho corte, estorno, pagamento parcial e correção manual.
 estado derivado, vínculo da transação e auditoria de correções.
 
 **Visão resolvida na Fase 4B:** o Flutter mostra consolidação, compras,
-estornos, pagamentos e filtros em dois viewports. Permanece pendente a
-conciliação da Fase 4C; o protótipo vigente não oferece uma rota completa de
-fatura para comparação direta, portanto esta tela é uma diferença deliberada
-baseada no design system canônico.
+estornos, pagamentos e filtros em dois viewports.
+
+**Conciliação resolvida na Fase 4C:** OFX bancário pode sugerir pagamento, OFX
+de cartão alimenta compras e parcelas futuras aparecem apenas como projeção.
+Toda efetivação exige confirmação. O protótipo vigente não oferece uma rota
+completa de fatura para comparação direta, portanto esta tela é uma diferença
+deliberada baseada no design system canônico.
 
 ## 7. Critérios de paridade
 

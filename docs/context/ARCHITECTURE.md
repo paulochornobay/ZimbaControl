@@ -225,6 +225,19 @@ destino, pagador e beneficiario.
 No Marco 07, importacoes com texto de pagamento de fatura passam a entrar como
 `kind = transfer` para revisao, evitando registrar a fatura como nova despesa.
 
+Na Fase 4C, essa transferência pode aparecer na fatura como sugestão calculada
+por descrição, provedor, instrumento, valor e proximidade do vencimento. A
+sugestão é somente leitura: apenas o diálogo de confirmação define o cartão de
+destino e cria `invoice_payments`. Fonte OFX confirmada usa origem
+`ofx_reconciled`; uma transferência ativa não pode pagar duas faturas.
+
+Compras parceladas usam identidade estável de plano por cartão, descrição, mês
+inicial, quantidade e valor. As competências restantes são
+`InvoiceInstallmentProjection` calculadas; podem materializar a linha de
+fatura vazia para navegação, mas nunca uma `transaction`. Quando a transação
+real da parcela chega, a competência deixa de ser projetada e o total continua
+derivado exclusivamente de compras/estornos reais e pagamentos ativos.
+
 ## Importacao Local
 
 - CSV e OFX sao suportados no app local; XLSX fica fora do MVP inicial.

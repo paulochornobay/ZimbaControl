@@ -27,13 +27,14 @@ traduziu o stepper de Importação para etapas reais e acrescentou identificaç�
 confirmação de destino, prévia e histórico ligados ao Drift.
 O domínio da Fase 4A calcula ciclos, totais, pagamentos e estados auditáveis; a
 Fase 4B agora os apresenta em uma tela Flutter real, pois o protótipo não possui
-rota equivalente de fatura.
+rota equivalente de fatura. A Fase 4C concluiu a conciliação confirmável de
+pagamentos OFX e a projeção de parcelas sem criar despesas futuras.
 
 As maiores lacunas restantes são:
 
-1. ausência da conciliação e projeção completas de fatura;
-2. paridade restante de Resumo, Ajustes, Família e jornadas auxiliares;
-3. homologação integral em Android físico.
+1. paridade restante de Resumo, Ajustes, Família e jornadas auxiliares;
+2. homologação integral em Android físico;
+3. assinatura própria e preparação da release final.
 
 ## Contrato resumido
 

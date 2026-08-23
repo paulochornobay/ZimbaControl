@@ -974,6 +974,270 @@ class AppDatabase extends _$AppDatabase {
     return query.get();
   }
 
+  Future<List<InvoicePaymentSuggestion>> listInvoicePaymentSuggestions(
+    String invoiceId,
+  ) async {
+    final invoice = await getCreditCardInvoice(invoiceId);
+    if (invoice == null) {
+      throw StateError('Fatura nao encontrada.');
+    }
+    final card = await getCreditCard(invoice.creditCardId);
+    if (card == null || card.accountId == null) {
+      return const [];
+    }
+    final summary = await getCreditCardInvoiceSummary(invoiceId);
+    if (summary.totalCents <= 0 || summary.outstandingCents <= 0) {
+      return const [];
+    }
+    final alreadyUsed =
+        await (select(invoicePayments)
+              ..where((row) => row.status.equals('active'))
+              ..where((row) => row.transactionId.isNotNull()))
+            .get();
+    final usedTransactionIds = alreadyUsed
+        .map((payment) => payment.transactionId)
+        .whereType<String>()
+        .toSet();
+    final candidates =
+        await (select(transactions)
+              ..where((row) => row.householdId.equals(householdMain))
+              ..where((row) => row.deletedAt.isNull())
+              ..where((row) => row.kind.equals('transfer')))
+            .get();
+    final cardText = _normalizedConciliationText(
+      '${card.provider} ${card.name} ${card.brand ?? ''} ${card.last4 ?? ''}',
+    );
+    final cardTokens = _conciliationTokens(cardText);
+    final suggestions = <InvoicePaymentSuggestion>[];
+
+    for (final candidate in candidates) {
+      if (usedTransactionIds.contains(candidate.id) ||
+          candidate.transferFromAccountId == card.accountId ||
+          (candidate.transferToAccountId != null &&
+              candidate.transferToAccountId != card.accountId)) {
+        continue;
+      }
+      final candidateAccount = candidate.accountId == null
+          ? null
+          : await (select(accounts)
+                  ..where((row) => row.id.equals(candidate.accountId!)))
+                .getSingleOrNull();
+      if (candidateAccount != null &&
+          candidateAccount.currencyCode.toUpperCase() !=
+              invoice.currencyCode.toUpperCase()) {
+        continue;
+      }
+      final sources = await listTransactionSources(candidate.id);
+      final text = _normalizedConciliationText(
+        candidate.displayDescription ?? candidate.descriptionRaw,
+      );
+      final amount = candidate.amountCents.abs();
+      final effectiveDate = candidate.postedAt ?? candidate.occurredAt;
+      final daysFromDue = effectiveDate
+          .difference(invoice.dueDate)
+          .inDays
+          .abs();
+      final explicitPayment = _isInvoicePayment(text);
+      final providerMatch =
+          sources.any(
+            (source) =>
+                source.provider != 'unknown' &&
+                source.provider == card.provider,
+          ) ||
+          (candidateAccount?.provider == card.provider);
+      final cardMatch = _tokenOverlap(_conciliationTokens(text), cardTokens);
+
+      var score = 0;
+      final reasons = <String>[];
+      if (explicitPayment) {
+        score += 50;
+        reasons.add('descrição de pagamento de fatura');
+      }
+      if (providerMatch) {
+        score += 15;
+        reasons.add('mesmo provedor');
+      }
+      if (cardMatch > 0) {
+        score += cardMatch >= .5 ? 15 : 8;
+        reasons.add('cartão identificado na descrição');
+      }
+      if (amount == summary.outstandingCents) {
+        score += 25;
+        reasons.add('valor igual ao saldo em aberto');
+      } else if (amount == summary.totalCents) {
+        score += 20;
+        reasons.add('valor igual ao total da fatura');
+      } else if (amount < summary.outstandingCents) {
+        score += 10;
+        reasons.add('valor compatível com pagamento parcial');
+      }
+      if (daysFromDue <= 5) {
+        score += 15;
+        reasons.add('data próxima do vencimento');
+      } else if (daysFromDue <= 20) {
+        score += 8;
+        reasons.add('data no intervalo da fatura');
+      }
+      if (candidate.transferToAccountId == card.accountId) {
+        score += 10;
+        reasons.add('destino já é este cartão');
+      }
+      if (score < 55 || (!explicitPayment && cardMatch == 0)) {
+        continue;
+      }
+      suggestions.add(
+        InvoicePaymentSuggestion(
+          transaction: candidate,
+          amountCents: amount,
+          score: score.clamp(0, 100),
+          explanation: reasons.join(', '),
+          fromOfx: sources.any((source) => source.sourceKind == 'ofx'),
+        ),
+      );
+    }
+    suggestions.sort((left, right) => right.score.compareTo(left.score));
+    return suggestions;
+  }
+
+  Future<String> confirmInvoicePaymentSuggestion({
+    required String invoiceId,
+    required String transactionId,
+  }) async {
+    final suggestion = (await listInvoicePaymentSuggestions(
+      invoiceId,
+    )).where((item) => item.transaction.id == transactionId).firstOrNull;
+    if (suggestion == null) {
+      throw StateError('A sugestao nao esta mais disponivel para esta fatura.');
+    }
+    final invoice = await getCreditCardInvoice(invoiceId);
+    final card = invoice == null
+        ? null
+        : await getCreditCard(invoice.creditCardId);
+    if (invoice == null || card?.accountId == null) {
+      throw StateError('Cartao da fatura nao encontrado.');
+    }
+    return transaction(() async {
+      final now = DateTime.now();
+      await (update(
+        transactions,
+      )..where((row) => row.id.equals(transactionId))).write(
+        TransactionsCompanion(
+          transferToAccountId: Value(card!.accountId),
+          updatedAt: Value(now),
+        ),
+      );
+      await _enqueueOutbox(transactionId, 'update');
+      return recordInvoicePayment(
+        id: 'invoice-payment-$invoiceId-$transactionId',
+        invoiceId: invoiceId,
+        amountCents: suggestion.amountCents,
+        paidAt:
+            suggestion.transaction.postedAt ??
+            suggestion.transaction.occurredAt,
+        transactionId: transactionId,
+        origin: suggestion.fromOfx ? 'ofx_reconciled' : 'suggestion_confirmed',
+      );
+    });
+  }
+
+  Future<int> ensureInstallmentProjectionInvoices({DateTime? now}) async {
+    final projections = await listInvoiceInstallmentProjections();
+    final cards = {
+      for (final item in await listCreditCardsWithOwners())
+        item.creditCard.id: item.creditCard,
+    };
+    var created = 0;
+    for (final projection in projections) {
+      if (await getCreditCardInvoice(projection.invoiceId) != null) {
+        continue;
+      }
+      final card = cards[projection.creditCardId];
+      if (card == null) continue;
+      final month = _dateFromMonthKey(projection.competenceMonth);
+      final closingDay = _validDayOrNull(card.billingDay) ?? 1;
+      final transactionAt = DateTime(
+        month.year,
+        month.month,
+        _clampDay(month.year, month.month, closingDay),
+      );
+      await _ensureCreditCardInvoice(
+        card: card,
+        cycle: invoiceCycleFor(card, transactionAt),
+        origin: 'installment_projection',
+        now: now ?? DateTime.now(),
+      );
+      created += 1;
+    }
+    return created;
+  }
+
+  Future<List<InvoiceInstallmentProjection>> listInvoiceInstallmentProjections({
+    String? invoiceId,
+    String? creditCardId,
+  }) async {
+    final plans =
+        await (select(installmentPlans)
+              ..where((row) => row.householdId.equals(householdMain))
+              ..where((row) => row.active.equals(true))
+              ..where((row) => row.planKind.equals('credit_card_purchase')))
+            .get();
+    final projections = <InvoiceInstallmentProjection>[];
+    for (final plan in plans) {
+      final linked =
+          await (select(transactions)
+                ..where((row) => row.installmentPlanId.equals(plan.id))
+                ..where((row) => row.deletedAt.isNull())
+                ..where((row) => row.creditCardInvoiceId.isNotNull()))
+              .get();
+      if (linked.isEmpty) continue;
+      final invoiceIds = linked
+          .map((transaction) => transaction.creditCardInvoiceId)
+          .whereType<String>()
+          .toSet();
+      final actualInvoices = invoiceIds.isEmpty
+          ? const <CreditCardInvoiceRow>[]
+          : await (select(
+              creditCardInvoices,
+            )..where((row) => row.id.isIn(invoiceIds))).get();
+      if (actualInvoices.isEmpty) continue;
+      final cardId = actualInvoices.first.creditCardId;
+      if (creditCardId != null && cardId != creditCardId) continue;
+      final actualMonths = actualInvoices
+          .where((item) => item.creditCardId == cardId)
+          .map((item) => item.competenceMonth)
+          .toSet();
+      for (
+        var number = plan.currentInstallment + 1;
+        number <= plan.totalInstallments;
+        number += 1
+      ) {
+        final month = _monthKey(
+          _shiftMonth(_dateFromMonthKey(plan.startMonth), number - 1),
+        );
+        if (actualMonths.contains(month)) continue;
+        final targetInvoiceId = 'invoice-$cardId-$month';
+        if (invoiceId != null && targetInvoiceId != invoiceId) continue;
+        projections.add(
+          InvoiceInstallmentProjection(
+            installmentPlan: plan,
+            creditCardId: cardId,
+            invoiceId: targetInvoiceId,
+            competenceMonth: month,
+            installmentNumber: number,
+            amountCents: plan.installmentAmountCents,
+          ),
+        );
+      }
+    }
+    projections.sort((left, right) {
+      final byMonth = left.competenceMonth.compareTo(right.competenceMonth);
+      return byMonth != 0
+          ? byMonth
+          : left.installmentPlan.label.compareTo(right.installmentPlan.label);
+    });
+    return projections;
+  }
+
   Future<List<InvoiceAssignmentAuditRow>> listInvoiceAssignmentAudits(
     String transactionId,
   ) {
@@ -1190,6 +1454,9 @@ class AppDatabase extends _$AppDatabase {
       dueDate: invoice.dueDate,
       now: effectiveAt,
     );
+    final projections = await listInvoiceInstallmentProjections(
+      invoiceId: invoiceId,
+    );
     if (invoice.effectiveState != state) {
       await (update(
         creditCardInvoices,
@@ -1212,6 +1479,7 @@ class AppDatabase extends _$AppDatabase {
       paidCents: paidCents,
       outstandingCents: outstandingCents,
       effectiveState: state,
+      installmentProjections: projections,
     );
   }
 
@@ -4695,16 +4963,25 @@ class AppDatabase extends _$AppDatabase {
         ? _monthKey(occurredAt)
         : invoiceMonthFor(card, occurredAt);
     final invoiceBase = _dateFromMonthKey(invoiceMonth);
-    final planId =
-        'plan-card-${_compactId(label)}-$invoiceMonth-'
-        '${installment.totalInstallments}-${row.amountCents!.abs()}';
     final start = _shiftMonth(invoiceBase, 1 - installment.currentInstallment);
     final end = _shiftMonth(
       invoiceBase,
       installment.totalInstallments - installment.currentInstallment,
     );
+    final startMonth = _monthKey(start);
+    final planId =
+        'plan-card-${_compactId(accountId)}-${_compactId(label)}-$startMonth-'
+        '${installment.totalInstallments}-${row.amountCents!.abs()}';
+    final existing = await (select(
+      installmentPlans,
+    )..where((item) => item.id.equals(planId))).getSingleOrNull();
+    final currentInstallment = existing == null
+        ? installment.currentInstallment
+        : (existing.currentInstallment > installment.currentInstallment
+              ? existing.currentInstallment
+              : installment.currentInstallment);
 
-    await into(installmentPlans).insert(
+    await into(installmentPlans).insertOnConflictUpdate(
       InstallmentPlansCompanion.insert(
         id: planId,
         householdId: householdMain,
@@ -4715,14 +4992,13 @@ class AppDatabase extends _$AppDatabase {
           row.amountCents!.abs() * installment.totalInstallments,
         ),
         installmentAmountCents: row.amountCents!.abs(),
-        currentInstallment: installment.currentInstallment,
+        currentInstallment: currentInstallment,
         totalInstallments: installment.totalInstallments,
         dueDay: Value(card?.dueDay),
-        startMonth: _monthKey(start),
+        startMonth: startMonth,
         endMonth: Value(_monthKey(end)),
         updatedAt: DateTime.now(),
       ),
-      mode: InsertMode.insertOrIgnore,
     );
 
     return planId;
@@ -5762,6 +6038,7 @@ class CreditCardInvoiceSummary {
     required this.paidCents,
     required this.outstandingCents,
     required this.effectiveState,
+    required this.installmentProjections,
   });
 
   final CreditCardInvoiceRow invoice;
@@ -5773,6 +6050,41 @@ class CreditCardInvoiceSummary {
   final int paidCents;
   final int outstandingCents;
   final String effectiveState;
+  final List<InvoiceInstallmentProjection> installmentProjections;
+}
+
+class InvoicePaymentSuggestion {
+  const InvoicePaymentSuggestion({
+    required this.transaction,
+    required this.amountCents,
+    required this.score,
+    required this.explanation,
+    required this.fromOfx,
+  });
+
+  final FinanceTransaction transaction;
+  final int amountCents;
+  final int score;
+  final String explanation;
+  final bool fromOfx;
+}
+
+class InvoiceInstallmentProjection {
+  const InvoiceInstallmentProjection({
+    required this.installmentPlan,
+    required this.creditCardId,
+    required this.invoiceId,
+    required this.competenceMonth,
+    required this.installmentNumber,
+    required this.amountCents,
+  });
+
+  final InstallmentPlanRow installmentPlan;
+  final String creditCardId;
+  final String invoiceId;
+  final String competenceMonth;
+  final int installmentNumber;
+  final int amountCents;
 }
 
 class FamilyStructureSnapshot {

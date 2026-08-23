@@ -11,16 +11,16 @@
 
 - Item 0 do plano de continuidade concluído: requisitos, auditoria das 12
   telas do protótipo e roadmap por fases foram consolidados em `docs/product`.
-- Fases 1, 2, 3, 4A e 4B concluídas tecnicamente. Além da fundação visual, o app agora
+- Fases 1, 2, 3, 4A, 4B e 4C concluídas tecnicamente. Além da fundação visual, o app agora
   distingue conta/cartão, persiste ícones e cores de categorias/centros,
   permite criação inline, oferece reset coordenado e exige instrumento
   confirmado em toda importação e possui o modelo calculável e auditável de
-  faturas e uma visão por cartão alimentada somente por dados reais. A Fase 4C,
-  conciliação e projeção, é a próxima.
+  faturas, visão por cartão, conciliação confirmável de pagamentos e projeção
+  de parcelas sem despesas artificiais. A Fase 5 é a próxima.
 - Referência visual oficial local: `C:\dev\pixel-perfect-pixels@2848fc6`.
 - Código do app auditado: `ZimbaControl@cd67fcb`.
-- Lacunas críticas restantes: conciliação/projeção de faturas, paridade das
-  telas restantes e homologação Android integral.
+- Lacunas críticas restantes: paridade das telas restantes, assinatura própria
+  de distribuição e homologação Android integral.
 - A APK release `1.1.0+2` foi gerada com sucesso em
   `apps/mobile/build/app/outputs/flutter-apk/app-release.apk`, SHA-256
   `36C922AE12AA35C1BE22C4305C1DF8E08E2EB714D76ACCD58D3AB074750C2C57`.
@@ -39,6 +39,10 @@
   O Samsung apareceu inicialmente como `unauthorized` e depois saiu da lista
   do ADB; a instalação por atualização continua pendente de reconexão e aceite
   da depuração USB no aparelho.
+- A build release da Fase 4C foi gerada, SHA-256
+  `6BC4F771690FD6B19BEC5DCFAE9E20DC798D5A6F25DD8B89F1D355861C8A7E94`.
+  O ADB não enumerou aparelho conectado no fechamento do marco, portanto esta
+  build ainda não foi instalada no Samsung.
 
 ## Estado Atual
 
@@ -88,6 +92,10 @@
   estornos, pagamentos e filtros por categoria/pessoa/competência. A tela
   diferencia explicitamente mês-calendário e mês da fatura e foi validada em
   360×800 e 390×844 com texto 1,3 e dados longos.
+- A Fase 4C acrescentou sugestões explicáveis de pagamento com confirmação
+  obrigatória, conciliação de OFX bancário/cartão e parcelas futuras apenas
+  projetadas. Confirmar vincula a transferência à fatura sem duplicar despesa;
+  cancelar não altera dados, e a transação real substitui a projeção.
 - Mobile tem conciliacao financeira do Marco 07: candidatos de duplicidade,
   merge de fontes sem criar nova despesa, fatura como transferencia, parcelas
   de cartao em `installment_plans` e consorcio ligado ao plano do carro.
@@ -241,10 +249,9 @@ Antes de continuar qualquer marco, leia:
 
 ## Próximo ciclo
 
-Executar a Fase 4 de `docs/product/IMPLEMENTATION_ROADMAP.md`: criar o modelo
-auditável de faturas, calcular fechamento/vencimento e consolidar compras,
-estornos e pagamentos sem duplicar despesas. A homologação Android física
-completa continua obrigatória antes de uma candidata final de release.
+Executar a Fase 5 de `docs/product/IMPLEMENTATION_ROADMAP.md`: concluir a
+paridade das jornadas restantes e a homologação Android física antes de uma
+candidata final assinada para distribuição.
 
 Sequencia recomendada:
 

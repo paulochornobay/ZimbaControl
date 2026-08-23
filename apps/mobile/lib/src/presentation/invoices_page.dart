@@ -35,6 +35,9 @@ class _InvoicesPageState extends State<InvoicesPage> {
 
   Future<_InvoicesViewData> _load() async {
     await widget.database.rebuildCreditCardInvoices(now: referenceDate);
+    await widget.database.ensureInstallmentProjectionInvoices(
+      now: referenceDate,
+    );
     final cards = await widget.database.listCreditCardsWithOwners();
     for (final item in cards) {
       final current = await widget.database.ensureCreditCardInvoiceForDate(
@@ -48,17 +51,21 @@ class _InvoicesPageState extends State<InvoicesPage> {
     }
     final invoices = await widget.database.listCreditCardInvoices();
     final summaries = <String, CreditCardInvoiceSummary>{};
+    final paymentSuggestions = <String, List<InvoicePaymentSuggestion>>{};
     for (final invoice in invoices) {
       summaries[invoice.id] = await widget.database.getCreditCardInvoiceSummary(
         invoice.id,
         now: referenceDate,
       );
+      paymentSuggestions[invoice.id] = await widget.database
+          .listInvoicePaymentSuggestions(invoice.id);
     }
     final details = await widget.database.watchAllTransactionDetails().first;
     return _InvoicesViewData(
       cards: cards,
       invoices: invoices,
       summaries: summaries,
+      paymentSuggestions: paymentSuggestions,
       detailsById: {
         for (final detail in details) detail.transaction.id: detail,
       },
@@ -77,6 +84,52 @@ class _InvoicesPageState extends State<InvoicesPage> {
       ),
     );
     if (mounted) reload();
+  }
+
+  Future<void> confirmPaymentSuggestion(
+    CreditCardInvoiceRow invoice,
+    InvoicePaymentSuggestion suggestion,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirmar pagamento?'),
+        content: Text(
+          '${formatBrl(suggestion.amountCents)} será vinculado à fatura de '
+          '${_monthLabel(invoice.competenceMonth)} como transferência. '
+          'Isso não cria uma nova despesa.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Agora não'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Confirmar pagamento'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await widget.database.confirmInvoicePaymentSuggestion(
+        invoiceId: invoice.id,
+        transactionId: suggestion.transaction.id,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pagamento conciliado com a fatura.')),
+      );
+      reload();
+    } on Object catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Bad state: ', '')),
+        ),
+      );
+    }
   }
 
   @override
@@ -164,6 +217,9 @@ class _InvoicesPageState extends State<InvoicesPage> {
       ),
     );
     final summary = data.summaries[invoice.id]!;
+    final paymentSuggestions =
+        data.paymentSuggestions[invoice.id] ??
+        const <InvoicePaymentSuggestion>[];
     final details = summary.transactions
         .map((item) => data.detailsById[item.id])
         .whereType<ReviewTransactionDetails>()
@@ -310,6 +366,109 @@ class _InvoicesPageState extends State<InvoicesPage> {
                 ),
             ],
           ),
+        if (summary.installmentProjections.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              const Expanded(child: ZimbaSectionTitle('Parcelas projetadas')),
+              Text(
+                formatBrl(
+                  summary.installmentProjections.fold<int>(
+                    0,
+                    (sum, item) => sum + item.amountCents,
+                  ),
+                ),
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const ZimbaFeedbackBanner(
+            icon: Icons.auto_graph_outlined,
+            title: 'Previsão, não nova despesa',
+            body:
+                'Estas parcelas ajudam no planejamento e só entram no total quando o lançamento real chegar.',
+            tone: ZimbaTone.info,
+          ),
+          const SizedBox(height: 8),
+          ZimbaRows(
+            children: [
+              for (final projection in summary.installmentProjections)
+                ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.calendar_month_outlined),
+                  ),
+                  title: Text(
+                    projection.installmentPlan.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    'Parcela ${projection.installmentNumber}/${projection.installmentPlan.totalInstallments} · projetada',
+                  ),
+                  trailing: Text(
+                    formatBrl(-projection.amountCents),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+        if (paymentSuggestions.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          const ZimbaSectionTitle('Sugestões de pagamento'),
+          const SizedBox(height: 8),
+          for (final suggestion in paymentSuggestions) ...[
+            ZimbaCard(
+              borderColor: ZimbaColors.accent,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.compare_arrows_outlined),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          suggestion.transaction.displayDescription ??
+                              suggestion.transaction.descriptionRaw,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        formatBrl(suggestion.amountCents),
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    suggestion.explanation,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: ZimbaColors.secondaryText,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () =>
+                          confirmPaymentSuggestion(invoice, suggestion),
+                      icon: const Icon(Icons.check_outlined),
+                      label: const Text('Revisar e confirmar'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ],
         const SizedBox(height: 18),
         const ZimbaSectionTitle('Pagamentos'),
         const SizedBox(height: 8),
@@ -610,12 +769,14 @@ class _InvoicesViewData {
     required this.cards,
     required this.invoices,
     required this.summaries,
+    required this.paymentSuggestions,
     required this.detailsById,
   });
 
   final List<CreditCardWithOwner> cards;
   final List<CreditCardInvoiceRow> invoices;
   final Map<String, CreditCardInvoiceSummary> summaries;
+  final Map<String, List<InvoicePaymentSuggestion>> paymentSuggestions;
   final Map<String, ReviewTransactionDetails> detailsById;
 }
 
@@ -662,5 +823,6 @@ ZimbaTone _stateTone(String state) => switch (state) {
 String _paymentOrigin(String origin) => switch (origin) {
   'manual_confirmed' => 'confirmado manualmente',
   'ofx_reconciled' => 'conciliado por OFX',
+  'suggestion_confirmed' => 'sugestão confirmada',
   _ => 'manual',
 };

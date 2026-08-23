@@ -14,8 +14,8 @@
 - Fase 3 — importação vinculada ao instrumento: concluída tecnicamente.
 - Fase 4A — modelo e cálculo de faturas: concluída tecnicamente.
 - Fase 4B — visão de fatura: concluída tecnicamente.
-- Fase 4C — conciliação e projeção: próxima.
-- Fase 5 — paridade restante, homologação e release: pendente.
+- Fase 4C — conciliação e projeção: concluída tecnicamente.
+- Fase 5 — paridade restante, homologação e release: próxima.
 
 Baseline visual vigente: `pixel-perfect-pixels@2848fc6`. Baselines citados nos
 marcos abaixo pertencem aos respectivos ciclos históricos.
@@ -89,6 +89,22 @@ marcos abaixo pertencem aos respectivos ciclos históricos.
   pagamento ou conciliação antes da Fase 4C.
 - Três testes de widget cobrem 360×800, 390×844, texto 1,3, nomes/valores longos
   e estado vazio. A regressão total passa a 91 testes Flutter.
+
+### Fase 4C — conclusão técnica em 2026-08-23
+
+- Pagamentos prováveis são sugestões explicáveis; nenhum vínculo ou destino é
+  alterado antes do diálogo de confirmação.
+- A confirmação transforma a sugestão em pagamento de fatura vinculado à
+  transferência, preservando-a fora das despesas e marcando origem OFX quando
+  aplicável.
+- OFX bancário foi validado contra pagamento e OFX de cartão contra compra e
+  ciclo; ambos continuam dependentes do instrumento confirmado na Fase 3.
+- Parcelas usam plano estável e aparecem nas próximas competências apenas como
+  projeção. A transação real futura substitui a previsão, sem duplicação.
+- A interface distingue valor oficial, sugestão, pagamento confirmado e
+  previsão; quatro testes novos cobrem domínio e 360×800/390×844 com texto 1,3.
+- Com a Fase 4 concluída, a próxima etapa é a Fase 5 de paridade restante,
+  homologação Android e release final.
 
 ## Status Geral
 
