@@ -15,7 +15,7 @@
 | 2 | instrumentos, ícones, criação inline e reset completo | concluída em 2026-08-23 |
 | 3 | importação vinculada à conta/cartão correto | concluída em 2026-08-23 |
 | 4 | faturas completas por etapas | concluída em 2026-08-23 |
-| 5 | paridade restante, homologação Android e release | próxima |
+| 5 | paridade restante, homologação Android e release | concluída tecnicamente; homologação física pendente |
 
 As fases são sequenciais por dependência de domínio. Correções pequenas e
 isoladas da Fase 1 podem compartilhar um ciclo, mas nenhuma fase deve ser
@@ -311,6 +311,33 @@ adequadamente para distribuição pessoal.
 - nenhuma captura pessoal incluída no Git;
 - APK release reproduzível, assinado para release e instalado no aparelho de
   homologação.
+
+### Entregue tecnicamente em 2026-08-23
+
+- o Resumo foi recomposto segundo a hierarquia do protótipo: saldo único,
+  entradas/saídas, transferência interna, revisão pendente, leitura alternável
+  por pessoa/categoria/centro, origens, compromissos e lista densa;
+- Resumo, Ajustes e Família ganharam goldens em 360×800 e 390×844; uma
+  regressão adicional percorre 13 jornadas reais nos dois viewports com texto
+  em 1,3, incluindo Backup, Regras, Sync/privacidade, Duplicidades,
+  Cadastros, Compromissos, Captura, Importação, Novo e Onboarding;
+- as diferenças sem equivalente no protótipo foram mantidas deliberadamente:
+  backup é local, sync informa quando está desabilitado, faturas usam domínio
+  real e nenhuma ação simulada foi introduzida;
+- o Android passou a declarar rede explicitamente, desabilitar backup e
+  transferência automática dos dados financeiros, usar ícone/splash próprios
+  e assinar a release com uma chave pessoal externa ao repositório;
+- `flutter analyze`, 99 testes Flutter, contrato OpenAPI, build TypeScript e 7
+  testes da API foram aprovados; o lint Android terminou com zero erros e o
+  APK de testes instrumentados foi compilado; a APK `1.2.0+3` foi verificada pelo
+  `apksigner` com RSA 4096 e tem SHA-256
+  `0D29C9D3D1D0F9177C57DFBE2BFD49E22809A7DE54084603C77396E42E7FC2E5`.
+
+A instalação limpa e a execução dos testes instrumentados em aparelho continuam
+pendentes porque o ADB deixou de enumerar o Samsung no fechamento. A versão
+anterior usa certificado de debug; substituí-la pela assinatura pessoal exige
+backup e desinstalação, portanto os dados existentes não serão apagados sem
+confirmação explícita.
 
 ## 8. Evoluções públicas de dados previstas
 

@@ -11,11 +11,11 @@
 ## 1. Resultado executivo
 
 O app Flutter preserva mais comportamento financeiro real que o protótipo e as
-Fases 1–3 e 4A–4C já eliminaram as divergências críticas de Movimentações, confirmação,
-descrição, identidade de instrumentos, classificações, reset e associação da
-importação ao instrumento e faturas calculáveis/visíveis. Ainda não há paridade
-total: permanecem o acabamento das telas restantes e a homologação Android
-integral.
+Fases 1–5 eliminaram as divergências críticas de Movimentações, confirmação,
+descrição, identidade de instrumentos, classificações, reset, importação,
+faturas e hierarquia do Resumo. Todas as rotas ficaram equivalentes ou possuem
+uma diferença deliberada registrada. Resta somente a homologação Android
+física da candidata assinada.
 
 A próxima etapa não é uma troca de tecnologia nem uma cópia do React. É a
 tradução sistemática da hierarquia visual do protótipo para widgets Flutter,
@@ -30,7 +30,10 @@ coordenado. Seis goldens cobrem Revisão, Movimentações e Detalhe em 360×800 
 390×844; testes adicionais cobrem criação inline, migração/backup e todos os
 stores do reset. A Importação agora preserva identidade do demonstrativo,
 confirma o destino e bloqueia ambiguidade; o item 6.7 permanece no roadmap, e
-a homologação Android integral continua pendente para a Fase 5.
+a Fase 4 resolveu o item 6.7. Na Fase 5, o Resumo foi recomposto, 13 jornadas
+foram exercitadas em dois viewports e Resumo/Ajustes/Família receberam goldens.
+A homologação Android integral continua pendente apenas porque o ADB não
+enumerou o aparelho no fechamento.
 
 ## 2. Evidências e limites da auditoria
 
@@ -69,20 +72,20 @@ diferenças deliberadas exigem registro.
 
 ## 4. Inventário completo das telas do protótipo
 
-| Rota | Jornada Flutter | Estado observado | Lacuna principal | Prioridade |
-| --- | --- | --- | --- | --- |
-| `/` | `review_page.dart` | ações Drift reais; estrutura parcialmente migrada | densidade, hierarquia dos cards e feedback persistente após confirmar | crítica |
-| `/summary` | `dashboard_page.dart` | resumo real e responsivo | espaçamento, iconografia e hierarquia ainda diferem em blocos do mês | média |
-| `/transaction/new` | `new_transaction_page.dart` | criação real com instrumentos identificáveis e classificação inline | acabamento visual restante | média |
-| `/transaction/$id` | `edit_transaction_page.dart` | detalhe e edição reais na mesma jornada | campo de descrição ambíguo; falta separar leitura, edição, título e texto original | crítica |
-| `/movimentacoes` | `movements_page.dart` | busca e filtros funcionais | painel grande sempre aberto, totais redundantes, linhas altas, espaçamento e menu incorretos | crítica |
-| `/settings` | `settings_home_page.dart` | hub real com estados locais | acabamento e densidade; precisa manter a organização do protótipo sem esconder ações reais | média |
-| `/family` | `family_structure_page.dart` | dados e atalhos reais | apresentação ainda mais técnica e extensa que a referência | média |
-| `/backup` | `BackupSettingsPage` em `family_structure_page.dart` | exportação/restauração reais | fluxo visual e histórico diferem; não reproduzir “nuvem automática” mockada | média |
-| `/rules` | `RulesPreviewPage` em `feature_availability_page.dart` | CRUD local básico e explicável | composição visual e profundidade de explicação; recursos futuros devem continuar honestos | média |
-| `/sync-privacy` | `SyncPrivacyPreviewPage` em `feature_availability_page.dart` | fila e configuração reais quando habilitadas | consolidar estados e linguagem sem prometer sync ativo quando desligado | média |
-| `/import` | `import_page.dart` | CSV/OFX com identificação, destino confirmado, prévia, histórico e promoção real | acabamento e homologação física restantes | média |
-| `/duplicates` | `duplicates_page.dart` | conciliação real | densidade, comparação visual e ações secundárias ainda divergem | alta |
+| Rota | Jornada Flutter | Resultado da Fase 5 | Classificação |
+| --- | --- | --- | --- |
+| `/` | `review_page.dart` | composição compacta, ações Drift e confirmação temporária | equivalente |
+| `/summary` | `dashboard_page.dart` | hierarquia mensal, blocos densos, leituras e origens reais | equivalente |
+| `/transaction/new` | `new_transaction_page.dart` | criação real, instrumento inequívoco e classificação inline | equivalente |
+| `/transaction/$id` | `edit_transaction_page.dart` | leitura separada da edição e texto original imutável | equivalente |
+| `/movimentacoes` | `movements_page.dart` | busca/chips compactos, filtros em sheet e lista densa | equivalente |
+| `/settings` | `settings_home_page.dart` | hub compacto preservando todos os estados reais | equivalente |
+| `/family` | `family_structure_page.dart` | informações reais agrupadas no mesmo sistema visual | equivalente |
+| `/backup` | `BackupSettingsPage` | exportação/restauração local, sem nuvem automática fictícia | diferença deliberada |
+| `/rules` | `RulesPreviewPage` | CRUD existente e indisponibilidades explicadas | diferença deliberada |
+| `/sync-privacy` | `SyncPrivacyPreviewPage` | estado real de fila/sessão; não promete sync quando desligado | diferença deliberada |
+| `/import` | `import_page.dart` | etapas reais com identidade, destino, prévia e histórico | equivalente |
+| `/duplicates` | `duplicates_page.dart` | comparação e decisões ligadas à conciliação real | equivalente |
 
 ### Redirecionamento
 

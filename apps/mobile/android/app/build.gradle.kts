@@ -5,6 +5,17 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val releaseStoreFilePath = System.getenv("ZIMBA_RELEASE_STORE_FILE")
+val releaseStorePassword = System.getenv("ZIMBA_RELEASE_STORE_PASSWORD")
+val releaseKeyAlias = System.getenv("ZIMBA_RELEASE_KEY_ALIAS")
+val releaseKeyPassword = System.getenv("ZIMBA_RELEASE_KEY_PASSWORD")
+val hasPersonalReleaseSigning = listOf(
+    releaseStoreFilePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 android {
     namespace = "br.com.zimbacontrol.zimba_control"
     compileSdk = flutter.compileSdkVersion
@@ -20,10 +31,7 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "br.com.zimbacontrol.zimba_control"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -31,11 +39,28 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (hasPersonalReleaseSigning) {
+            create("personalRelease") {
+                storeFile = file(releaseStoreFilePath!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasPersonalReleaseSigning) {
+                signingConfigs.getByName("personalRelease")
+            } else {
+                logger.warn(
+                    "ZimbaControl: variaveis ZIMBA_RELEASE_* ausentes; " +
+                        "gerando artefato diagnostico com chave de debug.",
+                )
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

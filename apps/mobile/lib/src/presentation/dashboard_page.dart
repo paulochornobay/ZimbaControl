@@ -5,18 +5,26 @@ import '../data/local/app_database.dart';
 import 'design/zimba_theme.dart';
 import 'design/zimba_ui.dart';
 
-class DashboardPage extends StatelessWidget {
-  const DashboardPage({required this.database, super.key});
+class DashboardPage extends StatefulWidget {
+  const DashboardPage({required this.database, this.referenceDate, super.key});
 
   final AppDatabase database;
+  final DateTime? referenceDate;
+
+  @override
+  State<DashboardPage> createState() => _DashboardPageState();
+}
+
+class _DashboardPageState extends State<DashboardPage> {
+  int breakdownIndex = 0;
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<ReviewTransactionDetails>>(
-      stream: database.watchAllTransactionDetails(),
+      stream: widget.database.watchAllTransactionDetails(),
       builder: (context, transactionSnapshot) {
         return FutureBuilder<FamilyStructureSnapshot>(
-          future: database.getFamilyStructureSnapshot(),
+          future: widget.database.getFamilyStructureSnapshot(),
           builder: (context, structureSnapshot) {
             final details =
                 transactionSnapshot.data ?? const <ReviewTransactionDetails>[];
@@ -25,6 +33,7 @@ class DashboardPage extends StatelessWidget {
               details: details,
               recurringSchedules: structure?.recurringSchedules ?? const [],
               installmentPlans: structure?.installmentPlans ?? const [],
+              now: widget.referenceDate,
             );
             final recent = details.take(5).toList(growable: false);
 
@@ -42,7 +51,7 @@ class DashboardPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      _monthTitle(DateTime.now()),
+                      _monthTitle(widget.referenceDate ?? DateTime.now()),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: ZimbaColors.secondaryText,
                         fontWeight: FontWeight.w400,
@@ -52,7 +61,7 @@ class DashboardPage extends StatelessWidget {
                 ),
               ),
               body: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                 children: [
                   if (transactionSnapshot.connectionState ==
                           ConnectionState.waiting &&
@@ -63,50 +72,41 @@ class DashboardPage extends StatelessWidget {
                   ] else ...[
                     SummaryCard(summary: summary),
                     const SizedBox(height: 12),
-                    OperationalCards(summary: summary),
-                    const SizedBox(height: 12),
-                    BreakdownSection(
-                      title: 'Por pessoa',
-                      icon: Icons.people_alt_outlined,
-                      items: summary.byPerson,
+                    if (summary.pendingCount > 0) ...[
+                      PendingReviewCard(summary: summary),
+                      const SizedBox(height: 18),
+                    ] else
+                      const SizedBox(height: 6),
+                    MonthlyReadingSection(
+                      summary: summary,
+                      selectedIndex: breakdownIndex,
+                      onSelected: (value) =>
+                          setState(() => breakdownIndex = value),
                     ),
                     const SizedBox(height: 12),
-                    BreakdownSection(
-                      title: 'Categorias',
-                      icon: Icons.category_outlined,
-                      items: summary.byCategory,
-                    ),
+                    SourceSummarySection(items: summary.bySource),
                     const SizedBox(height: 12),
-                    BreakdownSection(
-                      title: 'Centros de custo',
-                      icon: Icons.account_tree_outlined,
-                      items: summary.byCostCenter,
+                    UpcomingCommitmentsSection(
+                      structure: structure,
+                      referenceDate: widget.referenceDate,
                     ),
-                    const SizedBox(height: 12),
-                    BreakdownSection(
-                      title: 'Origens',
-                      icon: Icons.hub_outlined,
-                      items: summary.bySource,
-                    ),
-                    const SizedBox(height: 12),
-                    UpcomingCommitmentsSection(structure: structure),
                     const SizedBox(height: 12),
                     _SectionHeader(
-                      title: 'Ultimas movimentacoes',
+                      title: 'Últimas movimentações',
                       icon: Icons.receipt_long_outlined,
                     ),
                     const SizedBox(height: 8),
                     if (recent.isEmpty)
                       const EmptyCompactState(
                         icon: Icons.receipt_long_outlined,
-                        text: 'Nenhuma movimentacao local ainda.',
+                        text: 'Nenhuma movimentação local ainda.',
                       )
                     else
                       for (final item in recent)
                         TransactionTile(
                           details: item,
                           onConfirm: item.transaction.reviewStatus == 'pending'
-                              ? () => database.confirmTransaction(
+                              ? () => widget.database.confirmTransaction(
                                   item.transaction.id,
                                 )
                               : null,
@@ -161,15 +161,243 @@ class SummaryCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: StatPill(
-                  label: 'Saidas',
+                  label: 'Saídas',
                   value: formatBrl(summary.expenseCents.abs()),
                   color: Colors.red,
                 ),
               ),
             ],
           ),
+          if (summary.transferCents > 0) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: ZimbaColors.accentSoft,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.compare_arrows_outlined,
+                    size: 18,
+                    color: ZimbaColors.accent,
+                  ),
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Text(
+                      'Transferências internas',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: ZimbaColors.accent,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    formatBrl(summary.transferCents),
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: ZimbaColors.accent,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+}
+
+class PendingReviewCard extends StatelessWidget {
+  const PendingReviewCard({required this.summary, super.key});
+
+  final DashboardSummary summary;
+
+  @override
+  Widget build(BuildContext context) {
+    return ZimbaCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        children: [
+          const Icon(Icons.inbox_outlined, color: ZimbaColors.accent),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${summary.pendingCount} lançamentos aguardando revisão',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${formatBrl(summary.pendingCents)} ainda não consolidados',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: ZimbaColors.secondaryText,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const ZimbaBadge(label: 'Pendente'),
+        ],
+      ),
+    );
+  }
+}
+
+class MonthlyReadingSection extends StatelessWidget {
+  const MonthlyReadingSection({
+    required this.summary,
+    required this.selectedIndex,
+    required this.onSelected,
+    super.key,
+  });
+
+  final DashboardSummary summary;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = switch (selectedIndex) {
+      1 => summary.byCategory,
+      2 => summary.byCostCenter,
+      _ => summary.byPerson,
+    };
+    final visible = items.take(5).toList(growable: false);
+    final maximum = visible.fold<int>(
+      1,
+      (current, item) =>
+          item.amountCents.abs() > current ? item.amountCents.abs() : current,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'LEITURA DO MÊS',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: ZimbaColors.secondaryText,
+            letterSpacing: .75,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SegmentedButton<int>(
+          showSelectedIcon: false,
+          segments: const [
+            ButtonSegment(value: 0, label: Text('Pessoa')),
+            ButtonSegment(value: 1, label: Text('Categoria')),
+            ButtonSegment(value: 2, label: Text('Centro')),
+          ],
+          selected: {selectedIndex},
+          onSelectionChanged: (value) => onSelected(value.first),
+        ),
+        const SizedBox(height: 8),
+        ZimbaCard(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+          child: visible.isEmpty
+              ? const EmptyCompactState(
+                  icon: Icons.remove_circle_outline,
+                  text: 'Sem dados neste mês.',
+                )
+              : Column(
+                  children: [
+                    for (final item in visible) ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              item.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            formatBrl(item.amountCents),
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      LinearProgressIndicator(
+                        minHeight: 4,
+                        borderRadius: BorderRadius.circular(3),
+                        value: item.amountCents.abs() / maximum,
+                        backgroundColor: ZimbaColors.accentSoft,
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class SourceSummarySection extends StatelessWidget {
+  const SourceSummarySection({required this.items, super.key});
+
+  final List<SummaryBreakdownItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = items.take(4).toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'FONTES DOS DADOS',
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: ZimbaColors.secondaryText,
+            letterSpacing: .75,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ZimbaCard(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          child: visible.isEmpty
+              ? const EmptyCompactState(
+                  icon: Icons.hub_outlined,
+                  text: 'Sem fontes neste mês.',
+                )
+              : Row(
+                  children: [
+                    for (final item in visible)
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Text(
+                              item.count.toString(),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              item.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: ZimbaColors.secondaryText),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+        ),
+      ],
     );
   }
 }
@@ -329,7 +557,7 @@ class BreakdownSection extends StatelessWidget {
             if (visible.isEmpty)
               const EmptyCompactState(
                 icon: Icons.remove_circle_outline,
-                text: 'Sem dados neste mes.',
+                text: 'Sem dados neste mês.',
               )
             else
               for (final item in visible) BreakdownRow(item: item),
@@ -390,15 +618,20 @@ class BreakdownRow extends StatelessWidget {
 }
 
 class UpcomingCommitmentsSection extends StatelessWidget {
-  const UpcomingCommitmentsSection({required this.structure, super.key});
+  const UpcomingCommitmentsSection({
+    required this.structure,
+    this.referenceDate,
+    super.key,
+  });
 
   final FamilyStructureSnapshot? structure;
+  final DateTime? referenceDate;
 
   @override
   Widget build(BuildContext context) {
     final schedules = structure?.recurringSchedules ?? const [];
     final plans = structure?.installmentPlans ?? const [];
-    final now = DateTime.now();
+    final now = referenceDate ?? DateTime.now();
     final items = <_CommitmentItem>[
       for (final schedule in schedules.where((item) => item.active))
         _CommitmentItem(
@@ -425,7 +658,7 @@ class UpcomingCommitmentsSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const _SectionHeader(
-              title: 'Proximos compromissos',
+              title: 'Próximos compromissos',
               icon: Icons.calendar_month_outlined,
             ),
             const SizedBox(height: 8),

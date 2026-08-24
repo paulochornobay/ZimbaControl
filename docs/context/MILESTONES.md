@@ -15,7 +15,8 @@
 - Fase 4A — modelo e cálculo de faturas: concluída tecnicamente.
 - Fase 4B — visão de fatura: concluída tecnicamente.
 - Fase 4C — conciliação e projeção: concluída tecnicamente.
-- Fase 5 — paridade restante, homologação e release: próxima.
+- Fase 5 — paridade restante, homologação e release: concluída tecnicamente;
+  instalação e roteiro físico pendentes.
 
 Baseline visual vigente: `pixel-perfect-pixels@2848fc6`. Baselines citados nos
 marcos abaixo pertencem aos respectivos ciclos históricos.
@@ -105,6 +106,24 @@ marcos abaixo pertencem aos respectivos ciclos históricos.
   previsão; quatro testes novos cobrem domínio e 360×800/390×844 com texto 1,3.
 - Com a Fase 4 concluída, a próxima etapa é a Fase 5 de paridade restante,
   homologação Android e release final.
+
+### Fase 5 — conclusão técnica em 2026-08-23
+
+- Resumo passou a seguir a composição do protótipo com saldo, entradas,
+  saídas, transferências, pendências e leituras alternáveis sem blocos
+  redundantes.
+- Treze jornadas foram exercitadas em 360×800 e 390×844 com escala de texto
+  1,3; Resumo, Ajustes e Família possuem seis goldens dedicados.
+- Manifesto, backup Android, transferência entre aparelhos, ícone e splash
+  foram revisados para uma distribuição pessoal mais segura.
+- A chave pessoal fica fora do repositório; scripts reproduzíveis configuram e
+  verificam a assinatura sem versionar segredos.
+- `flutter analyze`, 99 testes Flutter, contrato OpenAPI, TypeScript, 7 testes
+  da API e lint Android sem erros passaram; o APK instrumentado foi compilado.
+  A APK `1.2.0+3` tem SHA-256
+  `0D29C9D3D1D0F9177C57DFBE2BFD49E22809A7DE54084603C77396E42E7FC2E5`.
+- A instalação física não foi forçada: o ADB não enumerou o Samsung e a troca
+  do certificado de debug pelo pessoal exige backup e desinstalação.
 
 ## Status Geral
 

@@ -11,16 +11,16 @@
 
 - Item 0 do plano de continuidade concluído: requisitos, auditoria das 12
   telas do protótipo e roadmap por fases foram consolidados em `docs/product`.
-- Fases 1, 2, 3, 4A, 4B e 4C concluídas tecnicamente. Além da fundação visual, o app agora
+- Fases 1, 2, 3, 4A, 4B, 4C e 5 concluídas tecnicamente. Além da fundação visual, o app agora
   distingue conta/cartão, persiste ícones e cores de categorias/centros,
   permite criação inline, oferece reset coordenado e exige instrumento
   confirmado em toda importação e possui o modelo calculável e auditável de
   faturas, visão por cartão, conciliação confirmável de pagamentos e projeção
-  de parcelas sem despesas artificiais. A Fase 5 é a próxima.
+  de parcelas sem despesas artificiais. A Fase 5 também recompôs o Resumo,
+  fechou a matriz de paridade e preparou a candidata Android assinada.
 - Referência visual oficial local: `C:\dev\pixel-perfect-pixels@2848fc6`.
 - Código do app auditado: `ZimbaControl@cd67fcb`.
-- Lacunas críticas restantes: paridade das telas restantes, assinatura própria
-  de distribuição e homologação Android integral.
+- Lacuna crítica restante: homologação Android integral em aparelho físico.
 - A APK release `1.1.0+2` foi gerada com sucesso em
   `apps/mobile/build/app/outputs/flutter-apk/app-release.apk`, SHA-256
   `36C922AE12AA35C1BE22C4305C1DF8E08E2EB714D76ACCD58D3AB074750C2C57`.
@@ -43,6 +43,13 @@
   `6BC4F771690FD6B19BEC5DCFAE9E20DC798D5A6F25DD8B89F1D355861C8A7E94`.
   O ADB não enumerou aparelho conectado no fechamento do marco, portanto esta
   build ainda não foi instalada no Samsung.
+- A candidata pessoal `1.2.0+3` foi gerada com chave RSA 4096 externa ao Git,
+  assinatura v2 verificada e SHA-256
+  `0D29C9D3D1D0F9177C57DFBE2BFD49E22809A7DE54084603C77396E42E7FC2E5`.
+  A regressão passou em 99 testes Flutter e 7 testes da API. Como o APK
+  anterior usa certificado de debug, a instalação exige backup seguido de
+  desinstalação; o ADB não enumerou o aparelho no fechamento e nenhum dado foi
+  apagado.
 
 ## Estado Atual
 
@@ -249,16 +256,16 @@ Antes de continuar qualquer marco, leia:
 
 ## Próximo ciclo
 
-Executar a Fase 5 de `docs/product/IMPLEMENTATION_ROADMAP.md`: concluir a
-paridade das jornadas restantes e a homologação Android física antes de uma
-candidata final assinada para distribuição.
+Concluir a parte física da Fase 5 de
+`docs/product/IMPLEMENTATION_ROADMAP.md`: preservar os dados existentes e
+homologar a candidata final assinada no Samsung.
 
 Sequencia recomendada:
 
-1. Desinstalar o APK anterior e instalar a build recuperada com banco limpo.
-2. Concluir o onboarding com dados reais, reiniciar e criar lancamentos.
-3. Exercitar revisao, importacao, captura, cadastros e backup sem internet.
-4. Revogar a permissao de notificacoes e verificar a orientacao do app.
-5. Restaurar o backup depois de limpar os dados locais.
-6. Registrar qualquer falha com modelo Android, versao do sistema e passos.
-7. So depois retomar Sync, Google ou Regras como jornadas publicas.
+1. Exportar e conferir um backup local antes de remover o APK anterior.
+2. Desinstalar o APK de debug e instalar a candidata assinada com banco limpo.
+3. Concluir o onboarding com dados anonimizados, reiniciar e criar lancamentos.
+4. Exercitar revisao, importacao, captura, cadastros e backup sem internet.
+5. Revogar a permissao de notificacoes e verificar a orientacao do app.
+6. Restaurar o backup depois de limpar os dados locais.
+7. Registrar qualquer falha com modelo Android, versao do sistema e passos.

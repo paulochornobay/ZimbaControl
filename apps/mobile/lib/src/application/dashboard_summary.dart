@@ -6,6 +6,8 @@ class DashboardSummary {
     required this.expenseCents,
     required this.pendingCount,
     this.transferCount = 0,
+    this.transferCents = 0,
+    this.pendingCents = 0,
     this.futureCommitmentCents = 0,
     this.byPerson = const [],
     this.byCategory = const [],
@@ -17,6 +19,8 @@ class DashboardSummary {
   final int expenseCents;
   final int pendingCount;
   final int transferCount;
+  final int transferCents;
+  final int pendingCents;
   final int futureCommitmentCents;
   final List<SummaryBreakdownItem> byPerson;
   final List<SummaryBreakdownItem> byCategory;
@@ -86,6 +90,12 @@ DashboardSummary buildOperationalDashboardSummary({
     transferCount: monthDetails
         .where((item) => item.transaction.kind == 'transfer')
         .length,
+    transferCents: monthDetails
+        .where((item) => item.transaction.kind == 'transfer')
+        .fold<int>(0, (sum, item) => sum + item.transaction.amountCents.abs()),
+    pendingCents: monthDetails
+        .where((item) => item.transaction.reviewStatus == 'pending')
+        .fold<int>(0, (sum, item) => sum + item.transaction.amountCents),
     futureCommitmentCents: commitmentCents,
     byPerson: _breakdown(
       monthDetails,

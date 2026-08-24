@@ -366,3 +366,12 @@ Ainda pendente:
 - Nao enviar payload bruto de notificacoes ao servidor por padrao.
 - Expurgo configuravel de eventos crus apos consolidacao.
 - Tokens e chaves em secure storage.
+- O manifesto de produção bloqueia backup automático e transferência Android
+  de arquivos, bancos e preferências financeiras; backups continuam sendo
+  criados apenas pela jornada explícita e versionada do app.
+- A permissão `INTERNET` é declarada para sync opcional. Captura de
+  notificações continua dependente de concessão explícita do usuário.
+- A assinatura pessoal de release é injetada por variáveis
+  `ZIMBA_RELEASE_*`; chave e senhas permanecem fora do repositório. Sem essas
+  variáveis, o Gradle avisa e produz somente artefato diagnóstico com a chave
+  de debug.

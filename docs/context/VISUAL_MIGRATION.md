@@ -30,11 +30,15 @@ Fase 4B agora os apresenta em uma tela Flutter real, pois o protótipo não poss
 rota equivalente de fatura. A Fase 4C concluiu a conciliação confirmável de
 pagamentos OFX e a projeção de parcelas sem criar despesas futuras.
 
-As maiores lacunas restantes são:
+A Fase 5 recompôs o Resumo conforme a hierarquia mensal do protótipo e validou
+as jornadas restantes nos dois viewports. Ajustes, Família e Resumo possuem
+goldens próprios; telas sem rota React equivalente preservam o mesmo sistema
+visual e registram sua diferença deliberada. A release final usa assinatura
+pessoal própria e configurações Android de privacidade revisadas.
 
-1. paridade restante de Resumo, Ajustes, Família e jornadas auxiliares;
-2. homologação integral em Android físico;
-3. assinatura própria e preparação da release final.
+A única lacuna restante é a homologação integral em Android físico. Ela exige
+backup dos dados atuais antes da troca do APK anterior, assinado com chave de
+debug, pela candidata `1.2.0+3` assinada pessoalmente.
 
 ## Contrato resumido
 
