@@ -22,6 +22,29 @@ void main() {
     'br.com.zimbacontrol/notifications',
   );
 
+  setUpAll(() async {
+    final inter = FontLoader('Inter')
+      ..addFont(rootBundle.load('assets/fonts/Inter-Variable.ttf'));
+    final materialIcons = FontLoader('MaterialIcons')
+      ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+    final lucide = FontLoader('packages/lucide_icons_flutter/Lucide')
+      ..addFont(
+        rootBundle.load('packages/lucide_icons_flutter/assets/lucide.ttf'),
+      );
+    final lucide300 = FontLoader('packages/lucide_icons_flutter/Lucide300')
+      ..addFont(
+        rootBundle.load(
+          'packages/lucide_icons_flutter/assets/build_font/LucideVariable-w300.ttf',
+        ),
+      );
+    await Future.wait([
+      inter.load(),
+      materialIcons.load(),
+      lucide.load(),
+      lucide300.load(),
+    ]);
+  });
+
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(notificationChannel, (call) async {
@@ -43,7 +66,11 @@ void main() {
         .setMockMethodCallHandler(notificationChannel, null);
   });
 
-  for (final size in [const Size(360, 800), const Size(390, 844)]) {
+  for (final size in [
+    const Size(360, 800),
+    const Size(390, 844),
+    const Size(440, 900),
+  ]) {
     testWidgets(
       'Fase 5 valida jornadas em ${size.width.toInt()}px com texto 1.3',
       (tester) async {
@@ -84,6 +111,18 @@ void main() {
             isNull,
             reason: '${page.runtimeType} causou erro em ${size.width}px',
           );
+          if (page is DashboardPage) {
+            await tester.tap(find.text('Categoria'));
+            await tester.pump(const Duration(milliseconds: 200));
+            final categoryControl = tester.widget<AnimatedContainer>(
+              find.byKey(const ValueKey('dashboard-lens-1')),
+            );
+            expect(
+              (categoryControl.decoration! as BoxDecoration).color,
+              ZimbaColors.accentSoft,
+            );
+            expect(tester.takeException(), isNull);
+          }
         }
       },
     );
@@ -123,6 +162,7 @@ void main() {
         matchesGoldenFile('goldens/phase5/family_$suffix.png'),
       );
     });
+
   }
 }
 

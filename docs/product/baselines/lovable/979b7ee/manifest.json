@@ -1,0 +1,407 @@
+{
+  "source": "C:\\dev\\pixel-perfect-pixels",
+  "commit": "979b7eef816ac5510b45071121d165da3d4feed8",
+  "chrome": "151.0.7922.174",
+  "generatedAt": "2026-08-30T13:55:28.354Z",
+  "captures": [
+    {
+      "slug": "review",
+      "route": "/",
+      "viewport": "360x800",
+      "file": "360x800/review.png",
+      "sha256": "394c3a1d3900ecb0559037d5c13753f03cd74d005808f1981120cdcd260a174c"
+    },
+    {
+      "slug": "summary",
+      "route": "/summary",
+      "viewport": "360x800",
+      "file": "360x800/summary.png",
+      "sha256": "00ff51dce94a9f0596e433be10415494f50144e5cccfffd6215d14977da5e3f0"
+    },
+    {
+      "slug": "transaction-new",
+      "route": "/transaction/new",
+      "viewport": "360x800",
+      "file": "360x800/transaction-new.png",
+      "sha256": "29685d31dea6cd85192f4ccde58813386baaaeaa2774f0ef333d61cd7b4ce9a9"
+    },
+    {
+      "slug": "transaction-detail",
+      "route": "/transaction/r1",
+      "viewport": "360x800",
+      "file": "360x800/transaction-detail.png",
+      "sha256": "7228034633c42a19279b18a678aaec7cf657ea705ff7fd6d433891c095b3abdd"
+    },
+    {
+      "slug": "movimentacoes",
+      "route": "/movimentacoes",
+      "viewport": "360x800",
+      "file": "360x800/movimentacoes.png",
+      "sha256": "eea897833080702a18ca1ed36bc610d7421d83c50af197158ac10a6e54ed358b"
+    },
+    {
+      "slug": "settings",
+      "route": "/settings",
+      "viewport": "360x800",
+      "file": "360x800/settings.png",
+      "sha256": "c2dec360b8f2afc868f0282dca8bfca364bf766efc528d0ff30d8c58405b185e"
+    },
+    {
+      "slug": "onboarding",
+      "route": "/onboarding",
+      "viewport": "360x800",
+      "file": "360x800/onboarding.png",
+      "sha256": "e4e43711a187578ab7c023c78e711f3bf7622ca1026d6db2edae2b8f54aaa141"
+    },
+    {
+      "slug": "import",
+      "route": "/import",
+      "viewport": "360x800",
+      "file": "360x800/import.png",
+      "sha256": "0c7e6088322e0f1f3cc85264c672fb5aa5691856d0242583da45df3e34b474af"
+    },
+    {
+      "slug": "duplicates",
+      "route": "/duplicates",
+      "viewport": "360x800",
+      "file": "360x800/duplicates.png",
+      "sha256": "60ef5f5fe4c180de1c44e00480a15c8b922ed88bcdf4c6cd34dbb744fbc4423f"
+    },
+    {
+      "slug": "family",
+      "route": "/family",
+      "viewport": "360x800",
+      "file": "360x800/family.png",
+      "sha256": "073ed476b5c0e5593b571a68798c9ee67d46357c4abfce81f4ed0e318cf3a932"
+    },
+    {
+      "slug": "rules",
+      "route": "/rules",
+      "viewport": "360x800",
+      "file": "360x800/rules.png",
+      "sha256": "8782291a6f1ede338b2b751a13727aafb62000c9d6de6138c6ae31180117a2db"
+    },
+    {
+      "slug": "backup",
+      "route": "/backup",
+      "viewport": "360x800",
+      "file": "360x800/backup.png",
+      "sha256": "04eed0114548a668f490ccff2d4bee98e446a801d973424694e89e291766c962"
+    },
+    {
+      "slug": "sync-privacy",
+      "route": "/sync-privacy",
+      "viewport": "360x800",
+      "file": "360x800/sync-privacy.png",
+      "sha256": "3fd0f86fd8b693955aee332d0433a13c7b9566079366a38813f6e7fa6203aa7f"
+    },
+    {
+      "slug": "identidade",
+      "route": "/identidade",
+      "viewport": "360x800",
+      "file": "360x800/identidade.png",
+      "sha256": "2ec210d4e7a4ea34667769088689243319abc5e82c0f18a9f292645c9f47cab8"
+    },
+    {
+      "slug": "registries",
+      "route": "/registries",
+      "viewport": "360x800",
+      "file": "360x800/registries.png",
+      "sha256": "ae274e41cafa6bbad2ac971dfd87b0e0a5403a39b24f45d37dfe4b9069e3a9e9"
+    },
+    {
+      "slug": "invoices",
+      "route": "/invoices",
+      "viewport": "360x800",
+      "file": "360x800/invoices.png",
+      "sha256": "51bdf07048803d13390eece154b19733654a5022c27e3917077d5385973b3ac2"
+    },
+    {
+      "slug": "commitments",
+      "route": "/commitments",
+      "viewport": "360x800",
+      "file": "360x800/commitments.png",
+      "sha256": "99b7f1c17e409aaba846097ef44bf2e8f3e8d352036ae8e91fd6655566753e4e"
+    },
+    {
+      "slug": "capture",
+      "route": "/capture",
+      "viewport": "360x800",
+      "file": "360x800/capture.png",
+      "sha256": "3ab8f6f691913e4a931b6e2d16841b0b8d0dc2e7b1561f22ba790e1010bbf7c9"
+    },
+    {
+      "slug": "local-data",
+      "route": "/local-data",
+      "viewport": "360x800",
+      "file": "360x800/local-data.png",
+      "sha256": "7540556ef9360ace6bbe886a4cb85a929d7b148490bcd4621d77d5b3ba80d998"
+    },
+    {
+      "slug": "review",
+      "route": "/",
+      "viewport": "390x844",
+      "file": "390x844/review.png",
+      "sha256": "bdffbf86cdad6e5e2c8035e0d6f78ffe76efda38833df177caf636da92d4619a"
+    },
+    {
+      "slug": "summary",
+      "route": "/summary",
+      "viewport": "390x844",
+      "file": "390x844/summary.png",
+      "sha256": "92008322e34fac1a0bced0bd568c8f3e9a36f065d1a654f19f07db8feb2bbcf5"
+    },
+    {
+      "slug": "transaction-new",
+      "route": "/transaction/new",
+      "viewport": "390x844",
+      "file": "390x844/transaction-new.png",
+      "sha256": "277bc4667a6ee3224c1ec7fb66426a18f7dac742c92f496ab49864ecbc56044a"
+    },
+    {
+      "slug": "transaction-detail",
+      "route": "/transaction/r1",
+      "viewport": "390x844",
+      "file": "390x844/transaction-detail.png",
+      "sha256": "2027da4613084392442c258b0d8accc81b7b94853ed6c84cbcc813736d15e9d2"
+    },
+    {
+      "slug": "movimentacoes",
+      "route": "/movimentacoes",
+      "viewport": "390x844",
+      "file": "390x844/movimentacoes.png",
+      "sha256": "76c55f56769b280f738ce915d5bf850d196df2c737afcbfd034b10c5419c8169"
+    },
+    {
+      "slug": "settings",
+      "route": "/settings",
+      "viewport": "390x844",
+      "file": "390x844/settings.png",
+      "sha256": "8eb2fbdde4a40d2664e5bd5ab42dbc54d5f8ab1be1b40cfe3711c35f04d69fca"
+    },
+    {
+      "slug": "onboarding",
+      "route": "/onboarding",
+      "viewport": "390x844",
+      "file": "390x844/onboarding.png",
+      "sha256": "25746c9bf7087a6e9eda93c9edca975f4a0ca85940e8f327fbf3fc4266bed19e"
+    },
+    {
+      "slug": "import",
+      "route": "/import",
+      "viewport": "390x844",
+      "file": "390x844/import.png",
+      "sha256": "c6095efd077389c6a56a3cca8061d2aedfd2b46bd8ddf8e0709d1ac49f58def1"
+    },
+    {
+      "slug": "duplicates",
+      "route": "/duplicates",
+      "viewport": "390x844",
+      "file": "390x844/duplicates.png",
+      "sha256": "f9ed66835a994c29b2ebf073c44de97ec8f9ddafd738e9bf9239b47f0d2610ee"
+    },
+    {
+      "slug": "family",
+      "route": "/family",
+      "viewport": "390x844",
+      "file": "390x844/family.png",
+      "sha256": "e0d7ddc5fda4ceea4ada3b8c910d97ead07cfb826610d9623f89aada4cb6f563"
+    },
+    {
+      "slug": "rules",
+      "route": "/rules",
+      "viewport": "390x844",
+      "file": "390x844/rules.png",
+      "sha256": "79e086ff9849c72bfc5f6668c4088396595ff7258479b09b2537cd8e5b4ab955"
+    },
+    {
+      "slug": "backup",
+      "route": "/backup",
+      "viewport": "390x844",
+      "file": "390x844/backup.png",
+      "sha256": "91915235a71d91824c7a2318ebc803cf74d693f871b083b56284749a94f2ef0f"
+    },
+    {
+      "slug": "sync-privacy",
+      "route": "/sync-privacy",
+      "viewport": "390x844",
+      "file": "390x844/sync-privacy.png",
+      "sha256": "1cc338c22e2a0a36844bb4723f683c9b0c036004f4e47df8e6e0b38f71903385"
+    },
+    {
+      "slug": "identidade",
+      "route": "/identidade",
+      "viewport": "390x844",
+      "file": "390x844/identidade.png",
+      "sha256": "eb325703c5b6d9754fac1eef86d6a4fd894a2612574dea12eea029463efa9805"
+    },
+    {
+      "slug": "registries",
+      "route": "/registries",
+      "viewport": "390x844",
+      "file": "390x844/registries.png",
+      "sha256": "5908afbaa178b35e731bf422788b723dd5ff36f460b13271873c82a2bcf994ee"
+    },
+    {
+      "slug": "invoices",
+      "route": "/invoices",
+      "viewport": "390x844",
+      "file": "390x844/invoices.png",
+      "sha256": "7149c025bb867c1f36e14d886543572429c453ee97c3e4f8c5163137572ee118"
+    },
+    {
+      "slug": "commitments",
+      "route": "/commitments",
+      "viewport": "390x844",
+      "file": "390x844/commitments.png",
+      "sha256": "597f3acbc741d40aa089cb9bd5b091522e70376d531b7919ccfddf3483e65005"
+    },
+    {
+      "slug": "capture",
+      "route": "/capture",
+      "viewport": "390x844",
+      "file": "390x844/capture.png",
+      "sha256": "37ed2485ab8780ffc92e3b1f091f34567c2c5761518e087a9784d7350ae74b5c"
+    },
+    {
+      "slug": "local-data",
+      "route": "/local-data",
+      "viewport": "390x844",
+      "file": "390x844/local-data.png",
+      "sha256": "404e8db86b8cb41b9a313b66f7b14b5338a0ab8f1cfb9ace05223bb454d05409"
+    },
+    {
+      "slug": "review",
+      "route": "/",
+      "viewport": "440x900",
+      "file": "440x900/review.png",
+      "sha256": "6f14fba7157ccdf9115f94e706b932aad1ee0e81099ae0be1c581bcedb1712f7"
+    },
+    {
+      "slug": "summary",
+      "route": "/summary",
+      "viewport": "440x900",
+      "file": "440x900/summary.png",
+      "sha256": "e23e7429ee9bbc4ac7a9c57a4c58aa9c1da9a6f84bfaba504041e33dfbb426e9"
+    },
+    {
+      "slug": "transaction-new",
+      "route": "/transaction/new",
+      "viewport": "440x900",
+      "file": "440x900/transaction-new.png",
+      "sha256": "aa054ff6d494afc12d0822699b814611afd19565d97b3d735d947bb9f970f7a7"
+    },
+    {
+      "slug": "transaction-detail",
+      "route": "/transaction/r1",
+      "viewport": "440x900",
+      "file": "440x900/transaction-detail.png",
+      "sha256": "f2bb91530f782e8ff2fbc908209122458e235d4be2a210e1916197b6c933f105"
+    },
+    {
+      "slug": "movimentacoes",
+      "route": "/movimentacoes",
+      "viewport": "440x900",
+      "file": "440x900/movimentacoes.png",
+      "sha256": "5e7f08598fae8fdd5d9acc6ace50de5194918f5cf97097d2a7e56304a46c62c1"
+    },
+    {
+      "slug": "settings",
+      "route": "/settings",
+      "viewport": "440x900",
+      "file": "440x900/settings.png",
+      "sha256": "6f726f8b2daf5f012183f58e427b2a03a409bd1208f88aaa5161be24bd25e2cb"
+    },
+    {
+      "slug": "onboarding",
+      "route": "/onboarding",
+      "viewport": "440x900",
+      "file": "440x900/onboarding.png",
+      "sha256": "cf72a7502d4ec26d319ba01f2e147b767fac67e80bb6b5ed65ab0822e7346757"
+    },
+    {
+      "slug": "import",
+      "route": "/import",
+      "viewport": "440x900",
+      "file": "440x900/import.png",
+      "sha256": "97bdc13ccd1b6679f5d3c23cda5fd7cc4f1751a9dbfd3baf877b98030aa4ac26"
+    },
+    {
+      "slug": "duplicates",
+      "route": "/duplicates",
+      "viewport": "440x900",
+      "file": "440x900/duplicates.png",
+      "sha256": "11be079558ecd30fcf62fce0e0d7049919492ec6510c5b8aaac6791dedfd725f"
+    },
+    {
+      "slug": "family",
+      "route": "/family",
+      "viewport": "440x900",
+      "file": "440x900/family.png",
+      "sha256": "c8b230bd266d9d6fb0888fb083e22c8c7b87f8098518c6206a935a3978ff1214"
+    },
+    {
+      "slug": "rules",
+      "route": "/rules",
+      "viewport": "440x900",
+      "file": "440x900/rules.png",
+      "sha256": "c0edb9006f413eda95d7c23e59200b3c5d7e1bb4e824e72beabe1fa01f43f9dd"
+    },
+    {
+      "slug": "backup",
+      "route": "/backup",
+      "viewport": "440x900",
+      "file": "440x900/backup.png",
+      "sha256": "a70d3b30e59a789a361f7e82a3483fe1f6b37a2a4095079e9ce9c31a0eb92bc7"
+    },
+    {
+      "slug": "sync-privacy",
+      "route": "/sync-privacy",
+      "viewport": "440x900",
+      "file": "440x900/sync-privacy.png",
+      "sha256": "1124c6f1313b53aeffa091a9a937346630ec697990b9f13eda6d09ad0052ab7e"
+    },
+    {
+      "slug": "identidade",
+      "route": "/identidade",
+      "viewport": "440x900",
+      "file": "440x900/identidade.png",
+      "sha256": "4cfd618540995e1577fa867a670d439a0e53fa3fdcbce57ce7fd18a068365020"
+    },
+    {
+      "slug": "registries",
+      "route": "/registries",
+      "viewport": "440x900",
+      "file": "440x900/registries.png",
+      "sha256": "94ae30963514cd31576e1d0add417108494479a3cf60e7f51d739776d7899625"
+    },
+    {
+      "slug": "invoices",
+      "route": "/invoices",
+      "viewport": "440x900",
+      "file": "440x900/invoices.png",
+      "sha256": "59f5589e96871d2f60fc3c60ceaa86c4f0ca8a16eb5b06ce3fb20246ccce9b86"
+    },
+    {
+      "slug": "commitments",
+      "route": "/commitments",
+      "viewport": "440x900",
+      "file": "440x900/commitments.png",
+      "sha256": "5ff6b506ae56c8649948aae002a741bb4f4724a2263adde2a240de24ad8ba34d"
+    },
+    {
+      "slug": "capture",
+      "route": "/capture",
+      "viewport": "440x900",
+      "file": "440x900/capture.png",
+      "sha256": "fea9467033eed21e5e69bf55d20c19219268465ee0267ce2675c18ee73fe7563"
+    },
+    {
+      "slug": "local-data",
+      "route": "/local-data",
+      "viewport": "440x900",
+      "file": "440x900/local-data.png",
+      "sha256": "984944136fe88c1a20a93a1c018bf38c3625a94d8d36865142609a7755e734de"
+    }
+  ]
+}

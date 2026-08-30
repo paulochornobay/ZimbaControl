@@ -45,6 +45,7 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
   bool loading = true;
   bool saving = false;
   bool editing = false;
+  bool _initializedEditing = false;
 
   @override
   void initState() {
@@ -68,6 +69,7 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
       widget.database.listAccountsWithOwners(includeInactive: true),
       widget.database.listPeople(),
       widget.database.listInstallmentPlans(),
+      widget.database.listTransactionSources(widget.transactionId),
     ]);
     final loadedTransaction = results[0] as FinanceTransaction?;
 
@@ -98,6 +100,13 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
         if (loadedTransaction?.payerId != null) loadedTransaction!.payerId!,
       };
       loading = false;
+      if (!_initializedEditing) {
+        final sources = results[6] as List<TransactionSourceRow>;
+        editing =
+            loadedTransaction?.reviewStatus == 'pending' &&
+            sources.any((source) => source.sourceKind == 'notification');
+        _initializedEditing = true;
+      }
     });
     _loadDetails();
   }
@@ -279,7 +288,25 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
           if (mounted) setState(() => editing = false);
         },
       ),
-      bottomNavigationBar: widget.onNavigate == null
+      bottomNavigationBar: editing
+          ? SafeArea(
+              minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: FilledButton.icon(
+                onPressed: saving ? null : save,
+                icon: saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.check_outlined),
+                label: const Text('Salvar alterações'),
+              ),
+            )
+          : widget.onNavigate == null
           ? null
           : ZimbaBottomNavigation(
               selectedIndex: 1,
@@ -531,25 +558,7 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
               ),
             ],
           ),
-          if (editing) ...[
-            const SizedBox(height: 24),
-            SizedBox(
-              height: 48,
-              child: FilledButton(
-                onPressed: saving ? null : save,
-                child: saving
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Text('Salvar alterações'),
-              ),
-            ),
-          ],
+          if (editing) const SizedBox(height: 72),
         ],
       ),
     );

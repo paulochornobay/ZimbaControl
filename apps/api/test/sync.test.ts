@@ -78,6 +78,46 @@ test("POST /sync/push rejects legacy transaction payloads without a version", as
   await app.close();
 });
 
+test("POST /sync/push accepts a versioned credit-limit group payload", async () => {
+  const app = buildApp({ config: testConfig() });
+  await app.ready();
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/sync/push",
+    payload: {
+      deviceId: "device-local",
+      householdId: "household-main",
+      operations: [
+        {
+          opId: "op-limit-group-1",
+          deviceId: "device-local",
+          householdId: "household-main",
+          entityType: "creditCardLimitGroup",
+          entityId: "limit-group-1",
+          operationType: "update",
+          baseVersion: 0,
+          payload: {
+            schemaVersion: 1,
+            group: {
+              id: "limit-group-1",
+              householdId: "household-main",
+              name: "Limite compartilhado",
+              totalLimitCents: 250000,
+              active: true,
+            },
+          },
+          createdAt: "2026-08-30T12:00:00.000Z",
+        },
+      ],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.json().results[0].result, "applied");
+  await app.close();
+});
+
 test("GET /sync/pull returns incremental events in order", async () => {
   const app = buildApp({ config: testConfig() });
   await app.ready();

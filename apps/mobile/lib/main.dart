@@ -138,7 +138,7 @@ class _ZimbaHomeShellState extends State<ZimbaHomeShell> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      DashboardPage(database: widget.database),
+      DashboardPage(database: widget.database, onNavigate: select),
       ReviewPage(database: widget.database, onNavigate: select),
       NewTransactionPage(
         database: widget.database,
@@ -149,6 +149,7 @@ class _ZimbaHomeShellState extends State<ZimbaHomeShell> {
       SettingsHomePage(
         database: widget.database,
         onEnvironmentChanged: widget.onEnvironmentChanged,
+        onNavigate: select,
       ),
     ];
 

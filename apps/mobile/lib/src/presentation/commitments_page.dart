@@ -74,28 +74,41 @@ class _CommitmentsPageState extends State<CommitmentsPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        toolbarHeight: 72,
         title: const Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Compromissos'),
             Text(
-              'Projecoes, recorrencias e parcelas',
+              'Parcelas, consórcio e recorrências',
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
             ),
           ],
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: FilledButton.icon(
+              onPressed: openCreateForm,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Novo'),
+            ),
+          ),
+        ],
         bottom: TabBar(
           controller: tabController,
+          indicatorSize: TabBarIndicatorSize.tab,
+          indicator: BoxDecoration(
+            color: ZimbaColors.surface,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: ZimbaColors.border),
+          ),
+          dividerColor: Colors.transparent,
           tabs: const [
-            Tab(text: 'Recorrencias'),
+            Tab(text: 'Recorrências'),
             Tab(text: 'Parcelas'),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: openCreateForm,
-        icon: const Icon(Icons.add),
-        label: const Text('Novo'),
       ),
       body: FutureBuilder<FamilyStructureSnapshot>(
         future: future,

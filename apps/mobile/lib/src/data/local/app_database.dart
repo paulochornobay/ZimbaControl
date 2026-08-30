@@ -38,6 +38,18 @@ class Accounts extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@DataClassName('CreditCardLimitGroupRow')
+class CreditCardLimitGroups extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get name => text()();
+  IntColumn get totalLimitCents => integer().nullable()();
+  BoolColumn get active => boolean().withDefault(const Constant(true))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DataClassName('CreditCardRow')
 class CreditCards extends Table {
   TextColumn get id => text()();
@@ -50,6 +62,8 @@ class CreditCards extends Table {
   TextColumn get last4 => text().nullable()();
   IntColumn get billingDay => integer().nullable()();
   IntColumn get dueDay => integer().nullable()();
+  TextColumn get limitGroupId => text().nullable()();
+  TextColumn get limitRole => text().withDefault(const Constant('primary'))();
   BoolColumn get active => boolean().withDefault(const Constant(true))();
 
   @override
@@ -360,6 +374,22 @@ class InvoicePayments extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+@DataClassName('InvoicePaymentAuditRow')
+class InvoicePaymentAudits extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get paymentId => text()();
+  TextColumn get invoiceId => text()();
+  TextColumn get transactionId => text().nullable()();
+  TextColumn get action => text()();
+  TextColumn get reason => text().nullable()();
+  IntColumn get amountCents => integer()();
+  DateTimeColumn get createdAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DataClassName('InvoiceAssignmentAuditRow')
 class InvoiceAssignmentAudits extends Table {
   TextColumn get id => text()();
@@ -483,6 +513,7 @@ class RawNotificationEvents extends Table {
   tables: [
     People,
     Accounts,
+    CreditCardLimitGroups,
     CreditCards,
     Categories,
     CostCenters,
@@ -501,6 +532,7 @@ class RawNotificationEvents extends Table {
     InstallmentPlans,
     CreditCardInvoices,
     InvoicePayments,
+    InvoicePaymentAudits,
     InvoiceAssignmentAudits,
     ImportBatches,
     StagedSourceRecords,
@@ -527,7 +559,7 @@ class AppDatabase extends _$AppDatabase {
       'notification_capture_retention_days';
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -688,6 +720,25 @@ class AppDatabase extends _$AppDatabase {
         );
         await migrator.addColumn(transactions, transactions.invoiceAssignedAt);
       }
+      if (from < 15) {
+        await migrator.createTable(creditCardLimitGroups);
+        await migrator.createTable(invoicePaymentAudits);
+        await migrator.addColumn(creditCards, creditCards.limitGroupId);
+        await migrator.addColumn(creditCards, creditCards.limitRole);
+        await customStatement('''
+          INSERT INTO credit_card_limit_groups (
+            id, household_id, name, total_limit_cents, active
+          )
+          SELECT 'limit-group-' || id, household_id, name, NULL, active
+          FROM credit_cards
+        ''');
+        await customStatement('''
+          UPDATE credit_cards
+          SET limit_group_id = 'limit-group-' || id,
+              limit_role = 'primary'
+          WHERE limit_group_id IS NULL
+        ''');
+      }
     },
   );
 
@@ -771,6 +822,15 @@ class AppDatabase extends _$AppDatabase {
 
   Stream<List<ReviewTransactionDetails>> watchAllTransactionDetails() {
     return watchAllTransactions().asyncMap(_hydrateReviewTransactions);
+  }
+
+  Future<List<ReviewTransactionDetails>> listAllTransactionDetails() async {
+    final rows =
+        await (select(transactions)
+              ..where((row) => row.deletedAt.isNull())
+              ..orderBy([(row) => OrderingTerm.desc(row.occurredAt)]))
+            .get();
+    return _hydrateReviewTransactions(rows);
   }
 
   Stream<List<FinanceTransaction>> watchPendingReview() {
@@ -1171,6 +1231,48 @@ class AppDatabase extends _$AppDatabase {
     return created;
   }
 
+  Future<CreditLimitGroupSummary?> getCreditLimitGroupSummary(
+    String groupId, {
+    DateTime? now,
+  }) async {
+    final group = await getCreditCardLimitGroup(groupId);
+    if (group == null) return null;
+    final cards =
+        await (select(creditCards)
+              ..where((row) => row.limitGroupId.equals(groupId))
+              ..where((row) => row.active.equals(true)))
+            .get();
+    final cardIds = cards.map((card) => card.id).toSet();
+    if (cardIds.isEmpty) {
+      return CreditLimitGroupSummary(
+        group: group,
+        cards: const [],
+        unpaidInvoicesCents: 0,
+        projectedInstallmentsCents: 0,
+      );
+    }
+    final invoices = await (select(
+      creditCardInvoices,
+    )..where((row) => row.creditCardId.isIn(cardIds))).get();
+    var unpaidInvoicesCents = 0;
+    for (final invoice in invoices) {
+      final summary = await getCreditCardInvoiceSummary(invoice.id, now: now);
+      if (summary.outstandingCents > 0) {
+        unpaidInvoicesCents += summary.outstandingCents;
+      }
+    }
+    final projections = await listInvoiceInstallmentProjections();
+    final projectedInstallmentsCents = projections
+        .where((projection) => cardIds.contains(projection.creditCardId))
+        .fold<int>(0, (sum, projection) => sum + projection.amountCents);
+    return CreditLimitGroupSummary(
+      group: group,
+      cards: cards,
+      unpaidInvoicesCents: unpaidInvoicesCents,
+      projectedInstallmentsCents: projectedInstallmentsCents,
+    );
+  }
+
   Future<List<InvoiceInstallmentProjection>> listInvoiceInstallmentProjections({
     String? invoiceId,
     String? creditCardId,
@@ -1393,11 +1495,104 @@ class AppDatabase extends _$AppDatabase {
         updatedAt: now,
       ),
     );
+    await into(invoicePaymentAudits).insert(
+      InvoicePaymentAuditsCompanion.insert(
+        id: 'invoice-payment-audit-${now.microsecondsSinceEpoch}',
+        householdId: householdMain,
+        paymentId: paymentId,
+        invoiceId: invoiceId,
+        transactionId: Value(transactionId),
+        action: transactionId == null ? 'recorded' : 'reconciled',
+        reason: Value(origin),
+        amountCents: amountCents,
+        createdAt: now,
+      ),
+    );
     await getCreditCardInvoiceSummary(invoiceId, now: now);
+    await _enqueueInvoicePayment(paymentId, 'update');
     return paymentId;
   }
 
-  Future<void> cancelInvoicePayment(String id, {DateTime? cancelledAt}) async {
+  Future<String> recordManualInvoicePayment({
+    required String invoiceId,
+    required String sourceAccountId,
+    required int amountCents,
+    required DateTime paidAt,
+  }) async {
+    final summary = await getCreditCardInvoiceSummary(invoiceId, now: paidAt);
+    if (amountCents <= 0 || amountCents > summary.outstandingCents) {
+      throw ArgumentError('Informe um valor entre zero e o saldo em aberto.');
+    }
+    final card = await getCreditCard(summary.invoice.creditCardId);
+    if (card?.accountId == null) {
+      throw StateError('O cartao nao possui conta de conciliacao.');
+    }
+    final source = await (select(
+      accounts,
+    )..where((row) => row.id.equals(sourceAccountId))).getSingleOrNull();
+    if (source == null || !source.active || source.type == 'credit_card') {
+      throw StateError('Escolha uma conta pagadora ativa.');
+    }
+    if (source.id == card!.accountId) {
+      throw StateError('A conta pagadora deve ser diferente do cartao.');
+    }
+    final now = DateTime.now();
+    final transactionId = 'tx-invoice-payment-${now.microsecondsSinceEpoch}';
+    final paymentId = 'invoice-payment-$invoiceId-$transactionId';
+    await transaction(() async {
+      await into(transactions).insert(
+        _transaction(
+          id: transactionId,
+          kind: 'transfer',
+          reviewStatus: 'confirmed',
+          duplicateStatus: 'none',
+          amountCents: -amountCents,
+          description: 'Pagamento da fatura ${summary.invoice.competenceMonth}',
+          accountId: source.id,
+          transferFromAccountId: source.id,
+          transferToAccountId: card.accountId,
+          occurredAt: paidAt,
+          confidence: 1,
+          payerPersonId: source.ownerPersonId,
+        ),
+      );
+      await into(transactionSources).insert(
+        _source(
+          id: 'src-$transactionId-manual',
+          transactionId: transactionId,
+          sourceKind: 'manual',
+          provider: 'zimba_control',
+          confidence: 1,
+          occurredAt: paidAt,
+        ),
+      );
+      await recordInvoicePayment(
+        id: paymentId,
+        invoiceId: invoiceId,
+        amountCents: amountCents,
+        paidAt: paidAt,
+        transactionId: transactionId,
+        origin: 'manual_confirmed',
+      );
+      await _enqueueOutbox(transactionId, 'create');
+    });
+    return paymentId;
+  }
+
+  Future<List<InvoicePaymentAuditRow>> listInvoicePaymentAudits(
+    String invoiceId,
+  ) {
+    final query = select(invoicePaymentAudits)
+      ..where((row) => row.invoiceId.equals(invoiceId))
+      ..orderBy([(row) => OrderingTerm.desc(row.createdAt)]);
+    return query.get();
+  }
+
+  Future<void> cancelInvoicePayment(
+    String id, {
+    DateTime? cancelledAt,
+    String reason = 'Cancelado pelo usuario',
+  }) async {
     final payment = await (select(
       invoicePayments,
     )..where((row) => row.id.equals(id))).getSingleOrNull();
@@ -1405,13 +1600,50 @@ class AppDatabase extends _$AppDatabase {
       throw StateError('Pagamento de fatura nao encontrado.');
     }
     final effectiveAt = cancelledAt ?? DateTime.now();
-    await (update(invoicePayments)..where((row) => row.id.equals(id))).write(
-      InvoicePaymentsCompanion(
-        status: const Value('cancelled'),
-        updatedAt: Value(effectiveAt),
-      ),
-    );
+    await transaction(() async {
+      await (update(invoicePayments)..where((row) => row.id.equals(id))).write(
+        InvoicePaymentsCompanion(
+          status: const Value('cancelled'),
+          updatedAt: Value(effectiveAt),
+        ),
+      );
+      await into(invoicePaymentAudits).insert(
+        InvoicePaymentAuditsCompanion.insert(
+          id: 'invoice-payment-audit-${effectiveAt.microsecondsSinceEpoch}',
+          householdId: householdMain,
+          paymentId: payment.id,
+          invoiceId: payment.invoiceId,
+          transactionId: Value(payment.transactionId),
+          action: 'cancelled',
+          reason: Value(reason.trim().isEmpty ? null : reason.trim()),
+          amountCents: payment.amountCents,
+          createdAt: effectiveAt,
+        ),
+      );
+      if (payment.transactionId != null) {
+        await (update(
+          transactions,
+        )..where((row) => row.id.equals(payment.transactionId!))).write(
+          TransactionsCompanion(
+            reviewStatus: const Value('pending'),
+            transferToAccountId: const Value(null),
+            updatedAt: Value(effectiveAt),
+          ),
+        );
+        await into(reviewInbox).insert(
+          _reviewItem(
+            payment.transactionId!,
+            'invoice_payment_cancelled',
+            effectiveAt,
+            id: 'review-invoice-cancelled-${payment.transactionId}',
+          ),
+          mode: InsertMode.insertOrIgnore,
+        );
+        await _enqueueOutbox(payment.transactionId!, 'update');
+      }
+    });
     await getCreditCardInvoiceSummary(payment.invoiceId, now: effectiveAt);
+    await _enqueueInvoicePayment(payment.id, 'update');
   }
 
   Future<CreditCardInvoiceSummary> getCreditCardInvoiceSummary(
@@ -1755,12 +1987,17 @@ class AppDatabase extends _$AppDatabase {
         if (_requiredSyncString(event, 'deviceId') == localDeviceId) {
           await _acknowledgeOwnPulledEvent(event);
           result = const _RemoteApplyResult();
-        } else if (_requiredSyncString(event, 'entityType') == 'transaction') {
-          result = await _applyRemoteTransactionEvent(event);
         } else {
-          throw FormatException(
-            'Entidade de sync nao suportada: ${event['entityType']}',
-          );
+          result = switch (_requiredSyncString(event, 'entityType')) {
+            'transaction' => await _applyRemoteTransactionEvent(event),
+            'creditCardLimitGroup' =>
+              await _applyRemoteCreditCardLimitGroupEvent(event),
+            'creditCard' => await _applyRemoteCreditCardEvent(event),
+            'invoicePayment' => await _applyRemoteInvoicePaymentEvent(event),
+            final type => throw FormatException(
+              'Entidade de sync nao suportada: $type',
+            ),
+          };
         }
         await into(syncAppliedEvents).insert(
           SyncAppliedEventsCompanion.insert(
@@ -1787,15 +2024,18 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> _acknowledgeOwnPulledEvent(Map<String, dynamic> event) async {
-    if (_requiredSyncString(event, 'entityType') != 'transaction') {
+    final entityType = _requiredSyncString(event, 'entityType');
+    final entityId = _requiredSyncString(event, 'entityId');
+    final remoteVersion = _syncEventBaseVersion(event) + 1;
+    if (entityType != 'transaction') {
+      await _setSyncEntityVersion(entityType, entityId, remoteVersion);
       return;
     }
-    final transactionId = _requiredSyncString(event, 'entityId');
+    final transactionId = entityId;
     final local = await getTransaction(transactionId);
     if (local == null) {
       return;
     }
-    final remoteVersion = _syncEventBaseVersion(event) + 1;
     if (remoteVersion <= local.serverVersion) {
       return;
     }
@@ -1863,6 +2103,88 @@ class AppDatabase extends _$AppDatabase {
       mode: InsertMode.insertOrIgnore,
     );
     return const _RemoteApplyResult(conflict: true);
+  }
+
+  Future<_RemoteApplyResult> _applyRemoteCreditCardLimitGroupEvent(
+    Map<String, dynamic> event,
+  ) async {
+    final payload = _syncMap(event['payload'], 'payload');
+    _requireSyncSchemaVersion(payload);
+    final group = CreditCardLimitGroupRow.fromJson(
+      _syncMap(payload['group'], 'payload.group'),
+    );
+    await into(
+      creditCardLimitGroups,
+    ).insertOnConflictUpdate(group.toCompanion(false));
+    await _setSyncEntityVersion(
+      'creditCardLimitGroup',
+      group.id,
+      _syncEventBaseVersion(event) + 1,
+    );
+    return const _RemoteApplyResult();
+  }
+
+  Future<_RemoteApplyResult> _applyRemoteCreditCardEvent(
+    Map<String, dynamic> event,
+  ) async {
+    final payload = _syncMap(event['payload'], 'payload');
+    _requireSyncSchemaVersion(payload);
+    final accountPayload = payload['account'];
+    if (accountPayload is Map) {
+      final account = AccountRow.fromJson(
+        Map<String, dynamic>.from(accountPayload),
+      );
+      await into(accounts).insertOnConflictUpdate(account.toCompanion(false));
+    }
+    final card = CreditCardRow.fromJson(
+      _syncMap(payload['creditCard'], 'payload.creditCard'),
+    );
+    await into(creditCards).insertOnConflictUpdate(card.toCompanion(false));
+    await _setSyncEntityVersion(
+      'creditCard',
+      card.id,
+      _syncEventBaseVersion(event) + 1,
+    );
+    return const _RemoteApplyResult();
+  }
+
+  Future<_RemoteApplyResult> _applyRemoteInvoicePaymentEvent(
+    Map<String, dynamic> event,
+  ) async {
+    final payload = _syncMap(event['payload'], 'payload');
+    _requireSyncSchemaVersion(payload);
+    final invoicePayload = payload['invoice'];
+    if (invoicePayload is Map) {
+      final invoice = CreditCardInvoiceRow.fromJson(
+        Map<String, dynamic>.from(invoicePayload),
+      );
+      await into(
+        creditCardInvoices,
+      ).insertOnConflictUpdate(invoice.toCompanion(false));
+    }
+    final payment = InvoicePaymentRow.fromJson(
+      _syncMap(payload['payment'], 'payload.payment'),
+    );
+    await into(
+      invoicePayments,
+    ).insertOnConflictUpdate(payment.toCompanion(false));
+    final audits = payload['audits'];
+    if (audits is List) {
+      for (final value in audits.whereType<Map>()) {
+        final audit = InvoicePaymentAuditRow.fromJson(
+          Map<String, dynamic>.from(value),
+        );
+        await into(
+          invoicePaymentAudits,
+        ).insertOnConflictUpdate(audit.toCompanion(false));
+      }
+    }
+    await _setSyncEntityVersion(
+      'invoicePayment',
+      payment.id,
+      _syncEventBaseVersion(event) + 1,
+    );
+    return const _RemoteApplyResult();
   }
 
   Future<void> _replaceRemoteTransaction(
@@ -1964,6 +2286,9 @@ class AppDatabase extends _$AppDatabase {
     final data = <String, List<Map<String, dynamic>>>{
       'people': _toJsonRows(await select(people).get()),
       'accounts': _toJsonRows(await select(accounts).get()),
+      'creditCardLimitGroups': _toJsonRows(
+        await select(creditCardLimitGroups).get(),
+      ),
       'creditCards': _toJsonRows(await select(creditCards).get()),
       'categories': _toJsonRows(await select(categories).get()),
       'costCenters': _toJsonRows(await select(costCenters).get()),
@@ -1986,6 +2311,9 @@ class AppDatabase extends _$AppDatabase {
       'installmentPlans': _toJsonRows(await select(installmentPlans).get()),
       'creditCardInvoices': _toJsonRows(await select(creditCardInvoices).get()),
       'invoicePayments': _toJsonRows(await select(invoicePayments).get()),
+      'invoicePaymentAudits': _toJsonRows(
+        await select(invoicePaymentAudits).get(),
+      ),
       'invoiceAssignmentAudits': _toJsonRows(
         await select(invoiceAssignmentAudits).get(),
       ),
@@ -2046,6 +2374,7 @@ class AppDatabase extends _$AppDatabase {
   Future<BackupValidationResult> restoreBackupBytes(List<int> bytes) async {
     final backup = _decodeBackup(bytes);
     await transaction(() async {
+      await delete(invoicePaymentAudits).go();
       await delete(invoiceAssignmentAudits).go();
       await delete(invoicePayments).go();
       await delete(creditCardInvoices).go();
@@ -2069,11 +2398,16 @@ class AppDatabase extends _$AppDatabase {
       await delete(costCenters).go();
       await delete(categories).go();
       await delete(creditCards).go();
+      await delete(creditCardLimitGroups).go();
       await delete(accounts).go();
       await delete(people).go();
 
       await _insertBackupRows(people, backup.people);
       await _insertBackupRows(accounts, backup.accounts);
+      await _insertBackupRows(
+        creditCardLimitGroups,
+        backup.creditCardLimitGroups,
+      );
       await _insertBackupRows(creditCards, backup.creditCards);
       await _insertBackupRows(categories, backup.categories);
       await _insertBackupRows(costCenters, backup.costCenters);
@@ -2096,6 +2430,10 @@ class AppDatabase extends _$AppDatabase {
       await _insertBackupRows(creditCardInvoices, backup.creditCardInvoices);
       await _insertBackupRows(invoicePayments, backup.invoicePayments);
       await _insertBackupRows(
+        invoicePaymentAudits,
+        backup.invoicePaymentAudits,
+      );
+      await _insertBackupRows(
         invoiceAssignmentAudits,
         backup.invoiceAssignmentAudits,
       );
@@ -2106,6 +2444,7 @@ class AppDatabase extends _$AppDatabase {
         rawNotificationEvents,
         backup.rawNotificationEvents,
       );
+      await _ensureLimitGroupsForAllCards();
     });
 
     return BackupValidationResult(
@@ -2143,6 +2482,83 @@ class AppDatabase extends _$AppDatabase {
       );
     }
     return utf8.encode(buffer.toString());
+  }
+
+  Future<List<int>> exportInvoiceCsvBytes(String invoiceId) async {
+    final summary = await getCreditCardInvoiceSummary(invoiceId);
+    final card = await getCreditCard(summary.invoice.creditCardId);
+    if (card == null) {
+      throw StateError('Cartao da fatura nao encontrado.');
+    }
+    final buffer = StringBuffer()
+      ..writeln(
+        'fatura;cartao;periodo_inicio;periodo_fim;fechamento;vencimento;tipo;data;descricao;parcela;valor_centavos;estado',
+      );
+    final invoice = summary.invoice;
+    final common = [
+      invoice.competenceMonth,
+      card.name,
+      invoice.periodStart.toIso8601String().substring(0, 10),
+      invoice.periodEnd.toIso8601String().substring(0, 10),
+      invoice.closingDate.toIso8601String().substring(0, 10),
+      invoice.dueDate.toIso8601String().substring(0, 10),
+    ];
+    for (final transaction in summary.transactions) {
+      var installment = '';
+      if (transaction.installmentPlanId != null) {
+        final plan =
+            await (select(installmentPlans)..where(
+                  (row) => row.id.equals(transaction.installmentPlanId!),
+                ))
+                .getSingleOrNull();
+        if (plan != null) {
+          installment = '${plan.currentInstallment}/${plan.totalInstallments}';
+        }
+      }
+      buffer.writeln(
+        [
+          ...common,
+          transaction.amountCents < 0 ? 'compra' : 'estorno',
+          (transaction.postedAt ?? transaction.occurredAt)
+              .toIso8601String()
+              .substring(0, 10),
+          transaction.displayDescription ?? transaction.descriptionRaw,
+          installment,
+          transaction.amountCents.toString(),
+          transaction.reviewStatus,
+        ].map(_csvCell).join(';'),
+      );
+    }
+    for (final projection in summary.installmentProjections) {
+      buffer.writeln(
+        [
+          ...common,
+          'parcela_projetada',
+          '',
+          projection.installmentPlan.label,
+          '${projection.installmentNumber}/${projection.installmentPlan.totalInstallments}',
+          (-projection.amountCents).toString(),
+          'projetada',
+        ].map(_csvCell).join(';'),
+      );
+    }
+    for (final payment in summary.payments) {
+      final paymentTransaction = payment.transactionId == null
+          ? null
+          : await getTransaction(payment.transactionId!);
+      buffer.writeln(
+        [
+          ...common,
+          'pagamento',
+          payment.paidAt.toIso8601String().substring(0, 10),
+          paymentTransaction?.displayDescription ?? 'Pagamento da fatura',
+          '',
+          payment.amountCents.toString(),
+          payment.status,
+        ].map(_csvCell).join(';'),
+      );
+    }
+    return [0xEF, 0xBB, 0xBF, ...utf8.encode(buffer.toString())];
   }
 
   Future<NotificationCaptureSyncResult> syncNotificationCaptureEvents([
@@ -2309,6 +2725,7 @@ class AppDatabase extends _$AppDatabase {
           duplicateStatus: match == null ? 'none' : 'probable',
           amountCents: parsed.amountCents!,
           description: parsed.description!,
+          displayDescription: parsed.displayDescription,
           accountId: accountId,
           occurredAt: parsed.occurredAt!,
           confidence: parsed.confidence,
@@ -2793,7 +3210,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<FamilyStructureSnapshot> getFamilyStructureSnapshot() async {
-    final peopleRows = await watchPeople().first;
+    // This is a one-shot aggregate. Using the direct query avoids leaving a
+    // Drift watcher alive while a page is being mounted or tested.
+    final peopleRows = await listPeople();
     final accounts = await listAccountsWithOwners();
     final cards = await listCreditCardsWithOwners();
     final auth = await listAuthUsers();
@@ -2950,6 +3369,7 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> clearLocalData() async {
     await transaction(() async {
+      await delete(invoicePaymentAudits).go();
       await delete(invoiceAssignmentAudits).go();
       await delete(invoicePayments).go();
       await delete(creditCardInvoices).go();
@@ -2973,6 +3393,7 @@ class AppDatabase extends _$AppDatabase {
       await delete(costCenters).go();
       await delete(categories).go();
       await delete(creditCards).go();
+      await delete(creditCardLimitGroups).go();
       await delete(accounts).go();
       await delete(people).go();
     });
@@ -3732,9 +4153,19 @@ class AppDatabase extends _$AppDatabase {
     String? last4,
     int? billingDay,
     int? dueDay,
+    String? limitGroupId,
+    String limitRole = 'primary',
+    int? totalLimitCents,
+    String? limitGroupName,
     bool active = true,
   }) async {
     final cardId = id ?? 'card-${DateTime.now().microsecondsSinceEpoch}';
+    final existingCard = id == null ? null : await getCreditCard(id);
+    final effectiveLimitGroupId =
+        limitGroupId ?? existingCard?.limitGroupId ?? 'limit-group-$cardId';
+    final normalizedLimitRole = limitRole == 'additional'
+        ? 'additional'
+        : 'primary';
     final instrumentId =
         accountId ?? 'account-card-${DateTime.now().microsecondsSinceEpoch}';
     await upsertAccount(
@@ -3744,6 +4175,15 @@ class AppDatabase extends _$AppDatabase {
       type: 'credit_card',
       ownerPersonId: ownerPersonId,
       last4: last4,
+      active: active,
+    );
+    final existingGroup = await getCreditCardLimitGroup(effectiveLimitGroupId);
+    await upsertCreditCardLimitGroup(
+      id: effectiveLimitGroupId,
+      name: limitGroupName?.trim().isNotEmpty == true
+          ? limitGroupName!.trim()
+          : existingGroup?.name ?? name.trim(),
+      totalLimitCents: totalLimitCents ?? existingGroup?.totalLimitCents,
       active: active,
     );
     await into(creditCards).insertOnConflictUpdate(
@@ -3758,10 +4198,81 @@ class AppDatabase extends _$AppDatabase {
         last4: Value(last4?.trim().isEmpty == true ? null : last4?.trim()),
         billingDay: Value(_validDayOrNull(billingDay)),
         dueDay: Value(_validDayOrNull(dueDay)),
+        limitGroupId: Value(effectiveLimitGroupId),
+        limitRole: Value(normalizedLimitRole),
         active: Value(active),
       ),
     );
+    await _enqueueCreditCard(
+      cardId,
+      existingCard == null ? 'create' : 'update',
+    );
     return cardId;
+  }
+
+  Future<List<CreditCardLimitGroupRow>> listCreditCardLimitGroups({
+    bool includeInactive = false,
+  }) {
+    final query = select(creditCardLimitGroups)
+      ..where((row) => row.householdId.equals(householdMain))
+      ..orderBy([(row) => OrderingTerm.asc(row.name)]);
+    if (!includeInactive) {
+      query.where((row) => row.active.equals(true));
+    }
+    return query.get();
+  }
+
+  Future<CreditCardLimitGroupRow?> getCreditCardLimitGroup(String id) {
+    return (select(
+      creditCardLimitGroups,
+    )..where((row) => row.id.equals(id))).getSingleOrNull();
+  }
+
+  Future<String> upsertCreditCardLimitGroup({
+    String? id,
+    required String name,
+    required int? totalLimitCents,
+    bool active = true,
+    bool enqueueSync = true,
+  }) async {
+    if (totalLimitCents != null && totalLimitCents <= 0) {
+      throw ArgumentError('O limite total deve ser maior que zero.');
+    }
+    final groupId =
+        id ?? 'limit-group-${DateTime.now().microsecondsSinceEpoch}';
+    await into(creditCardLimitGroups).insertOnConflictUpdate(
+      CreditCardLimitGroupsCompanion.insert(
+        id: groupId,
+        householdId: householdMain,
+        name: name.trim().isEmpty ? 'Limite compartilhado' : name.trim(),
+        totalLimitCents: Value(totalLimitCents),
+        active: Value(active),
+      ),
+    );
+    if (enqueueSync) {
+      await _enqueueCreditCardLimitGroup(groupId, 'update');
+    }
+    return groupId;
+  }
+
+  Future<void> _ensureLimitGroupsForAllCards() async {
+    final cards = await select(creditCards).get();
+    for (final card in cards.where((item) => item.limitGroupId == null)) {
+      final groupId = 'limit-group-${card.id}';
+      await upsertCreditCardLimitGroup(
+        id: groupId,
+        name: card.name,
+        totalLimitCents: null,
+        active: card.active,
+        enqueueSync: false,
+      );
+      await (update(creditCards)..where((row) => row.id.equals(card.id))).write(
+        CreditCardsCompanion(
+          limitGroupId: Value(groupId),
+          limitRole: const Value('primary'),
+        ),
+      );
+    }
   }
 
   Future<void> archiveCreditCard(String id, {bool active = false}) async {
@@ -3774,6 +4285,7 @@ class AppDatabase extends _$AppDatabase {
     if (card?.accountId != null) {
       await archiveAccount(card!.accountId!, active: active);
     }
+    await _enqueueCreditCard(id, 'update');
   }
 
   Future<String> upsertCategory({
@@ -4091,6 +4603,108 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  Future<void> _enqueueCreditCardLimitGroup(
+    String groupId,
+    String operationType,
+  ) async {
+    final group = await getCreditCardLimitGroup(groupId);
+    if (group == null) return;
+    await _enqueueSyncEntity(
+      entityType: 'creditCardLimitGroup',
+      entityId: groupId,
+      operationType: operationType,
+      payload: {'schemaVersion': 1, 'group': group.toJson()},
+    );
+  }
+
+  Future<void> _enqueueCreditCard(String cardId, String operationType) async {
+    final card = await getCreditCard(cardId);
+    if (card == null) return;
+    final account = card.accountId == null
+        ? null
+        : await (select(
+            accounts,
+          )..where((row) => row.id.equals(card.accountId!))).getSingleOrNull();
+    await _enqueueSyncEntity(
+      entityType: 'creditCard',
+      entityId: cardId,
+      operationType: operationType,
+      payload: {
+        'schemaVersion': 1,
+        'creditCard': card.toJson(),
+        'account': account?.toJson(),
+      },
+    );
+  }
+
+  Future<void> _enqueueInvoicePayment(
+    String paymentId,
+    String operationType,
+  ) async {
+    final payment = await (select(
+      invoicePayments,
+    )..where((row) => row.id.equals(paymentId))).getSingleOrNull();
+    if (payment == null) return;
+    final invoice = await getCreditCardInvoice(payment.invoiceId);
+    final audits = await (select(
+      invoicePaymentAudits,
+    )..where((row) => row.paymentId.equals(paymentId))).get();
+    await _enqueueSyncEntity(
+      entityType: 'invoicePayment',
+      entityId: paymentId,
+      operationType: operationType,
+      payload: {
+        'schemaVersion': 1,
+        'payment': payment.toJson(),
+        'invoice': invoice?.toJson(),
+        'audits': [for (final audit in audits) audit.toJson()],
+      },
+    );
+  }
+
+  Future<void> _enqueueSyncEntity({
+    required String entityType,
+    required String entityId,
+    required String operationType,
+    required Map<String, dynamic> payload,
+  }) async {
+    final now = DateTime.now();
+    final deviceId = await _deviceId();
+    final queued =
+        await (select(syncOutbox)
+              ..where((row) => row.entityType.equals(entityType))
+              ..where((row) => row.entityId.equals(entityId))
+              ..where((row) => row.status.isIn(['pending', 'failed'])))
+            .get();
+    final baseVersion = await _syncEntityVersion(entityType, entityId);
+    await into(syncOutbox).insert(
+      SyncOutboxCompanion.insert(
+        opId: 'op-${now.microsecondsSinceEpoch}',
+        deviceId: deviceId,
+        householdId: householdMain,
+        entityType: entityType,
+        entityId: entityId,
+        operationType: operationType,
+        baseVersion: Value(baseVersion + queued.length),
+        payloadJson: jsonEncode(payload),
+        createdAt: now,
+      ),
+    );
+  }
+
+  Future<int> _syncEntityVersion(String entityType, String entityId) async =>
+      int.tryParse(
+        await _preferenceValue('sync_entity_version:$entityType:$entityId') ??
+            '0',
+      ) ??
+      0;
+
+  Future<void> _setSyncEntityVersion(
+    String entityType,
+    String entityId,
+    int version,
+  ) => _setPreference('sync_entity_version:$entityType:$entityId', '$version');
+
   Future<String> _deviceId() async {
     final existing = await _preferenceValue(syncDeviceIdPreferenceKey);
     if (existing != null && existing.isNotEmpty) {
@@ -4205,6 +4819,11 @@ class AppDatabase extends _$AppDatabase {
       ),
     );
     if (operation.entityType != 'transaction') {
+      await _setSyncEntityVersion(
+        operation.entityType,
+        operation.entityId,
+        operation.baseVersion + 1,
+      );
       return;
     }
     final transaction = await getTransaction(operation.entityId);
@@ -4360,7 +4979,18 @@ class AppDatabase extends _$AppDatabase {
       counts: counts,
       people: _decodeRows(data, 'people', PersonRow.fromJson),
       accounts: _decodeRows(data, 'accounts', AccountRow.fromJson),
-      creditCards: _decodeRows(data, 'creditCards', CreditCardRow.fromJson),
+      creditCardLimitGroups: _decodeRows(
+        data,
+        'creditCardLimitGroups',
+        CreditCardLimitGroupRow.fromJson,
+      ),
+      creditCards: _decodeRows(data, 'creditCards', (json) {
+        return CreditCardRow.fromJson({
+          ...json,
+          'limitGroupId': json['limitGroupId'],
+          'limitRole': json['limitRole'] ?? 'primary',
+        });
+      }),
       categories: _decodeRows(data, 'categories', (json) {
         final visual = _classificationVisual(
           json['name'] as String? ?? '',
@@ -4441,6 +5071,11 @@ class AppDatabase extends _$AppDatabase {
         data,
         'invoicePayments',
         InvoicePaymentRow.fromJson,
+      ),
+      invoicePaymentAudits: _decodeRows(
+        data,
+        'invoicePaymentAudits',
+        InvoicePaymentAuditRow.fromJson,
       ),
       invoiceAssignmentAudits: _decodeRows(
         data,
@@ -4573,7 +5208,13 @@ class AppDatabase extends _$AppDatabase {
 
     final providerAccountId =
         targetAccountId ?? await _accountForProvider(record.provider);
-    final recordTokens = _conciliationTokens(record.description ?? '');
+    // Notification bodies are frequently generic ("Compra aprovada"). Keep
+    // the immutable source text, but also use the extracted display merchant
+    // for reconciliation with an existing transaction.
+    final recordTokens = {
+      ..._conciliationTokens(record.description ?? ''),
+      ..._conciliationTokens(record.displayDescription ?? ''),
+    };
     _ReconciliationMatch? best;
 
     for (final candidate in candidates) {
@@ -4722,7 +5363,7 @@ class AppDatabase extends _$AppDatabase {
     }
 
     final provider = _providerForPackage(row.packageName);
-    final description = _notificationDescription(row);
+    final description = _notificationOriginalDescription(row);
     return CanonicalImportRecord(
       rowIndex: 0,
       rowHash: row.platformEventId,
@@ -4733,6 +5374,7 @@ class AppDatabase extends _$AppDatabase {
       occurredAt: row.postedAt,
       postedAt: row.postedAt,
       description: description,
+      displayDescription: _notificationDisplayDescription(row, description),
       amountCents: amount,
       accountHint: provider,
       confidence: 0.76,
@@ -4783,15 +5425,87 @@ class AppDatabase extends _$AppDatabase {
     return 'unknown';
   }
 
-  String _notificationDescription(RawNotificationEventRow row) {
-    final candidates = [row.title, row.bodyText, row.bigText, row.appLabel];
+  String _notificationOriginalDescription(RawNotificationEventRow row) {
+    final candidates = [row.bigText, row.bodyText, row.title, row.appLabel];
     final description = candidates
         .whereType<String>()
-        .map((value) => value.trim())
+        .map(_compactNotificationText)
         .firstWhere((value) => value.isNotEmpty, orElse: () => 'Notificacao');
-    return description.length <= 96
-        ? description
-        : description.substring(0, 96);
+    return description;
+  }
+
+  String _notificationDisplayDescription(
+    RawNotificationEventRow row,
+    String originalDescription,
+  ) {
+    final candidates = [row.bigText, row.bodyText, originalDescription];
+    for (final candidate in candidates.whereType<String>()) {
+      final merchant = _extractNotificationMerchant(candidate);
+      if (merchant != null) {
+        return merchant;
+      }
+    }
+
+    final title = _compactNotificationText(row.title ?? '');
+    return _isGenericNotificationTitle(title) ? originalDescription : title;
+  }
+
+  String? _extractNotificationMerchant(String source) {
+    final text = _compactNotificationText(source);
+    if (text.isEmpty) {
+      return null;
+    }
+
+    // Nubank: "Compra de R$ 41,80 aprovada em Marmitaria Pimenta para o
+    // cartao com final 3683". The merchant is in the expanded text, not title.
+    final approvedPurchase = RegExp(
+      r'\bcompra\b.*?\b(?:aprovada|realizada|confirmada)\b\s+(?:em|no|na)\s+(.+?)(?=\s+para\s+(?:o\s+)?cart[aã]o\b|[.!]?$)',
+      caseSensitive: false,
+    ).firstMatch(text);
+    final purchaseMerchant = approvedPurchase?.group(1);
+    if (purchaseMerchant != null) {
+      final cleaned = _cleanNotificationMerchant(purchaseMerchant);
+      if (cleaned != null) {
+        return cleaned;
+      }
+    }
+
+    // Mercado Pago and common Pix notifications: "Voce pagou ... para X".
+    final recipient = RegExp(
+      r'\b(?:pagou|enviou|transferiu)\b.*?\bpara\s+(.+?)(?=[.!]?$)',
+      caseSensitive: false,
+    ).firstMatch(text)?.group(1);
+    return recipient == null ? null : _cleanNotificationMerchant(recipient);
+  }
+
+  String? _cleanNotificationMerchant(String value) {
+    final cleaned = value
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(RegExp(r'[“”\"]'), '')
+        .replaceAll("'", '')
+        .trim();
+    if (cleaned.isEmpty ||
+        cleaned.length > 80 ||
+        RegExp(
+          r'^(?:o\s+)?cart[aã]o\b',
+          caseSensitive: false,
+        ).hasMatch(cleaned)) {
+      return null;
+    }
+    return cleaned;
+  }
+
+  String _compactNotificationText(String value) =>
+      value.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+  bool _isGenericNotificationTitle(String title) {
+    final normalized = _normalizedConciliationText(title);
+    return normalized.isEmpty ||
+        normalized.contains('compra no credito aprovada') ||
+        normalized.contains('compra aprovada') ||
+        normalized.contains('pagamento aprovado') ||
+        normalized.contains('pix enviado') ||
+        normalized.contains('pix recebido');
   }
 
   String _rawNotificationPayload(RawNotificationEventRow row) {
@@ -5560,6 +6274,7 @@ class AppDatabase extends _$AppDatabase {
     String? costCenterId,
     String? payerPersonId,
     String? appliedRuleId,
+    String? displayDescription,
   }) {
     final month =
         '${occurredAt.year.toString().padLeft(4, '0')}-'
@@ -5576,7 +6291,7 @@ class AppDatabase extends _$AppDatabase {
       competenceMonth: month,
       amountCents: amountCents,
       descriptionRaw: description,
-      displayDescription: Value(description),
+      displayDescription: Value(displayDescription ?? description),
       accountId: Value(accountId),
       transferFromAccountId: Value(transferFromAccountId),
       transferToAccountId: Value(transferToAccountId),
@@ -6051,6 +6766,27 @@ class CreditCardInvoiceSummary {
   final int outstandingCents;
   final String effectiveState;
   final List<InvoiceInstallmentProjection> installmentProjections;
+}
+
+class CreditLimitGroupSummary {
+  const CreditLimitGroupSummary({
+    required this.group,
+    required this.cards,
+    required this.unpaidInvoicesCents,
+    required this.projectedInstallmentsCents,
+  });
+
+  final CreditCardLimitGroupRow group;
+  final List<CreditCardRow> cards;
+  final int unpaidInvoicesCents;
+  final int projectedInstallmentsCents;
+
+  int get usedCents => unpaidInvoicesCents + projectedInstallmentsCents;
+  int? get availableCents =>
+      group.totalLimitCents == null ? null : group.totalLimitCents! - usedCents;
+  double? get utilization =>
+      group.totalLimitCents == null ? null : usedCents / group.totalLimitCents!;
+  bool get overLimit => availableCents != null && availableCents! < 0;
 }
 
 class InvoicePaymentSuggestion {
@@ -6659,6 +7395,12 @@ int _syncInt(Object? value, String field) {
   return value;
 }
 
+void _requireSyncSchemaVersion(Map<String, dynamic> payload) {
+  if (_syncInt(payload['schemaVersion'], 'payload.schemaVersion') != 1) {
+    throw const FormatException('Versao de payload de sync nao suportada.');
+  }
+}
+
 double _syncDouble(Object? value, String field) {
   if (value is! num) {
     throw FormatException('$field deve ser numerico.');
@@ -6692,6 +7434,7 @@ class _DecodedBackup {
     required this.counts,
     required this.people,
     required this.accounts,
+    required this.creditCardLimitGroups,
     required this.creditCards,
     required this.categories,
     required this.costCenters,
@@ -6710,6 +7453,7 @@ class _DecodedBackup {
     required this.installmentPlans,
     required this.creditCardInvoices,
     required this.invoicePayments,
+    required this.invoicePaymentAudits,
     required this.invoiceAssignmentAudits,
     required this.importBatches,
     required this.stagedSourceRecords,
@@ -6722,6 +7466,7 @@ class _DecodedBackup {
   final Map<String, int> counts;
   final List<PersonRow> people;
   final List<AccountRow> accounts;
+  final List<CreditCardLimitGroupRow> creditCardLimitGroups;
   final List<CreditCardRow> creditCards;
   final List<CategoryRow> categories;
   final List<CostCenterRow> costCenters;
@@ -6740,6 +7485,7 @@ class _DecodedBackup {
   final List<InstallmentPlanRow> installmentPlans;
   final List<CreditCardInvoiceRow> creditCardInvoices;
   final List<InvoicePaymentRow> invoicePayments;
+  final List<InvoicePaymentAuditRow> invoicePaymentAudits;
   final List<InvoiceAssignmentAuditRow> invoiceAssignmentAudits;
   final List<ImportBatchRow> importBatches;
   final List<StagedSourceRecordRow> stagedSourceRecords;

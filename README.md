@@ -7,6 +7,7 @@ App familiar de finanças pessoais com arquitetura offline-first.
 Antes de implementar novos marcos, leia estes arquivos:
 
 - `docs/product/PRODUCT_REQUIREMENTS.md`
+- `docs/product/FUNCTIONAL_CATALOG_AND_UX_BRIEF.md`
 - `docs/product/VISUAL_PARITY_AUDIT.md`
 - `docs/product/IMPLEMENTATION_ROADMAP.md`
 - `docs/context/PROJECT_BRIEF.md`

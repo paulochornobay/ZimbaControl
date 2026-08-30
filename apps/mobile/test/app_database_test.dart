@@ -284,7 +284,7 @@ void main() {
     expect(summary.byPerson.map((item) => item.label), contains('Sofia'));
     expect(
       summary.byCategory.map((item) => item.label),
-      containsAll(['Renda', 'Educacao']),
+      containsAll(['Alimentacao', 'Educacao']),
     );
     expect(summary.bySource.map((item) => item.label), contains('Manual'));
   });
@@ -480,6 +480,84 @@ void main() {
     expect(secondPull.applied, 0);
     expect(await deviceB.listSyncConflicts(transactionId), isEmpty);
   });
+
+  test(
+    'sync transports credit-card limits and invoice payment audit',
+    () async {
+      final deviceA = AppDatabase.forTesting(NativeDatabase.memory());
+      final deviceB = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(deviceA.close);
+      addTearDown(deviceB.close);
+      final server = _SharedSyncServer();
+
+      await deviceA.upsertAccount(
+        id: 'bank-a',
+        provider: 'nubank',
+        name: 'Conta pagadora',
+        type: 'checking',
+        ownerPersonId: null,
+      );
+      await deviceA.upsertCreditCard(
+        id: 'card-a',
+        accountId: 'card-account-a',
+        provider: 'nubank',
+        name: 'Cartão compartilhado',
+        ownerPersonId: null,
+        billingDay: 20,
+        dueDay: 27,
+        limitGroupId: 'limit-a',
+        limitGroupName: 'Limite da família',
+        totalLimitCents: 100000,
+      );
+
+      await deviceA.runSyncOnce(_SharedSyncApiClient(server));
+      final cardPull = await deviceB.runSyncOnce(_SharedSyncApiClient(server));
+      final remoteCard = await deviceB.getCreditCard('card-a');
+      final remoteLimit = await deviceB.getCreditCardLimitGroup('limit-a');
+
+      expect(cardPull.applied, 2);
+      expect(remoteCard?.accountId, 'card-account-a');
+      expect(remoteLimit?.totalLimitCents, 100000);
+
+      await deviceA.createManualTransaction(
+        NewTransactionInput(
+          kind: 'expense',
+          amountCents: 25000,
+          description: 'Compra sincronizada de cartão',
+          accountId: 'card-account-a',
+          payerPersonId: null,
+          occurredAt: DateTime(2026, 8, 10),
+        ),
+      );
+      await deviceA.rebuildCreditCardInvoices(now: DateTime(2026, 8, 15));
+      final paymentId = await deviceA.recordManualInvoicePayment(
+        invoiceId: 'invoice-card-a-2026-08',
+        sourceAccountId: 'bank-a',
+        amountCents: 10000,
+        paidAt: DateTime(2026, 8, 15),
+      );
+
+      await deviceA.runSyncOnce(_SharedSyncApiClient(server));
+      final paymentPull = await deviceB.runSyncOnce(
+        _SharedSyncApiClient(server),
+      );
+      final remotePayment = await (deviceB.select(
+        deviceB.invoicePayments,
+      )..where((row) => row.id.equals(paymentId))).getSingle();
+      final remoteAudits = await (deviceB.select(
+        deviceB.invoicePaymentAudits,
+      )..where((row) => row.paymentId.equals(paymentId))).get();
+
+      expect(paymentPull.applied, greaterThanOrEqualTo(2));
+      expect(remotePayment.amountCents, 10000);
+      expect(remotePayment.status, 'active');
+      expect(remoteAudits.single.action, 'reconciled');
+      expect(
+        (await deviceB.runSyncOnce(_SharedSyncApiClient(server))).applied,
+        0,
+      );
+    },
+  );
 
   test(
     'concurrent financial edits preserve both sides in sync review',
@@ -791,16 +869,57 @@ void main() {
     final pending = await database.watchPendingReview().first;
     final rawEvents = await database.listRawNotificationEvents();
     final draft = pending.firstWhere(
-      (tx) => tx.descriptionRaw == 'Pagamento aprovado',
+      (tx) => tx.displayDescription == 'Padaria Central',
     );
     final sources = await database.listTransactionSources(draft.id);
 
     expect(drafts, 1);
     expect(draft.amountCents, -4210);
     expect(draft.accountId, 'mp');
+    expect(
+      draft.descriptionRaw,
+      'Voce pagou R\$ 42,10 no Pix para Padaria Central',
+    );
     expect(rawEvents.first.status, 'draft_created');
     expect(sources.single.notificationKey, 'notification-pix-1');
   });
+
+  test(
+    'Nubank expanded notification uses the merchant as its display title',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+
+      await database.seedIfEmpty();
+      final now = DateTime.now();
+      await database.recordRawNotificationEvent(
+        CapturedNotificationEvent(
+          id: 'notification-nubank-merchant',
+          packageName: 'com.nu.production',
+          appLabel: 'Nubank',
+          title: 'Compra no credito aprovada',
+          text:
+              'Compra de R\$ 41,80 APROVADA em MarmitariaPimenta para o cartao com final 3683.',
+          notificationId: 12,
+          tag: 'card',
+          postedAt: now,
+          capturedAt: now,
+        ),
+      );
+
+      await database.processPendingRawNotificationEvents();
+      final pending = await database.watchPendingReview().first;
+      final draft = pending.firstWhere(
+        (tx) => tx.displayDescription == 'MarmitariaPimenta',
+      );
+
+      expect(draft.amountCents, -4180);
+      expect(
+        draft.descriptionRaw,
+        'Compra de R\$ 41,80 APROVADA em MarmitariaPimenta para o cartao com final 3683.',
+      );
+    },
+  );
 
   test('raw notification can merge with an existing transaction', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());

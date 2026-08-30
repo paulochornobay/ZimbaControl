@@ -9,7 +9,11 @@ import 'package:zimba_control/src/presentation/invoices_page.dart';
 void main() {
   driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
 
-  for (final size in [const Size(360, 800), const Size(390, 844)]) {
+  for (final size in [
+    const Size(360, 800),
+    const Size(390, 844),
+    const Size(440, 900),
+  ]) {
     testWidgets(
       'visao de fatura cabe em ${size.width.toInt()}px com dados longos',
       (tester) async {

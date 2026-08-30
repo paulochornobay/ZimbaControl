@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../data/local/app_database.dart';
 import '../infrastructure/notification_capture_service.dart';
+import 'brand_identity_page.dart';
 import 'commitments_page.dart';
 import 'design/zimba_theme.dart';
 import 'design/zimba_ui.dart';
@@ -16,11 +18,13 @@ class SettingsHomePage extends StatefulWidget {
   const SettingsHomePage({
     required this.database,
     required this.onEnvironmentChanged,
+    this.onNavigate,
     super.key,
   });
 
   final AppDatabase database;
   final VoidCallback onEnvironmentChanged;
+  final ValueChanged<int>? onNavigate;
 
   @override
   State<SettingsHomePage> createState() => _SettingsHomePageState();
@@ -197,6 +201,15 @@ class _SettingsHomePageState extends State<SettingsHomePage> {
                   onTap: () => _open(
                     context,
                     SyncPrivacyPreviewPage(database: widget.database),
+                  ),
+                ),
+                _SettingsRow(
+                  icon: LucideIcons.palette,
+                  title: 'Identidade visual',
+                  subtitle: 'Marca, cores, tipografia e tokens',
+                  onTap: () => _open(
+                    context,
+                    BrandIdentityPage(onNavigate: widget.onNavigate),
                   ),
                 ),
                 _SettingsRow(

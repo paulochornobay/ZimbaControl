@@ -99,16 +99,19 @@ DashboardSummary buildOperationalDashboardSummary({
     futureCommitmentCents: commitmentCents,
     byPerson: _breakdown(
       monthDetails,
+      expensesOnly: true,
       labelFor: (item) => item.beneficiaries.isEmpty
           ? 'Sem beneficiario'
           : item.beneficiaries.map((person) => person.displayName).join(', '),
     ),
     byCategory: _breakdown(
       monthDetails,
+      expensesOnly: true,
       labelFor: (item) => item.category?.name ?? 'Sem categoria',
     ),
     byCostCenter: _breakdown(
       monthDetails,
+      expensesOnly: true,
       labelFor: (item) => item.costCenter?.name ?? 'Sem centro',
     ),
     bySource: _breakdown(
@@ -123,17 +126,22 @@ List<SummaryBreakdownItem> _breakdown(
   List<ReviewTransactionDetails> details, {
   required String Function(ReviewTransactionDetails item) labelFor,
   bool includeTransfers = false,
+  bool expensesOnly = false,
 }) {
   final amounts = <String, int>{};
   final counts = <String, int>{};
 
   for (final item in details) {
     final tx = item.transaction;
+    if (expensesOnly && tx.kind != 'expense') {
+      continue;
+    }
     if (!includeTransfers && tx.kind == 'transfer') {
       continue;
     }
     final label = labelFor(item);
-    amounts[label] = (amounts[label] ?? 0) + tx.amountCents;
+    final value = expensesOnly ? tx.amountCents.abs() : tx.amountCents;
+    amounts[label] = (amounts[label] ?? 0) + value;
     counts[label] = (counts[label] ?? 0) + 1;
   }
 

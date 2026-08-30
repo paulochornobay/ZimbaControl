@@ -314,6 +314,14 @@ class DataEnvironmentPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          FutureBuilder<LocalDataStatus>(
+            future: database.getLocalDataStatus(),
+            builder: (context, snapshot) => _LocalInventoryCard(
+              status: snapshot.data,
+              loading: snapshot.connectionState == ConnectionState.waiting,
+            ),
+          ),
+          const SizedBox(height: 20),
           _Section(
             title: 'Ambiente',
             children: [
@@ -370,6 +378,108 @@ class DataEnvironmentPage extends StatelessWidget {
   }
 }
 
+class _LocalInventoryCard extends StatelessWidget {
+  const _LocalInventoryCard({required this.status, required this.loading});
+
+  final LocalDataStatus? status;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    return ZimbaCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: ZimbaColors.accentSoft,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(
+                  Icons.storage_outlined,
+                  color: ZimbaColors.accent,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Banco local',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    Text(
+                      'Offline-first · sem nuvem obrigatória',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: ZimbaColors.secondaryText,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ZimbaBadge(
+                label: loading ? 'Lendo' : 'Íntegro',
+                tone: loading ? ZimbaTone.neutral : ZimbaTone.success,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _InventoryMetric(
+                label: 'Lançamentos',
+                value: status?.transactions,
+              ),
+              _InventoryMetric(
+                label: 'Em revisão',
+                value: status?.pendingReview,
+              ),
+              _InventoryMetric(label: 'Pessoas', value: status?.people),
+              _InventoryMetric(
+                label: 'Contas/cartões',
+                value: status == null
+                    ? null
+                    : status!.accounts + status!.creditCards,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InventoryMetric extends StatelessWidget {
+  const _InventoryMetric({required this.label, required this.value});
+
+  final String label;
+  final int? value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 136,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: ZimbaColors.muted,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        '$label\n${value ?? '—'}',
+        style: Theme.of(context).textTheme.labelMedium,
+      ),
+    );
+  }
+}
+
 class NotificationSettingsPage extends StatelessWidget {
   const NotificationSettingsPage({required this.database, super.key});
 
@@ -378,7 +488,19 @@ class NotificationSettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Captura Android')),
+      appBar: AppBar(
+        toolbarHeight: 72,
+        title: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Captura Android'),
+            Text(
+              'Permissão, apps monitorados e privacidade',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
+            ),
+          ],
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [

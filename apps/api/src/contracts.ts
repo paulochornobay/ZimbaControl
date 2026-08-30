@@ -97,25 +97,102 @@ export const syncTransactionPayloadSchema = z.object({
   ),
 });
 
+const syncedRowSchema = z.object({
+  id: z.string(),
+  householdId: z.string(),
+}).passthrough();
+
+export const syncCreditCardLimitGroupPayloadSchema = z.object({
+  schemaVersion: z.literal(1),
+  group: syncedRowSchema.extend({
+    name: z.string(),
+    totalLimitCents: z.number().int().nullable(),
+    active: z.boolean(),
+  }),
+});
+
+export const syncCreditCardPayloadSchema = z.object({
+  schemaVersion: z.literal(1),
+  creditCard: syncedRowSchema.extend({
+    accountId: z.string().nullable(),
+    ownerPersonId: z.string().nullable(),
+    provider: z.string(),
+    name: z.string(),
+    billingDay: z.number().int().nullable(),
+    dueDay: z.number().int().nullable(),
+    limitGroupId: z.string().nullable(),
+    limitRole: z.enum(["primary", "additional"]),
+    active: z.boolean(),
+  }),
+  account: syncedRowSchema.nullable(),
+});
+
+export const syncInvoicePaymentPayloadSchema = z.object({
+  schemaVersion: z.literal(1),
+  payment: syncedRowSchema.extend({
+    invoiceId: z.string(),
+    transactionId: z.string().nullable(),
+    amountCents: z.number().int(),
+    paidAt: z.string(),
+    origin: z.string(),
+    status: z.string(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  }),
+  invoice: syncedRowSchema.nullable(),
+  audits: z.array(
+    syncedRowSchema.extend({
+      paymentId: z.string(),
+      invoiceId: z.string(),
+      transactionId: z.string().nullable(),
+      action: z.string(),
+      reason: z.string().nullable(),
+      amountCents: z.number().int(),
+      createdAt: z.string(),
+    }),
+  ),
+});
+
 export const syncPushOperationSchema = z.object({
   opId: z.string(),
   deviceId: z.string(),
   householdId: z.string(),
-  entityType: z.enum(["transaction", "rule", "reviewItem", "duplicateCandidate"]),
+  entityType: z.enum([
+    "transaction",
+    "rule",
+    "reviewItem",
+    "duplicateCandidate",
+    "creditCardLimitGroup",
+    "creditCard",
+    "invoicePayment",
+  ]),
   entityId: z.string(),
   operationType: z.enum(["create", "update", "delete", "resolve"]),
   baseVersion: z.number().int().nonnegative(),
   payload: z.record(z.unknown()),
   createdAt: z.string(),
 }).superRefine((operation, context) => {
-  if (operation.entityType !== "transaction") {
-    return;
+  let schema: z.ZodTypeAny | undefined;
+  switch (operation.entityType) {
+    case "transaction":
+      schema = syncTransactionPayloadSchema;
+      break;
+    case "creditCardLimitGroup":
+      schema = syncCreditCardLimitGroupPayloadSchema;
+      break;
+    case "creditCard":
+      schema = syncCreditCardPayloadSchema;
+      break;
+    case "invoicePayment":
+      schema = syncInvoicePaymentPayloadSchema;
+      break;
   }
-  const payload = syncTransactionPayloadSchema.safeParse(operation.payload);
+  if (schema === undefined) return;
+  const payload = schema.safeParse(operation.payload);
   if (!payload.success) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "invalid_transaction_sync_payload",
+      message: `invalid_${operation.entityType}_sync_payload`,
       path: ["payload"],
     });
   }

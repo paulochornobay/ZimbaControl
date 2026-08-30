@@ -941,6 +941,386 @@ class AccountsCompanion extends UpdateCompanion<AccountRow> {
   }
 }
 
+class $CreditCardLimitGroupsTable extends CreditCardLimitGroups
+    with TableInfo<$CreditCardLimitGroupsTable, CreditCardLimitGroupRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CreditCardLimitGroupsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _householdIdMeta = const VerificationMeta(
+    'householdId',
+  );
+  @override
+  late final GeneratedColumn<String> householdId = GeneratedColumn<String>(
+    'household_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _totalLimitCentsMeta = const VerificationMeta(
+    'totalLimitCents',
+  );
+  @override
+  late final GeneratedColumn<int> totalLimitCents = GeneratedColumn<int>(
+    'total_limit_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _activeMeta = const VerificationMeta('active');
+  @override
+  late final GeneratedColumn<bool> active = GeneratedColumn<bool>(
+    'active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    householdId,
+    name,
+    totalLimitCents,
+    active,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'credit_card_limit_groups';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CreditCardLimitGroupRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('household_id')) {
+      context.handle(
+        _householdIdMeta,
+        householdId.isAcceptableOrUnknown(
+          data['household_id']!,
+          _householdIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_householdIdMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('total_limit_cents')) {
+      context.handle(
+        _totalLimitCentsMeta,
+        totalLimitCents.isAcceptableOrUnknown(
+          data['total_limit_cents']!,
+          _totalLimitCentsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('active')) {
+      context.handle(
+        _activeMeta,
+        active.isAcceptableOrUnknown(data['active']!, _activeMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CreditCardLimitGroupRow map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CreditCardLimitGroupRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      householdId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}household_id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      totalLimitCents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}total_limit_cents'],
+      ),
+      active: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}active'],
+      )!,
+    );
+  }
+
+  @override
+  $CreditCardLimitGroupsTable createAlias(String alias) {
+    return $CreditCardLimitGroupsTable(attachedDatabase, alias);
+  }
+}
+
+class CreditCardLimitGroupRow extends DataClass
+    implements Insertable<CreditCardLimitGroupRow> {
+  final String id;
+  final String householdId;
+  final String name;
+  final int? totalLimitCents;
+  final bool active;
+  const CreditCardLimitGroupRow({
+    required this.id,
+    required this.householdId,
+    required this.name,
+    this.totalLimitCents,
+    required this.active,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['household_id'] = Variable<String>(householdId);
+    map['name'] = Variable<String>(name);
+    if (!nullToAbsent || totalLimitCents != null) {
+      map['total_limit_cents'] = Variable<int>(totalLimitCents);
+    }
+    map['active'] = Variable<bool>(active);
+    return map;
+  }
+
+  CreditCardLimitGroupsCompanion toCompanion(bool nullToAbsent) {
+    return CreditCardLimitGroupsCompanion(
+      id: Value(id),
+      householdId: Value(householdId),
+      name: Value(name),
+      totalLimitCents: totalLimitCents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(totalLimitCents),
+      active: Value(active),
+    );
+  }
+
+  factory CreditCardLimitGroupRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CreditCardLimitGroupRow(
+      id: serializer.fromJson<String>(json['id']),
+      householdId: serializer.fromJson<String>(json['householdId']),
+      name: serializer.fromJson<String>(json['name']),
+      totalLimitCents: serializer.fromJson<int?>(json['totalLimitCents']),
+      active: serializer.fromJson<bool>(json['active']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'householdId': serializer.toJson<String>(householdId),
+      'name': serializer.toJson<String>(name),
+      'totalLimitCents': serializer.toJson<int?>(totalLimitCents),
+      'active': serializer.toJson<bool>(active),
+    };
+  }
+
+  CreditCardLimitGroupRow copyWith({
+    String? id,
+    String? householdId,
+    String? name,
+    Value<int?> totalLimitCents = const Value.absent(),
+    bool? active,
+  }) => CreditCardLimitGroupRow(
+    id: id ?? this.id,
+    householdId: householdId ?? this.householdId,
+    name: name ?? this.name,
+    totalLimitCents: totalLimitCents.present
+        ? totalLimitCents.value
+        : this.totalLimitCents,
+    active: active ?? this.active,
+  );
+  CreditCardLimitGroupRow copyWithCompanion(
+    CreditCardLimitGroupsCompanion data,
+  ) {
+    return CreditCardLimitGroupRow(
+      id: data.id.present ? data.id.value : this.id,
+      householdId: data.householdId.present
+          ? data.householdId.value
+          : this.householdId,
+      name: data.name.present ? data.name.value : this.name,
+      totalLimitCents: data.totalLimitCents.present
+          ? data.totalLimitCents.value
+          : this.totalLimitCents,
+      active: data.active.present ? data.active.value : this.active,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CreditCardLimitGroupRow(')
+          ..write('id: $id, ')
+          ..write('householdId: $householdId, ')
+          ..write('name: $name, ')
+          ..write('totalLimitCents: $totalLimitCents, ')
+          ..write('active: $active')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, householdId, name, totalLimitCents, active);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CreditCardLimitGroupRow &&
+          other.id == this.id &&
+          other.householdId == this.householdId &&
+          other.name == this.name &&
+          other.totalLimitCents == this.totalLimitCents &&
+          other.active == this.active);
+}
+
+class CreditCardLimitGroupsCompanion
+    extends UpdateCompanion<CreditCardLimitGroupRow> {
+  final Value<String> id;
+  final Value<String> householdId;
+  final Value<String> name;
+  final Value<int?> totalLimitCents;
+  final Value<bool> active;
+  final Value<int> rowid;
+  const CreditCardLimitGroupsCompanion({
+    this.id = const Value.absent(),
+    this.householdId = const Value.absent(),
+    this.name = const Value.absent(),
+    this.totalLimitCents = const Value.absent(),
+    this.active = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CreditCardLimitGroupsCompanion.insert({
+    required String id,
+    required String householdId,
+    required String name,
+    this.totalLimitCents = const Value.absent(),
+    this.active = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       householdId = Value(householdId),
+       name = Value(name);
+  static Insertable<CreditCardLimitGroupRow> custom({
+    Expression<String>? id,
+    Expression<String>? householdId,
+    Expression<String>? name,
+    Expression<int>? totalLimitCents,
+    Expression<bool>? active,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (householdId != null) 'household_id': householdId,
+      if (name != null) 'name': name,
+      if (totalLimitCents != null) 'total_limit_cents': totalLimitCents,
+      if (active != null) 'active': active,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CreditCardLimitGroupsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? householdId,
+    Value<String>? name,
+    Value<int?>? totalLimitCents,
+    Value<bool>? active,
+    Value<int>? rowid,
+  }) {
+    return CreditCardLimitGroupsCompanion(
+      id: id ?? this.id,
+      householdId: householdId ?? this.householdId,
+      name: name ?? this.name,
+      totalLimitCents: totalLimitCents ?? this.totalLimitCents,
+      active: active ?? this.active,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (householdId.present) {
+      map['household_id'] = Variable<String>(householdId.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (totalLimitCents.present) {
+      map['total_limit_cents'] = Variable<int>(totalLimitCents.value);
+    }
+    if (active.present) {
+      map['active'] = Variable<bool>(active.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CreditCardLimitGroupsCompanion(')
+          ..write('id: $id, ')
+          ..write('householdId: $householdId, ')
+          ..write('name: $name, ')
+          ..write('totalLimitCents: $totalLimitCents, ')
+          ..write('active: $active, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $CreditCardsTable extends CreditCards
     with TableInfo<$CreditCardsTable, CreditCardRow> {
   @override
@@ -1047,6 +1427,29 @@ class $CreditCardsTable extends CreditCards
     type: DriftSqlType.int,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _limitGroupIdMeta = const VerificationMeta(
+    'limitGroupId',
+  );
+  @override
+  late final GeneratedColumn<String> limitGroupId = GeneratedColumn<String>(
+    'limit_group_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _limitRoleMeta = const VerificationMeta(
+    'limitRole',
+  );
+  @override
+  late final GeneratedColumn<String> limitRole = GeneratedColumn<String>(
+    'limit_role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('primary'),
+  );
   static const VerificationMeta _activeMeta = const VerificationMeta('active');
   @override
   late final GeneratedColumn<bool> active = GeneratedColumn<bool>(
@@ -1072,6 +1475,8 @@ class $CreditCardsTable extends CreditCards
     last4,
     billingDay,
     dueDay,
+    limitGroupId,
+    limitRole,
     active,
   ];
   @override
@@ -1157,6 +1562,21 @@ class $CreditCardsTable extends CreditCards
         dueDay.isAcceptableOrUnknown(data['due_day']!, _dueDayMeta),
       );
     }
+    if (data.containsKey('limit_group_id')) {
+      context.handle(
+        _limitGroupIdMeta,
+        limitGroupId.isAcceptableOrUnknown(
+          data['limit_group_id']!,
+          _limitGroupIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('limit_role')) {
+      context.handle(
+        _limitRoleMeta,
+        limitRole.isAcceptableOrUnknown(data['limit_role']!, _limitRoleMeta),
+      );
+    }
     if (data.containsKey('active')) {
       context.handle(
         _activeMeta,
@@ -1212,6 +1632,14 @@ class $CreditCardsTable extends CreditCards
         DriftSqlType.int,
         data['${effectivePrefix}due_day'],
       ),
+      limitGroupId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}limit_group_id'],
+      ),
+      limitRole: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}limit_role'],
+      )!,
       active: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}active'],
@@ -1236,6 +1664,8 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
   final String? last4;
   final int? billingDay;
   final int? dueDay;
+  final String? limitGroupId;
+  final String limitRole;
   final bool active;
   const CreditCardRow({
     required this.id,
@@ -1248,6 +1678,8 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
     this.last4,
     this.billingDay,
     this.dueDay,
+    this.limitGroupId,
+    required this.limitRole,
     required this.active,
   });
   @override
@@ -1275,6 +1707,10 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
     if (!nullToAbsent || dueDay != null) {
       map['due_day'] = Variable<int>(dueDay);
     }
+    if (!nullToAbsent || limitGroupId != null) {
+      map['limit_group_id'] = Variable<String>(limitGroupId);
+    }
+    map['limit_role'] = Variable<String>(limitRole);
     map['active'] = Variable<bool>(active);
     return map;
   }
@@ -1303,6 +1739,10 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
       dueDay: dueDay == null && nullToAbsent
           ? const Value.absent()
           : Value(dueDay),
+      limitGroupId: limitGroupId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(limitGroupId),
+      limitRole: Value(limitRole),
       active: Value(active),
     );
   }
@@ -1323,6 +1763,8 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
       last4: serializer.fromJson<String?>(json['last4']),
       billingDay: serializer.fromJson<int?>(json['billingDay']),
       dueDay: serializer.fromJson<int?>(json['dueDay']),
+      limitGroupId: serializer.fromJson<String?>(json['limitGroupId']),
+      limitRole: serializer.fromJson<String>(json['limitRole']),
       active: serializer.fromJson<bool>(json['active']),
     );
   }
@@ -1340,6 +1782,8 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
       'last4': serializer.toJson<String?>(last4),
       'billingDay': serializer.toJson<int?>(billingDay),
       'dueDay': serializer.toJson<int?>(dueDay),
+      'limitGroupId': serializer.toJson<String?>(limitGroupId),
+      'limitRole': serializer.toJson<String>(limitRole),
       'active': serializer.toJson<bool>(active),
     };
   }
@@ -1355,6 +1799,8 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
     Value<String?> last4 = const Value.absent(),
     Value<int?> billingDay = const Value.absent(),
     Value<int?> dueDay = const Value.absent(),
+    Value<String?> limitGroupId = const Value.absent(),
+    String? limitRole,
     bool? active,
   }) => CreditCardRow(
     id: id ?? this.id,
@@ -1369,6 +1815,8 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
     last4: last4.present ? last4.value : this.last4,
     billingDay: billingDay.present ? billingDay.value : this.billingDay,
     dueDay: dueDay.present ? dueDay.value : this.dueDay,
+    limitGroupId: limitGroupId.present ? limitGroupId.value : this.limitGroupId,
+    limitRole: limitRole ?? this.limitRole,
     active: active ?? this.active,
   );
   CreditCardRow copyWithCompanion(CreditCardsCompanion data) {
@@ -1389,6 +1837,10 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
           ? data.billingDay.value
           : this.billingDay,
       dueDay: data.dueDay.present ? data.dueDay.value : this.dueDay,
+      limitGroupId: data.limitGroupId.present
+          ? data.limitGroupId.value
+          : this.limitGroupId,
+      limitRole: data.limitRole.present ? data.limitRole.value : this.limitRole,
       active: data.active.present ? data.active.value : this.active,
     );
   }
@@ -1406,6 +1858,8 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
           ..write('last4: $last4, ')
           ..write('billingDay: $billingDay, ')
           ..write('dueDay: $dueDay, ')
+          ..write('limitGroupId: $limitGroupId, ')
+          ..write('limitRole: $limitRole, ')
           ..write('active: $active')
           ..write(')'))
         .toString();
@@ -1423,6 +1877,8 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
     last4,
     billingDay,
     dueDay,
+    limitGroupId,
+    limitRole,
     active,
   );
   @override
@@ -1439,6 +1895,8 @@ class CreditCardRow extends DataClass implements Insertable<CreditCardRow> {
           other.last4 == this.last4 &&
           other.billingDay == this.billingDay &&
           other.dueDay == this.dueDay &&
+          other.limitGroupId == this.limitGroupId &&
+          other.limitRole == this.limitRole &&
           other.active == this.active);
 }
 
@@ -1453,6 +1911,8 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
   final Value<String?> last4;
   final Value<int?> billingDay;
   final Value<int?> dueDay;
+  final Value<String?> limitGroupId;
+  final Value<String> limitRole;
   final Value<bool> active;
   final Value<int> rowid;
   const CreditCardsCompanion({
@@ -1466,6 +1926,8 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
     this.last4 = const Value.absent(),
     this.billingDay = const Value.absent(),
     this.dueDay = const Value.absent(),
+    this.limitGroupId = const Value.absent(),
+    this.limitRole = const Value.absent(),
     this.active = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -1480,6 +1942,8 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
     this.last4 = const Value.absent(),
     this.billingDay = const Value.absent(),
     this.dueDay = const Value.absent(),
+    this.limitGroupId = const Value.absent(),
+    this.limitRole = const Value.absent(),
     this.active = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -1497,6 +1961,8 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
     Expression<String>? last4,
     Expression<int>? billingDay,
     Expression<int>? dueDay,
+    Expression<String>? limitGroupId,
+    Expression<String>? limitRole,
     Expression<bool>? active,
     Expression<int>? rowid,
   }) {
@@ -1511,6 +1977,8 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
       if (last4 != null) 'last4': last4,
       if (billingDay != null) 'billing_day': billingDay,
       if (dueDay != null) 'due_day': dueDay,
+      if (limitGroupId != null) 'limit_group_id': limitGroupId,
+      if (limitRole != null) 'limit_role': limitRole,
       if (active != null) 'active': active,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1527,6 +1995,8 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
     Value<String?>? last4,
     Value<int?>? billingDay,
     Value<int?>? dueDay,
+    Value<String?>? limitGroupId,
+    Value<String>? limitRole,
     Value<bool>? active,
     Value<int>? rowid,
   }) {
@@ -1541,6 +2011,8 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
       last4: last4 ?? this.last4,
       billingDay: billingDay ?? this.billingDay,
       dueDay: dueDay ?? this.dueDay,
+      limitGroupId: limitGroupId ?? this.limitGroupId,
+      limitRole: limitRole ?? this.limitRole,
       active: active ?? this.active,
       rowid: rowid ?? this.rowid,
     );
@@ -1579,6 +2051,12 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
     if (dueDay.present) {
       map['due_day'] = Variable<int>(dueDay.value);
     }
+    if (limitGroupId.present) {
+      map['limit_group_id'] = Variable<String>(limitGroupId.value);
+    }
+    if (limitRole.present) {
+      map['limit_role'] = Variable<String>(limitRole.value);
+    }
     if (active.present) {
       map['active'] = Variable<bool>(active.value);
     }
@@ -1601,6 +2079,8 @@ class CreditCardsCompanion extends UpdateCompanion<CreditCardRow> {
           ..write('last4: $last4, ')
           ..write('billingDay: $billingDay, ')
           ..write('dueDay: $dueDay, ')
+          ..write('limitGroupId: $limitGroupId, ')
+          ..write('limitRole: $limitRole, ')
           ..write('active: $active, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -13037,6 +13517,583 @@ class InvoicePaymentsCompanion extends UpdateCompanion<InvoicePaymentRow> {
   }
 }
 
+class $InvoicePaymentAuditsTable extends InvoicePaymentAudits
+    with TableInfo<$InvoicePaymentAuditsTable, InvoicePaymentAuditRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $InvoicePaymentAuditsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _householdIdMeta = const VerificationMeta(
+    'householdId',
+  );
+  @override
+  late final GeneratedColumn<String> householdId = GeneratedColumn<String>(
+    'household_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _paymentIdMeta = const VerificationMeta(
+    'paymentId',
+  );
+  @override
+  late final GeneratedColumn<String> paymentId = GeneratedColumn<String>(
+    'payment_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _invoiceIdMeta = const VerificationMeta(
+    'invoiceId',
+  );
+  @override
+  late final GeneratedColumn<String> invoiceId = GeneratedColumn<String>(
+    'invoice_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _transactionIdMeta = const VerificationMeta(
+    'transactionId',
+  );
+  @override
+  late final GeneratedColumn<String> transactionId = GeneratedColumn<String>(
+    'transaction_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _actionMeta = const VerificationMeta('action');
+  @override
+  late final GeneratedColumn<String> action = GeneratedColumn<String>(
+    'action',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _reasonMeta = const VerificationMeta('reason');
+  @override
+  late final GeneratedColumn<String> reason = GeneratedColumn<String>(
+    'reason',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _amountCentsMeta = const VerificationMeta(
+    'amountCents',
+  );
+  @override
+  late final GeneratedColumn<int> amountCents = GeneratedColumn<int>(
+    'amount_cents',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    householdId,
+    paymentId,
+    invoiceId,
+    transactionId,
+    action,
+    reason,
+    amountCents,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'invoice_payment_audits';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<InvoicePaymentAuditRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('household_id')) {
+      context.handle(
+        _householdIdMeta,
+        householdId.isAcceptableOrUnknown(
+          data['household_id']!,
+          _householdIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_householdIdMeta);
+    }
+    if (data.containsKey('payment_id')) {
+      context.handle(
+        _paymentIdMeta,
+        paymentId.isAcceptableOrUnknown(data['payment_id']!, _paymentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_paymentIdMeta);
+    }
+    if (data.containsKey('invoice_id')) {
+      context.handle(
+        _invoiceIdMeta,
+        invoiceId.isAcceptableOrUnknown(data['invoice_id']!, _invoiceIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_invoiceIdMeta);
+    }
+    if (data.containsKey('transaction_id')) {
+      context.handle(
+        _transactionIdMeta,
+        transactionId.isAcceptableOrUnknown(
+          data['transaction_id']!,
+          _transactionIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('action')) {
+      context.handle(
+        _actionMeta,
+        action.isAcceptableOrUnknown(data['action']!, _actionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_actionMeta);
+    }
+    if (data.containsKey('reason')) {
+      context.handle(
+        _reasonMeta,
+        reason.isAcceptableOrUnknown(data['reason']!, _reasonMeta),
+      );
+    }
+    if (data.containsKey('amount_cents')) {
+      context.handle(
+        _amountCentsMeta,
+        amountCents.isAcceptableOrUnknown(
+          data['amount_cents']!,
+          _amountCentsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_amountCentsMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  InvoicePaymentAuditRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return InvoicePaymentAuditRow(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      householdId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}household_id'],
+      )!,
+      paymentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}payment_id'],
+      )!,
+      invoiceId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}invoice_id'],
+      )!,
+      transactionId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}transaction_id'],
+      ),
+      action: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}action'],
+      )!,
+      reason: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}reason'],
+      ),
+      amountCents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}amount_cents'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $InvoicePaymentAuditsTable createAlias(String alias) {
+    return $InvoicePaymentAuditsTable(attachedDatabase, alias);
+  }
+}
+
+class InvoicePaymentAuditRow extends DataClass
+    implements Insertable<InvoicePaymentAuditRow> {
+  final String id;
+  final String householdId;
+  final String paymentId;
+  final String invoiceId;
+  final String? transactionId;
+  final String action;
+  final String? reason;
+  final int amountCents;
+  final DateTime createdAt;
+  const InvoicePaymentAuditRow({
+    required this.id,
+    required this.householdId,
+    required this.paymentId,
+    required this.invoiceId,
+    this.transactionId,
+    required this.action,
+    this.reason,
+    required this.amountCents,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['household_id'] = Variable<String>(householdId);
+    map['payment_id'] = Variable<String>(paymentId);
+    map['invoice_id'] = Variable<String>(invoiceId);
+    if (!nullToAbsent || transactionId != null) {
+      map['transaction_id'] = Variable<String>(transactionId);
+    }
+    map['action'] = Variable<String>(action);
+    if (!nullToAbsent || reason != null) {
+      map['reason'] = Variable<String>(reason);
+    }
+    map['amount_cents'] = Variable<int>(amountCents);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  InvoicePaymentAuditsCompanion toCompanion(bool nullToAbsent) {
+    return InvoicePaymentAuditsCompanion(
+      id: Value(id),
+      householdId: Value(householdId),
+      paymentId: Value(paymentId),
+      invoiceId: Value(invoiceId),
+      transactionId: transactionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(transactionId),
+      action: Value(action),
+      reason: reason == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reason),
+      amountCents: Value(amountCents),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory InvoicePaymentAuditRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return InvoicePaymentAuditRow(
+      id: serializer.fromJson<String>(json['id']),
+      householdId: serializer.fromJson<String>(json['householdId']),
+      paymentId: serializer.fromJson<String>(json['paymentId']),
+      invoiceId: serializer.fromJson<String>(json['invoiceId']),
+      transactionId: serializer.fromJson<String?>(json['transactionId']),
+      action: serializer.fromJson<String>(json['action']),
+      reason: serializer.fromJson<String?>(json['reason']),
+      amountCents: serializer.fromJson<int>(json['amountCents']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'householdId': serializer.toJson<String>(householdId),
+      'paymentId': serializer.toJson<String>(paymentId),
+      'invoiceId': serializer.toJson<String>(invoiceId),
+      'transactionId': serializer.toJson<String?>(transactionId),
+      'action': serializer.toJson<String>(action),
+      'reason': serializer.toJson<String?>(reason),
+      'amountCents': serializer.toJson<int>(amountCents),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  InvoicePaymentAuditRow copyWith({
+    String? id,
+    String? householdId,
+    String? paymentId,
+    String? invoiceId,
+    Value<String?> transactionId = const Value.absent(),
+    String? action,
+    Value<String?> reason = const Value.absent(),
+    int? amountCents,
+    DateTime? createdAt,
+  }) => InvoicePaymentAuditRow(
+    id: id ?? this.id,
+    householdId: householdId ?? this.householdId,
+    paymentId: paymentId ?? this.paymentId,
+    invoiceId: invoiceId ?? this.invoiceId,
+    transactionId: transactionId.present
+        ? transactionId.value
+        : this.transactionId,
+    action: action ?? this.action,
+    reason: reason.present ? reason.value : this.reason,
+    amountCents: amountCents ?? this.amountCents,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  InvoicePaymentAuditRow copyWithCompanion(InvoicePaymentAuditsCompanion data) {
+    return InvoicePaymentAuditRow(
+      id: data.id.present ? data.id.value : this.id,
+      householdId: data.householdId.present
+          ? data.householdId.value
+          : this.householdId,
+      paymentId: data.paymentId.present ? data.paymentId.value : this.paymentId,
+      invoiceId: data.invoiceId.present ? data.invoiceId.value : this.invoiceId,
+      transactionId: data.transactionId.present
+          ? data.transactionId.value
+          : this.transactionId,
+      action: data.action.present ? data.action.value : this.action,
+      reason: data.reason.present ? data.reason.value : this.reason,
+      amountCents: data.amountCents.present
+          ? data.amountCents.value
+          : this.amountCents,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('InvoicePaymentAuditRow(')
+          ..write('id: $id, ')
+          ..write('householdId: $householdId, ')
+          ..write('paymentId: $paymentId, ')
+          ..write('invoiceId: $invoiceId, ')
+          ..write('transactionId: $transactionId, ')
+          ..write('action: $action, ')
+          ..write('reason: $reason, ')
+          ..write('amountCents: $amountCents, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    householdId,
+    paymentId,
+    invoiceId,
+    transactionId,
+    action,
+    reason,
+    amountCents,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is InvoicePaymentAuditRow &&
+          other.id == this.id &&
+          other.householdId == this.householdId &&
+          other.paymentId == this.paymentId &&
+          other.invoiceId == this.invoiceId &&
+          other.transactionId == this.transactionId &&
+          other.action == this.action &&
+          other.reason == this.reason &&
+          other.amountCents == this.amountCents &&
+          other.createdAt == this.createdAt);
+}
+
+class InvoicePaymentAuditsCompanion
+    extends UpdateCompanion<InvoicePaymentAuditRow> {
+  final Value<String> id;
+  final Value<String> householdId;
+  final Value<String> paymentId;
+  final Value<String> invoiceId;
+  final Value<String?> transactionId;
+  final Value<String> action;
+  final Value<String?> reason;
+  final Value<int> amountCents;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const InvoicePaymentAuditsCompanion({
+    this.id = const Value.absent(),
+    this.householdId = const Value.absent(),
+    this.paymentId = const Value.absent(),
+    this.invoiceId = const Value.absent(),
+    this.transactionId = const Value.absent(),
+    this.action = const Value.absent(),
+    this.reason = const Value.absent(),
+    this.amountCents = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  InvoicePaymentAuditsCompanion.insert({
+    required String id,
+    required String householdId,
+    required String paymentId,
+    required String invoiceId,
+    this.transactionId = const Value.absent(),
+    required String action,
+    this.reason = const Value.absent(),
+    required int amountCents,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       householdId = Value(householdId),
+       paymentId = Value(paymentId),
+       invoiceId = Value(invoiceId),
+       action = Value(action),
+       amountCents = Value(amountCents),
+       createdAt = Value(createdAt);
+  static Insertable<InvoicePaymentAuditRow> custom({
+    Expression<String>? id,
+    Expression<String>? householdId,
+    Expression<String>? paymentId,
+    Expression<String>? invoiceId,
+    Expression<String>? transactionId,
+    Expression<String>? action,
+    Expression<String>? reason,
+    Expression<int>? amountCents,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (householdId != null) 'household_id': householdId,
+      if (paymentId != null) 'payment_id': paymentId,
+      if (invoiceId != null) 'invoice_id': invoiceId,
+      if (transactionId != null) 'transaction_id': transactionId,
+      if (action != null) 'action': action,
+      if (reason != null) 'reason': reason,
+      if (amountCents != null) 'amount_cents': amountCents,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  InvoicePaymentAuditsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? householdId,
+    Value<String>? paymentId,
+    Value<String>? invoiceId,
+    Value<String?>? transactionId,
+    Value<String>? action,
+    Value<String?>? reason,
+    Value<int>? amountCents,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return InvoicePaymentAuditsCompanion(
+      id: id ?? this.id,
+      householdId: householdId ?? this.householdId,
+      paymentId: paymentId ?? this.paymentId,
+      invoiceId: invoiceId ?? this.invoiceId,
+      transactionId: transactionId ?? this.transactionId,
+      action: action ?? this.action,
+      reason: reason ?? this.reason,
+      amountCents: amountCents ?? this.amountCents,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (householdId.present) {
+      map['household_id'] = Variable<String>(householdId.value);
+    }
+    if (paymentId.present) {
+      map['payment_id'] = Variable<String>(paymentId.value);
+    }
+    if (invoiceId.present) {
+      map['invoice_id'] = Variable<String>(invoiceId.value);
+    }
+    if (transactionId.present) {
+      map['transaction_id'] = Variable<String>(transactionId.value);
+    }
+    if (action.present) {
+      map['action'] = Variable<String>(action.value);
+    }
+    if (reason.present) {
+      map['reason'] = Variable<String>(reason.value);
+    }
+    if (amountCents.present) {
+      map['amount_cents'] = Variable<int>(amountCents.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('InvoicePaymentAuditsCompanion(')
+          ..write('id: $id, ')
+          ..write('householdId: $householdId, ')
+          ..write('paymentId: $paymentId, ')
+          ..write('invoiceId: $invoiceId, ')
+          ..write('transactionId: $transactionId, ')
+          ..write('action: $action, ')
+          ..write('reason: $reason, ')
+          ..write('amountCents: $amountCents, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $InvoiceAssignmentAuditsTable extends InvoiceAssignmentAudits
     with TableInfo<$InvoiceAssignmentAuditsTable, InvoiceAssignmentAuditRow> {
   @override
@@ -17980,6 +19037,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $PeopleTable people = $PeopleTable(this);
   late final $AccountsTable accounts = $AccountsTable(this);
+  late final $CreditCardLimitGroupsTable creditCardLimitGroups =
+      $CreditCardLimitGroupsTable(this);
   late final $CreditCardsTable creditCards = $CreditCardsTable(this);
   late final $CategoriesTable categories = $CategoriesTable(this);
   late final $CostCentersTable costCenters = $CostCentersTable(this);
@@ -18008,6 +19067,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $InvoicePaymentsTable invoicePayments = $InvoicePaymentsTable(
     this,
   );
+  late final $InvoicePaymentAuditsTable invoicePaymentAudits =
+      $InvoicePaymentAuditsTable(this);
   late final $InvoiceAssignmentAuditsTable invoiceAssignmentAudits =
       $InvoiceAssignmentAuditsTable(this);
   late final $ImportBatchesTable importBatches = $ImportBatchesTable(this);
@@ -18024,6 +19085,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     people,
     accounts,
+    creditCardLimitGroups,
     creditCards,
     categories,
     costCenters,
@@ -18042,6 +19104,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     installmentPlans,
     creditCardInvoices,
     invoicePayments,
+    invoicePaymentAudits,
     invoiceAssignmentAudits,
     importBatches,
     stagedSourceRecords,
@@ -18527,6 +19590,229 @@ typedef $$AccountsTableProcessedTableManager =
       AccountRow,
       PrefetchHooks Function()
     >;
+typedef $$CreditCardLimitGroupsTableCreateCompanionBuilder =
+    CreditCardLimitGroupsCompanion Function({
+      required String id,
+      required String householdId,
+      required String name,
+      Value<int?> totalLimitCents,
+      Value<bool> active,
+      Value<int> rowid,
+    });
+typedef $$CreditCardLimitGroupsTableUpdateCompanionBuilder =
+    CreditCardLimitGroupsCompanion Function({
+      Value<String> id,
+      Value<String> householdId,
+      Value<String> name,
+      Value<int?> totalLimitCents,
+      Value<bool> active,
+      Value<int> rowid,
+    });
+
+class $$CreditCardLimitGroupsTableFilterComposer
+    extends Composer<_$AppDatabase, $CreditCardLimitGroupsTable> {
+  $$CreditCardLimitGroupsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get totalLimitCents => $composableBuilder(
+    column: $table.totalLimitCents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get active => $composableBuilder(
+    column: $table.active,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CreditCardLimitGroupsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CreditCardLimitGroupsTable> {
+  $$CreditCardLimitGroupsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get totalLimitCents => $composableBuilder(
+    column: $table.totalLimitCents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get active => $composableBuilder(
+    column: $table.active,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CreditCardLimitGroupsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CreditCardLimitGroupsTable> {
+  $$CreditCardLimitGroupsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<int> get totalLimitCents => $composableBuilder(
+    column: $table.totalLimitCents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get active =>
+      $composableBuilder(column: $table.active, builder: (column) => column);
+}
+
+class $$CreditCardLimitGroupsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CreditCardLimitGroupsTable,
+          CreditCardLimitGroupRow,
+          $$CreditCardLimitGroupsTableFilterComposer,
+          $$CreditCardLimitGroupsTableOrderingComposer,
+          $$CreditCardLimitGroupsTableAnnotationComposer,
+          $$CreditCardLimitGroupsTableCreateCompanionBuilder,
+          $$CreditCardLimitGroupsTableUpdateCompanionBuilder,
+          (
+            CreditCardLimitGroupRow,
+            BaseReferences<
+              _$AppDatabase,
+              $CreditCardLimitGroupsTable,
+              CreditCardLimitGroupRow
+            >,
+          ),
+          CreditCardLimitGroupRow,
+          PrefetchHooks Function()
+        > {
+  $$CreditCardLimitGroupsTableTableManager(
+    _$AppDatabase db,
+    $CreditCardLimitGroupsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CreditCardLimitGroupsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$CreditCardLimitGroupsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CreditCardLimitGroupsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> householdId = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<int?> totalLimitCents = const Value.absent(),
+                Value<bool> active = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CreditCardLimitGroupsCompanion(
+                id: id,
+                householdId: householdId,
+                name: name,
+                totalLimitCents: totalLimitCents,
+                active: active,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String householdId,
+                required String name,
+                Value<int?> totalLimitCents = const Value.absent(),
+                Value<bool> active = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CreditCardLimitGroupsCompanion.insert(
+                id: id,
+                householdId: householdId,
+                name: name,
+                totalLimitCents: totalLimitCents,
+                active: active,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CreditCardLimitGroupsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CreditCardLimitGroupsTable,
+      CreditCardLimitGroupRow,
+      $$CreditCardLimitGroupsTableFilterComposer,
+      $$CreditCardLimitGroupsTableOrderingComposer,
+      $$CreditCardLimitGroupsTableAnnotationComposer,
+      $$CreditCardLimitGroupsTableCreateCompanionBuilder,
+      $$CreditCardLimitGroupsTableUpdateCompanionBuilder,
+      (
+        CreditCardLimitGroupRow,
+        BaseReferences<
+          _$AppDatabase,
+          $CreditCardLimitGroupsTable,
+          CreditCardLimitGroupRow
+        >,
+      ),
+      CreditCardLimitGroupRow,
+      PrefetchHooks Function()
+    >;
 typedef $$CreditCardsTableCreateCompanionBuilder =
     CreditCardsCompanion Function({
       required String id,
@@ -18539,6 +19825,8 @@ typedef $$CreditCardsTableCreateCompanionBuilder =
       Value<String?> last4,
       Value<int?> billingDay,
       Value<int?> dueDay,
+      Value<String?> limitGroupId,
+      Value<String> limitRole,
       Value<bool> active,
       Value<int> rowid,
     });
@@ -18554,6 +19842,8 @@ typedef $$CreditCardsTableUpdateCompanionBuilder =
       Value<String?> last4,
       Value<int?> billingDay,
       Value<int?> dueDay,
+      Value<String?> limitGroupId,
+      Value<String> limitRole,
       Value<bool> active,
       Value<int> rowid,
     });
@@ -18614,6 +19904,16 @@ class $$CreditCardsTableFilterComposer
 
   ColumnFilters<int> get dueDay => $composableBuilder(
     column: $table.dueDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get limitGroupId => $composableBuilder(
+    column: $table.limitGroupId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get limitRole => $composableBuilder(
+    column: $table.limitRole,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -18682,6 +19982,16 @@ class $$CreditCardsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get limitGroupId => $composableBuilder(
+    column: $table.limitGroupId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get limitRole => $composableBuilder(
+    column: $table.limitRole,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get active => $composableBuilder(
     column: $table.active,
     builder: (column) => ColumnOrderings(column),
@@ -18733,6 +20043,14 @@ class $$CreditCardsTableAnnotationComposer
   GeneratedColumn<int> get dueDay =>
       $composableBuilder(column: $table.dueDay, builder: (column) => column);
 
+  GeneratedColumn<String> get limitGroupId => $composableBuilder(
+    column: $table.limitGroupId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get limitRole =>
+      $composableBuilder(column: $table.limitRole, builder: (column) => column);
+
   GeneratedColumn<bool> get active =>
       $composableBuilder(column: $table.active, builder: (column) => column);
 }
@@ -18778,6 +20096,8 @@ class $$CreditCardsTableTableManager
                 Value<String?> last4 = const Value.absent(),
                 Value<int?> billingDay = const Value.absent(),
                 Value<int?> dueDay = const Value.absent(),
+                Value<String?> limitGroupId = const Value.absent(),
+                Value<String> limitRole = const Value.absent(),
                 Value<bool> active = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CreditCardsCompanion(
@@ -18791,6 +20111,8 @@ class $$CreditCardsTableTableManager
                 last4: last4,
                 billingDay: billingDay,
                 dueDay: dueDay,
+                limitGroupId: limitGroupId,
+                limitRole: limitRole,
                 active: active,
                 rowid: rowid,
               ),
@@ -18806,6 +20128,8 @@ class $$CreditCardsTableTableManager
                 Value<String?> last4 = const Value.absent(),
                 Value<int?> billingDay = const Value.absent(),
                 Value<int?> dueDay = const Value.absent(),
+                Value<String?> limitGroupId = const Value.absent(),
+                Value<String> limitRole = const Value.absent(),
                 Value<bool> active = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => CreditCardsCompanion.insert(
@@ -18819,6 +20143,8 @@ class $$CreditCardsTableTableManager
                 last4: last4,
                 billingDay: billingDay,
                 dueDay: dueDay,
+                limitGroupId: limitGroupId,
+                limitRole: limitRole,
                 active: active,
                 rowid: rowid,
               ),
@@ -24408,6 +25734,304 @@ typedef $$InvoicePaymentsTableProcessedTableManager =
       InvoicePaymentRow,
       PrefetchHooks Function()
     >;
+typedef $$InvoicePaymentAuditsTableCreateCompanionBuilder =
+    InvoicePaymentAuditsCompanion Function({
+      required String id,
+      required String householdId,
+      required String paymentId,
+      required String invoiceId,
+      Value<String?> transactionId,
+      required String action,
+      Value<String?> reason,
+      required int amountCents,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$InvoicePaymentAuditsTableUpdateCompanionBuilder =
+    InvoicePaymentAuditsCompanion Function({
+      Value<String> id,
+      Value<String> householdId,
+      Value<String> paymentId,
+      Value<String> invoiceId,
+      Value<String?> transactionId,
+      Value<String> action,
+      Value<String?> reason,
+      Value<int> amountCents,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$InvoicePaymentAuditsTableFilterComposer
+    extends Composer<_$AppDatabase, $InvoicePaymentAuditsTable> {
+  $$InvoicePaymentAuditsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get paymentId => $composableBuilder(
+    column: $table.paymentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get invoiceId => $composableBuilder(
+    column: $table.invoiceId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get reason => $composableBuilder(
+    column: $table.reason,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get amountCents => $composableBuilder(
+    column: $table.amountCents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$InvoicePaymentAuditsTableOrderingComposer
+    extends Composer<_$AppDatabase, $InvoicePaymentAuditsTable> {
+  $$InvoicePaymentAuditsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get paymentId => $composableBuilder(
+    column: $table.paymentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get invoiceId => $composableBuilder(
+    column: $table.invoiceId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get action => $composableBuilder(
+    column: $table.action,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get reason => $composableBuilder(
+    column: $table.reason,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get amountCents => $composableBuilder(
+    column: $table.amountCents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$InvoicePaymentAuditsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $InvoicePaymentAuditsTable> {
+  $$InvoicePaymentAuditsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get householdId => $composableBuilder(
+    column: $table.householdId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get paymentId =>
+      $composableBuilder(column: $table.paymentId, builder: (column) => column);
+
+  GeneratedColumn<String> get invoiceId =>
+      $composableBuilder(column: $table.invoiceId, builder: (column) => column);
+
+  GeneratedColumn<String> get transactionId => $composableBuilder(
+    column: $table.transactionId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get action =>
+      $composableBuilder(column: $table.action, builder: (column) => column);
+
+  GeneratedColumn<String> get reason =>
+      $composableBuilder(column: $table.reason, builder: (column) => column);
+
+  GeneratedColumn<int> get amountCents => $composableBuilder(
+    column: $table.amountCents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$InvoicePaymentAuditsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $InvoicePaymentAuditsTable,
+          InvoicePaymentAuditRow,
+          $$InvoicePaymentAuditsTableFilterComposer,
+          $$InvoicePaymentAuditsTableOrderingComposer,
+          $$InvoicePaymentAuditsTableAnnotationComposer,
+          $$InvoicePaymentAuditsTableCreateCompanionBuilder,
+          $$InvoicePaymentAuditsTableUpdateCompanionBuilder,
+          (
+            InvoicePaymentAuditRow,
+            BaseReferences<
+              _$AppDatabase,
+              $InvoicePaymentAuditsTable,
+              InvoicePaymentAuditRow
+            >,
+          ),
+          InvoicePaymentAuditRow,
+          PrefetchHooks Function()
+        > {
+  $$InvoicePaymentAuditsTableTableManager(
+    _$AppDatabase db,
+    $InvoicePaymentAuditsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$InvoicePaymentAuditsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$InvoicePaymentAuditsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$InvoicePaymentAuditsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> householdId = const Value.absent(),
+                Value<String> paymentId = const Value.absent(),
+                Value<String> invoiceId = const Value.absent(),
+                Value<String?> transactionId = const Value.absent(),
+                Value<String> action = const Value.absent(),
+                Value<String?> reason = const Value.absent(),
+                Value<int> amountCents = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => InvoicePaymentAuditsCompanion(
+                id: id,
+                householdId: householdId,
+                paymentId: paymentId,
+                invoiceId: invoiceId,
+                transactionId: transactionId,
+                action: action,
+                reason: reason,
+                amountCents: amountCents,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String householdId,
+                required String paymentId,
+                required String invoiceId,
+                Value<String?> transactionId = const Value.absent(),
+                required String action,
+                Value<String?> reason = const Value.absent(),
+                required int amountCents,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => InvoicePaymentAuditsCompanion.insert(
+                id: id,
+                householdId: householdId,
+                paymentId: paymentId,
+                invoiceId: invoiceId,
+                transactionId: transactionId,
+                action: action,
+                reason: reason,
+                amountCents: amountCents,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$InvoicePaymentAuditsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $InvoicePaymentAuditsTable,
+      InvoicePaymentAuditRow,
+      $$InvoicePaymentAuditsTableFilterComposer,
+      $$InvoicePaymentAuditsTableOrderingComposer,
+      $$InvoicePaymentAuditsTableAnnotationComposer,
+      $$InvoicePaymentAuditsTableCreateCompanionBuilder,
+      $$InvoicePaymentAuditsTableUpdateCompanionBuilder,
+      (
+        InvoicePaymentAuditRow,
+        BaseReferences<
+          _$AppDatabase,
+          $InvoicePaymentAuditsTable,
+          InvoicePaymentAuditRow
+        >,
+      ),
+      InvoicePaymentAuditRow,
+      PrefetchHooks Function()
+    >;
 typedef $$InvoiceAssignmentAuditsTableCreateCompanionBuilder =
     InvoiceAssignmentAuditsCompanion Function({
       required String id,
@@ -26688,6 +28312,8 @@ class $AppDatabaseManager {
       $$PeopleTableTableManager(_db, _db.people);
   $$AccountsTableTableManager get accounts =>
       $$AccountsTableTableManager(_db, _db.accounts);
+  $$CreditCardLimitGroupsTableTableManager get creditCardLimitGroups =>
+      $$CreditCardLimitGroupsTableTableManager(_db, _db.creditCardLimitGroups);
   $$CreditCardsTableTableManager get creditCards =>
       $$CreditCardsTableTableManager(_db, _db.creditCards);
   $$CategoriesTableTableManager get categories =>
@@ -26727,6 +28353,8 @@ class $AppDatabaseManager {
       $$CreditCardInvoicesTableTableManager(_db, _db.creditCardInvoices);
   $$InvoicePaymentsTableTableManager get invoicePayments =>
       $$InvoicePaymentsTableTableManager(_db, _db.invoicePayments);
+  $$InvoicePaymentAuditsTableTableManager get invoicePaymentAudits =>
+      $$InvoicePaymentAuditsTableTableManager(_db, _db.invoicePaymentAudits);
   $$InvoiceAssignmentAuditsTableTableManager get invoiceAssignmentAudits =>
       $$InvoiceAssignmentAuditsTableTableManager(
         _db,

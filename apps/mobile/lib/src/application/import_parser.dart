@@ -63,6 +63,7 @@ class CanonicalImportRecord {
     this.occurredAt,
     this.postedAt,
     this.description,
+    this.displayDescription,
     this.amountCents,
     this.currencyCode = 'BRL',
     this.accountHint,
@@ -80,6 +81,10 @@ class CanonicalImportRecord {
   final DateTime? occurredAt;
   final DateTime? postedAt;
   final String? description;
+
+  /// A concise, user-facing label when the source description is verbose.
+  /// The original source text remains in [description].
+  final String? displayDescription;
   final int? amountCents;
   final String currencyCode;
   final String? accountHint;

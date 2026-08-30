@@ -1,8 +1,10 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../data/local/app_database.dart';
 import 'dashboard_page.dart' show formatBrl;
-import 'design/instrument_display.dart';
 import 'design/zimba_theme.dart';
 import 'design/zimba_ui.dart';
 import 'edit_transaction_page.dart';
@@ -60,12 +62,29 @@ class _InvoicesPageState extends State<InvoicesPage> {
       paymentSuggestions[invoice.id] = await widget.database
           .listInvoicePaymentSuggestions(invoice.id);
     }
+    final limitSummaries = <String, CreditLimitGroupSummary>{};
+    for (final groupId
+        in cards
+            .map((item) => item.creditCard.limitGroupId)
+            .whereType<String>()
+            .toSet()) {
+      final summary = await widget.database.getCreditLimitGroupSummary(
+        groupId,
+        now: referenceDate,
+      );
+      if (summary != null) limitSummaries[groupId] = summary;
+    }
+    final paymentAccounts = (await widget.database.listAccountsWithOwners())
+        .where((item) => item.account.type != 'credit_card')
+        .toList(growable: false);
     final details = await widget.database.watchAllTransactionDetails().first;
     return _InvoicesViewData(
       cards: cards,
       invoices: invoices,
       summaries: summaries,
       paymentSuggestions: paymentSuggestions,
+      limitSummaries: limitSummaries,
+      paymentAccounts: paymentAccounts,
       detailsById: {
         for (final detail in details) detail.transaction.id: detail,
       },
@@ -80,7 +99,7 @@ class _InvoicesPageState extends State<InvoicesPage> {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) =>
-            RegistriesPage(database: widget.database, initialTabIndex: 2),
+            RegistriesPage(database: widget.database, initialTabIndex: 1),
       ),
     );
     if (mounted) reload();
@@ -130,6 +149,237 @@ class _InvoicesPageState extends State<InvoicesPage> {
         ),
       );
     }
+  }
+
+  Future<void> registerManualPayment(
+    CreditCardInvoiceSummary summary,
+    List<AccountWithOwner> accounts,
+  ) async {
+    if (accounts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cadastre uma conta bancária antes de pagar a fatura.'),
+        ),
+      );
+      return;
+    }
+    final amountController = TextEditingController(
+      text: centsToInput(summary.outstandingCents),
+    );
+    var accountId = accounts.first.account.id;
+    var paidAt = referenceDate;
+    var fullPayment = true;
+    final input = await showModalBottomSheet<_ManualPaymentInput>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) => Padding(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            4,
+            20,
+            20 + MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Registrar pagamento',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'O pagamento será uma transferência e não criará uma nova despesa.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: ZimbaColors.secondaryText,
+                ),
+              ),
+              const SizedBox(height: 18),
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: true, label: Text('Total')),
+                  ButtonSegment(value: false, label: Text('Parcial')),
+                ],
+                selected: {fullPayment},
+                onSelectionChanged: (selection) {
+                  setSheetState(() {
+                    fullPayment = selection.first;
+                    if (fullPayment) {
+                      amountController.text = centsToInput(
+                        summary.outstandingCents,
+                      );
+                    }
+                  });
+                },
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: accountId,
+                decoration: const InputDecoration(labelText: 'Conta pagadora'),
+                items: [
+                  for (final item in accounts)
+                    DropdownMenuItem(
+                      value: item.account.id,
+                      child: Text(
+                        item.account.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (value) => accountId = value ?? accountId,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: amountController,
+                enabled: !fullPayment,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Valor pago',
+                  helperText:
+                      'Saldo em aberto: ${formatBrl(summary.outstandingCents)}',
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.calendar_today_outlined),
+                title: const Text('Data do pagamento'),
+                subtitle: Text(_shortDate(paidAt)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () async {
+                  final selected = await showDatePicker(
+                    context: sheetContext,
+                    initialDate: paidAt,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2035),
+                  );
+                  if (selected != null) {
+                    setSheetState(() => paidAt = selected);
+                  }
+                },
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () {
+                    final amount = parseBrlInput(amountController.text).abs();
+                    if (amount <= 0 || amount > summary.outstandingCents) {
+                      ScaffoldMessenger.of(sheetContext).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Informe um valor válido até o saldo em aberto.',
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+                    Navigator.of(sheetContext).pop(
+                      _ManualPaymentInput(
+                        accountId: accountId,
+                        amountCents: amount,
+                        paidAt: paidAt,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.compare_arrows_outlined),
+                  label: const Text('Confirmar pagamento'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    amountController.dispose();
+    if (input == null || !mounted) return;
+    try {
+      await widget.database.recordManualInvoicePayment(
+        invoiceId: summary.invoice.id,
+        sourceAccountId: input.accountId,
+        amountCents: input.amountCents,
+        paidAt: input.paidAt,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pagamento registrado e conciliado.')),
+      );
+      reload();
+    } on Object catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Bad state: ', '')),
+        ),
+      );
+    }
+  }
+
+  Future<void> exportInvoice(
+    CreditCardInvoiceSummary summary,
+    CreditCardWithOwner card,
+  ) async {
+    try {
+      final bytes = await widget.database.exportInvoiceCsvBytes(
+        summary.invoice.id,
+      );
+      final suffix = card.creditCard.last4 ?? card.creditCard.id;
+      final path = await FilePicker.saveFile(
+        dialogTitle: 'Exportar fatura',
+        fileName:
+            'zimbacontrol-fatura-${summary.invoice.competenceMonth}-$suffix.csv',
+        type: FileType.custom,
+        allowedExtensions: const ['csv'],
+      );
+      if (path == null) return;
+      await File(path).writeAsBytes(bytes, flush: true);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Fatura exportada em CSV.')));
+    } on Object catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Não foi possível exportar: $error')),
+      );
+    }
+  }
+
+  Future<void> cancelPayment(InvoicePaymentRow payment) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Desfazer conciliação?'),
+        content: const Text(
+          'A transferência voltará para a revisão e o histórico será preservado.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Desfazer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await widget.database.cancelInvoicePayment(
+      payment.id,
+      reason: 'Conciliação desfeita na tela de fatura',
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Pagamento devolvido para revisão.')),
+    );
+    reload();
   }
 
   @override
@@ -203,6 +453,9 @@ class _InvoicesPageState extends State<InvoicesPage> {
         ? selectedCardId!
         : data.cards.first.creditCard.id;
     final card = data.cards.firstWhere((item) => item.creditCard.id == cardId);
+    final limitSummary = card.creditCard.limitGroupId == null
+        ? null
+        : data.limitSummaries[card.creditCard.limitGroupId!];
     final cardInvoices = data.invoices
         .where((invoice) => invoice.creditCardId == cardId)
         .toList(growable: false);
@@ -259,50 +512,73 @@ class _InvoicesPageState extends State<InvoicesPage> {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
       children: [
         if (data.cards.length > 1) ...[
-          const ZimbaSectionTitle('Cartão'),
-          const SizedBox(height: 8),
-          for (final item in data.cards) ...[
-            InstrumentChoice(
-              instrument: InstrumentDisplay.card(item, compact: true),
-              selected: item.creditCard.id == cardId,
-              onTap: () => setState(() {
-                selectedCardId = item.creditCard.id;
-                selectedInvoiceId = null;
-                categoryFilter = null;
-                personFilter = null;
-              }),
+          SizedBox(
+            height: 42,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: data.cards.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final item = data.cards[index];
+                return ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 180),
+                  child: ChoiceChip(
+                    avatar: const Icon(Icons.credit_card_outlined, size: 16),
+                    label: Text(
+                      item.creditCard.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    selected: item.creditCard.id == cardId,
+                    onSelected: (_) => setState(() {
+                      selectedCardId = item.creditCard.id;
+                      selectedInvoiceId = null;
+                      categoryFilter = null;
+                      personFilter = null;
+                    }),
+                  ),
+                );
+              },
             ),
-            const SizedBox(height: 8),
-          ],
-          const SizedBox(height: 8),
-        ] else ...[
-          ZimbaCard(child: InstrumentDisplay.card(card)),
+          ),
           const SizedBox(height: 14),
         ],
+        _InvoiceOverview(
+          card: card,
+          summary: summary,
+          limitSummary: limitSummary,
+          onRegisterPayment: summary.outstandingCents > 0
+              ? () => registerManualPayment(summary, data.paymentAccounts)
+              : null,
+          onExport: () => exportInvoice(summary, card),
+        ),
+        const SizedBox(height: 14),
         const ZimbaSectionTitle('Mês da fatura'),
         const SizedBox(height: 8),
         SizedBox(
           height: 38,
-          child: ListView.separated(
+          child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            itemCount: cardInvoices.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 8),
-            itemBuilder: (context, index) {
-              final item = cardInvoices[index];
-              return ChoiceChip(
-                label: Text(_monthLabel(item.competenceMonth)),
-                selected: item.id == invoice.id,
-                onSelected: (_) => setState(() {
-                  selectedInvoiceId = item.id;
-                  categoryFilter = null;
-                  personFilter = null;
-                }),
-              );
-            },
+            child: Row(
+              children: [
+                for (var index = 0; index < cardInvoices.length; index++) ...[
+                  if (index > 0) const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: Text(
+                      _monthLabel(cardInvoices[index].competenceMonth),
+                    ),
+                    selected: cardInvoices[index].id == invoice.id,
+                    onSelected: (_) => setState(() {
+                      selectedInvoiceId = cardInvoices[index].id;
+                      categoryFilter = null;
+                      personFilter = null;
+                    }),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: 14),
-        _InvoiceOverview(summary: summary),
         const SizedBox(height: 12),
         ZimbaFeedbackBanner(
           icon: Icons.calendar_month_outlined,
@@ -488,9 +764,19 @@ class _InvoicesPageState extends State<InvoicesPage> {
                   subtitle: Text(
                     '${_shortDate(payment.paidAt)} · ${_paymentOrigin(payment.origin)}',
                   ),
-                  trailing: const ZimbaBadge(
-                    label: 'Confirmado',
-                    tone: ZimbaTone.success,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const ZimbaBadge(
+                        label: 'Confirmado',
+                        tone: ZimbaTone.success,
+                      ),
+                      IconButton(
+                        tooltip: 'Desfazer pagamento',
+                        onPressed: () => cancelPayment(payment),
+                        icon: const Icon(Icons.undo_outlined),
+                      ),
+                    ],
                   ),
                 ),
             ],
@@ -501,13 +787,29 @@ class _InvoicesPageState extends State<InvoicesPage> {
 }
 
 class _InvoiceOverview extends StatelessWidget {
-  const _InvoiceOverview({required this.summary});
+  const _InvoiceOverview({
+    required this.card,
+    required this.summary,
+    required this.limitSummary,
+    required this.onRegisterPayment,
+    required this.onExport,
+  });
 
+  final CreditCardWithOwner card;
   final CreditCardInvoiceSummary summary;
+  final CreditLimitGroupSummary? limitSummary;
+  final VoidCallback? onRegisterPayment;
+  final VoidCallback onExport;
 
   @override
   Widget build(BuildContext context) {
     final invoice = summary.invoice;
+    final utilization = limitSummary?.utilization;
+    final limitTone =
+        limitSummary?.overLimit == true ||
+            (utilization != null && utilization >= .8)
+        ? ZimbaColors.warning
+        : ZimbaColors.accent;
     return ZimbaCard(
       borderColor: _stateTone(summary.effectiveState) == ZimbaTone.danger
           ? ZimbaColors.destructive
@@ -517,10 +819,35 @@ class _InvoiceOverview extends StatelessWidget {
         children: [
           Row(
             children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: ZimbaColors.muted,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(Icons.credit_card_outlined, size: 20),
+              ),
+              const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  'Fatura de ${_monthLabel(invoice.competenceMonth)}',
-                  style: Theme.of(context).textTheme.titleMedium,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      card.creditCard.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    Text(
+                      'Fecha ${_shortDate(invoice.closingDate)} · vence ${_shortDate(invoice.dueDate)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: ZimbaColors.secondaryText,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               ZimbaBadge(
@@ -532,31 +859,80 @@ class _InvoiceOverview extends StatelessWidget {
           const SizedBox(height: 14),
           Text(
             formatBrl(summary.totalCents),
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
               fontWeight: FontWeight.w900,
               letterSpacing: -.6,
             ),
           ),
           const SizedBox(height: 3),
-          Text(
-            'Total derivado de compras menos estornos',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: ZimbaColors.secondaryText),
+          Wrap(
+            children: [
+              Text(
+                'Fatura de ${_monthLabel(invoice.competenceMonth)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: ZimbaColors.secondaryText,
+                ),
+              ),
+              Text(
+                ' · ${summary.transactions.length} lançamentos',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: ZimbaColors.secondaryText,
+                ),
+              ),
+            ],
           ),
+          const SizedBox(height: 14),
+          if (limitSummary?.group.totalLimitCents != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: (utilization ?? 0).clamp(0, 1),
+                minHeight: 5,
+                color: limitTone,
+                backgroundColor: ZimbaColors.muted,
+              ),
+            ),
+            const SizedBox(height: 7),
+            Text.rich(
+              TextSpan(
+                text: 'Limite usado ${((utilization ?? 0) * 100).round()}% · ',
+                children: [
+                  TextSpan(
+                    text: limitSummary!.overLimit
+                        ? '${formatBrl(limitSummary!.availableCents!.abs())} acima do limite'
+                        : '${formatBrl(limitSummary!.availableCents!)} disponível',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ],
+              ),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: limitSummary!.overLimit
+                    ? ZimbaColors.destructive
+                    : ZimbaColors.secondaryText,
+              ),
+            ),
+            if (limitSummary!.cards.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: Text(
+                  'Compartilhado por ${limitSummary!.cards.length} cartões · inclui ${formatBrl(limitSummary!.projectedInstallmentsCents)} em parcelas futuras',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: ZimbaColors.secondaryText,
+                  ),
+                ),
+              ),
+          ] else
+            Text(
+              'Limite não informado · configure no cadastro do cartão',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: ZimbaColors.secondaryText,
+              ),
+            ),
           const SizedBox(height: 16),
           Wrap(
-            spacing: 18,
+            spacing: 12,
             runSpacing: 12,
             children: [
-              _InvoiceMetric(
-                label: 'FECHAMENTO',
-                value: _shortDate(invoice.closingDate),
-              ),
-              _InvoiceMetric(
-                label: 'VENCIMENTO',
-                value: _shortDate(invoice.dueDate),
-              ),
               _InvoiceMetric(
                 label: 'PAGO',
                 value: formatBrl(summary.paidCents),
@@ -564,6 +940,31 @@ class _InvoiceOverview extends StatelessWidget {
               _InvoiceMetric(
                 label: 'EM ABERTO',
                 value: formatBrl(summary.outstandingCents),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: onRegisterPayment,
+                  icon: const Icon(Icons.compare_arrows_outlined, size: 18),
+                  label: Text(
+                    summary.outstandingCents > 0
+                        ? 'Registrar pagamento'
+                        : 'Paga',
+                    maxLines: 1,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: onExport,
+                  icon: const Icon(Icons.file_download_outlined, size: 18),
+                  label: const Text('Exportar'),
+                ),
               ),
             ],
           ),
@@ -770,6 +1171,8 @@ class _InvoicesViewData {
     required this.invoices,
     required this.summaries,
     required this.paymentSuggestions,
+    required this.limitSummaries,
+    required this.paymentAccounts,
     required this.detailsById,
   });
 
@@ -777,7 +1180,21 @@ class _InvoicesViewData {
   final List<CreditCardInvoiceRow> invoices;
   final Map<String, CreditCardInvoiceSummary> summaries;
   final Map<String, List<InvoicePaymentSuggestion>> paymentSuggestions;
+  final Map<String, CreditLimitGroupSummary> limitSummaries;
+  final List<AccountWithOwner> paymentAccounts;
   final Map<String, ReviewTransactionDetails> detailsById;
+}
+
+class _ManualPaymentInput {
+  const _ManualPaymentInput({
+    required this.accountId,
+    required this.amountCents,
+    required this.paidAt,
+  });
+
+  final String accountId;
+  final int amountCents;
+  final DateTime paidAt;
 }
 
 String _shortDate(DateTime date) =>

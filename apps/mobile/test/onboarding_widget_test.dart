@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zimba_control/main.dart';
 import 'package:zimba_control/src/application/import_parser.dart';
@@ -13,6 +14,16 @@ import 'package:zimba_control/src/presentation/new_transaction_page.dart';
 import 'package:zimba_control/src/presentation/review_page.dart';
 
 void main() {
+  setUpAll(() async {
+    final inter = FontLoader('Inter')
+      ..addFont(rootBundle.load('assets/fonts/Inter-Variable.ttf'));
+    final lucide = FontLoader('packages/lucide_icons_flutter/Lucide')
+      ..addFont(
+        rootBundle.load('packages/lucide_icons_flutter/assets/lucide.ttf'),
+      );
+    await Future.wait([inter.load(), lucide.load()]);
+  });
+
   for (final size in const [Size(360, 800), Size(393, 873), Size(412, 915)]) {
     testWidgets('fresh onboarding fits ${size.width.toInt()}px', (
       tester,
@@ -32,8 +43,11 @@ void main() {
       await tester.pumpWidget(ZimbaControlApp(database: database));
       await tester.pumpAndSettle();
 
-      expect(find.text('Suas finanças,\nsem bagunça.'), findsOneWidget);
-      expect(find.text('Configurar meus dados'), findsOneWidget);
+      expect(
+        find.text('Organize as finanças da família\nsem depender da internet'),
+        findsOneWidget,
+      );
+      expect(find.text('Começar configuração'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   }

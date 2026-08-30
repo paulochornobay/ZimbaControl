@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zimba_control/main.dart';
 import 'package:zimba_control/src/data/local/app_database.dart';
+import 'package:zimba_control/src/infrastructure/notification_capture_service.dart';
 import 'package:zimba_control/src/presentation/design/zimba_theme.dart';
 import 'package:zimba_control/src/presentation/edit_transaction_page.dart';
 import 'package:zimba_control/src/presentation/movements_page.dart';
@@ -15,10 +16,25 @@ void main() {
       ..addFont(rootBundle.load('assets/fonts/Inter-Variable.ttf'));
     final materialIcons = FontLoader('MaterialIcons')
       ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
-    await Future.wait([inter.load(), materialIcons.load()]);
+    final lucide = FontLoader('packages/lucide_icons_flutter/Lucide')
+      ..addFont(
+        rootBundle.load('packages/lucide_icons_flutter/assets/lucide.ttf'),
+      );
+    final lucide300 = FontLoader('packages/lucide_icons_flutter/Lucide300')
+      ..addFont(
+        rootBundle.load(
+          'packages/lucide_icons_flutter/assets/build_font/LucideVariable-w300.ttf',
+        ),
+      );
+    await Future.wait([
+      inter.load(),
+      materialIcons.load(),
+      lucide.load(),
+      lucide300.load(),
+    ]);
   });
 
-  for (final size in const [Size(360, 800), Size(390, 844)]) {
+  for (final size in const [Size(360, 800), Size(390, 844), Size(440, 900)]) {
     testWidgets('Fase 1 mantém Movimentações compacta em ${size.width}px', (
       tester,
     ) async {
@@ -207,6 +223,50 @@ void main() {
     expect(tester.takeException(), isNull);
     await _disposeWidget(tester);
     await tester.runAsync(database.close);
+  });
+  testWidgets('sugestao criada por notificacao abre pronta para classificar', (
+    tester,
+  ) async {
+    await _configureView(tester, const Size(390, 844), textScale: 1);
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    await database.seedIfEmpty();
+    final now = DateTime.now();
+    await database.recordRawNotificationEvent(
+      CapturedNotificationEvent(
+        id: 'widget-notification-nubank',
+        packageName: 'com.nu.production',
+        appLabel: 'Nubank',
+        title: 'Compra no credito aprovada',
+        text:
+            'Compra de R\$ 41,80 APROVADA em MarmitariaPimenta para o cartao com final 3683.',
+        postedAt: now,
+        capturedAt: now,
+      ),
+    );
+    await database.processPendingRawNotificationEvents();
+    final transaction = (await database.select(database.transactions).get())
+        .singleWhere(
+          (item) =>
+              item.descriptionRaw.contains('MarmitariaPimenta') &&
+              item.reviewStatus == 'pending',
+        );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ZimbaTheme.light,
+        home: EditTransactionPage(
+          database: database,
+          transactionId: transaction.id,
+        ),
+      ),
+    );
+    await _pumpUntilFound(tester, find.text('MarmitariaPimenta'));
+
+    expect(find.text('Cancelar'), findsOneWidget);
+    expect(find.byType(TextField), findsNWidgets(2));
+    expect(tester.takeException(), isNull);
+    await _disposeWidget(tester);
   });
 }
 

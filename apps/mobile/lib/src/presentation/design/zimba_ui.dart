@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import 'zimba_theme.dart';
 
@@ -9,8 +10,17 @@ import 'zimba_theme.dart';
 abstract final class ZimbaLayout {
   static const maxContentWidth = 440.0;
   static const pagePadding = EdgeInsets.symmetric(horizontal: 16);
-  static const cardRadius = 16.0;
-  static const controlRadius = 12.0;
+  static const cardRadius = ZimbaRadii.lg;
+  static const controlRadius = ZimbaRadii.md;
+  static const spacing1 = 4.0;
+  static const spacing2 = 8.0;
+  static const spacing3 = 12.0;
+  static const spacing4 = 16.0;
+  static const spacing5 = 20.0;
+  static const spacing6 = 24.0;
+  static const spacing8 = 32.0;
+  static const spacing10 = 40.0;
+  static const spacing12 = 48.0;
 }
 
 class ZimbaViewport extends StatelessWidget {
@@ -41,13 +51,7 @@ class ZimbaViewport extends StatelessWidget {
                 color: ZimbaColors.background,
                 border: Border.all(color: ZimbaColors.border),
                 borderRadius: BorderRadius.circular(28),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x1F0F172A),
-                    blurRadius: 24,
-                    offset: Offset(0, 8),
-                  ),
-                ],
+                boxShadow: ZimbaShadows.elevated,
               ),
               clipBehavior: Clip.antiAlias,
               child: child,
@@ -131,13 +135,7 @@ class ZimbaCard extends StatelessWidget {
           borderRadius ?? ZimbaLayout.cardRadius,
         ),
         border: Border.all(color: borderColor ?? ZimbaColors.border),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A0F172A),
-            blurRadius: 3,
-            offset: Offset(0, 1),
-          ),
-        ],
+        boxShadow: ZimbaShadows.card,
       ),
       child: Padding(padding: padding, child: child),
     );
@@ -651,15 +649,15 @@ class ZimbaBottomNavigation extends StatelessWidget {
   final ValueChanged<int> onSelected;
 
   static const _items = <_ZimbaNavItem>[
-    _ZimbaNavItem('Início', Icons.home_outlined, Icons.home_rounded),
-    _ZimbaNavItem('Revisão', Icons.inbox_outlined, Icons.inbox_rounded),
-    _ZimbaNavItem('Novo', Icons.add_circle_outline, Icons.add_circle),
     _ZimbaNavItem(
-      'Movim.',
-      Icons.format_list_bulleted_outlined,
-      Icons.format_list_bulleted_rounded,
+      'Resumo',
+      LucideIcons.layoutDashboard,
+      LucideIcons.layoutDashboard300,
     ),
-    _ZimbaNavItem('Ajustes', Icons.settings_outlined, Icons.settings_rounded),
+    _ZimbaNavItem('Revisão', LucideIcons.inbox, LucideIcons.inbox300),
+    _ZimbaNavItem('Novo', LucideIcons.circlePlus, LucideIcons.circlePlus300),
+    _ZimbaNavItem('Movim.', LucideIcons.listChecks, LucideIcons.listChecks300),
+    _ZimbaNavItem('Ajustes', LucideIcons.settings, LucideIcons.settings300),
   ];
 
   @override
@@ -712,29 +710,32 @@ class _ZimbaNavButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = selected ? item.selectedIcon : item.icon;
+    // The React shell uses one Lucide glyph with a heavier active stroke,
+    // not a different outlined glyph.
+    final icon = item.icon;
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 7),
+        padding: const EdgeInsets.symmetric(vertical: 4),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
-              size: item.label == 'Novo' ? 28 : 21,
+              size: item.label == 'Novo' ? 28 : 20,
               color: selected
                   ? ZimbaColors.accent
                   : item.label == 'Novo'
                   ? ZimbaColors.foreground
                   : ZimbaColors.secondaryText,
             ),
-            const SizedBox(height: 3),
+            const SizedBox(height: 2),
             Text(
               item.label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                fontSize: 10,
                 color: selected
                     ? ZimbaColors.accent
                     : ZimbaColors.secondaryText,
