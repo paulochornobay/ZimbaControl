@@ -7,6 +7,8 @@ export type AuthenticatedUser = {
   email: string;
   name?: string;
   picture?: string;
+  householdId?: string;
+  role?: "admin" | "member";
 };
 
 export type GoogleTokenVerifier = {
@@ -54,6 +56,8 @@ export class SessionService {
       email: user.email,
       name: user.name,
       picture: user.picture,
+      householdId: user.householdId,
+      role: user.role,
     })
       .setProtectedHeader({ alg: "HS256" })
       .setSubject(user.sub)
@@ -76,6 +80,9 @@ export class SessionService {
         name: typeof payload.name === "string" ? payload.name : undefined,
         picture:
           typeof payload.picture === "string" ? payload.picture : undefined,
+        householdId:
+          typeof payload.householdId === "string" ? payload.householdId : undefined,
+        role: payload.role === "admin" || payload.role === "member" ? payload.role : undefined,
       };
     } catch (error) {
       if (error instanceof AuthError) {

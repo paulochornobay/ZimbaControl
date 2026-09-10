@@ -302,6 +302,39 @@ test("sync requires a valid session when Google OIDC is enabled", async () => {
   await app.close();
 });
 
+test("password registration creates an isolated admin household and session", async () => {
+  const app = buildApp({
+    config: testConfig({
+      passwordAuthEnabled: true,
+      sessionJwtSecret: "test-secret-with-enough-length",
+    }),
+  });
+  await app.ready();
+
+  const first = await app.inject({
+    method: "POST",
+    url: "/auth/register",
+    payload: { email: "admin@zimbacontrol.com.br", password: "123mudar!", name: "Admin" },
+  });
+  const second = await app.inject({
+    method: "POST",
+    url: "/auth/register",
+    payload: { email: "other@example.com", password: "123mudar!" },
+  });
+
+  assert.equal(first.statusCode, 200);
+  assert.equal(first.json().user.role, "admin");
+  assert.notEqual(first.json().user.householdId, second.json().user.householdId);
+
+  const forbidden = await app.inject({
+    method: "GET",
+    url: `/sync/pull?householdId=${second.json().user.householdId}&sinceSeq=0`,
+    headers: { authorization: `Bearer ${first.json().token}` },
+  });
+  assert.equal(forbidden.statusCode, 403);
+  await app.close();
+});
+
 function testConfig(overrides: Partial<ApiConfig> = {}): ApiConfig {
   return {
     nodeEnv: "test",
@@ -314,6 +347,7 @@ function testConfig(overrides: Partial<ApiConfig> = {}): ApiConfig {
     allowedEmails: [],
     sessionTtlSeconds: 2_592_000,
     corsOrigins: [],
+    passwordAuthEnabled: false,
     ...overrides,
   };
 }

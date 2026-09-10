@@ -11,6 +11,7 @@ import {
 import { loadConfig, type ApiConfig } from "./config.js";
 import {
   googleAuthRequestSchema,
+  passwordAuthRequestSchema,
   syncPullQuerySchema,
   syncPushRequestSchema,
 } from "./contracts.js";
@@ -19,11 +20,18 @@ import {
   MongoSyncStore,
   type SyncStore,
 } from "./sync-store.js";
+import {
+  IdentityError,
+  MemoryIdentityStore,
+  MongoIdentityStore,
+  type IdentityStore,
+} from "./identity-store.js";
 
 type BuildAppOptions = {
   config?: ApiConfig;
   syncStore?: SyncStore;
   googleVerifier?: GoogleTokenVerifier;
+  identityStore?: IdentityStore;
 };
 
 export function buildApp(options: BuildAppOptions = {}) {
@@ -34,6 +42,11 @@ export function buildApp(options: BuildAppOptions = {}) {
       ? new MongoSyncStore(new MongoClient(config.mongodbUri), config.mongodbDb)
       : new MemorySyncStore());
   const googleVerifier = options.googleVerifier ?? new GoogleOidcVerifier();
+  const identityStore =
+    options.identityStore ??
+    (config.mongodbUri
+      ? new MongoIdentityStore(new MongoClient(config.mongodbUri), config.mongodbDb)
+      : new MemoryIdentityStore());
   const sessionService = new SessionService(config);
   const storageMode = config.mongodbUri ? "mongodb" : "memory";
   const app = Fastify({
@@ -48,10 +61,19 @@ export function buildApp(options: BuildAppOptions = {}) {
 
   app.addHook("onReady", async () => {
     await syncStore.init();
+    await identityStore.init();
+    if (config.nodeEnv === "development" && config.devAdminEmail && config.devAdminPassword) {
+      await identityStore.ensureAdmin({
+        email: config.devAdminEmail,
+        password: config.devAdminPassword,
+        name: "Administrador ZimbaControl",
+      });
+    }
   });
 
   app.addHook("onClose", async () => {
     await syncStore.close();
+    await identityStore.close();
   });
 
   app.get("/health", async () => ({
@@ -94,6 +116,37 @@ export function buildApp(options: BuildAppOptions = {}) {
       }
       request.log.warn({ error }, "google auth failed");
       return reply.code(401).send({ error: "invalid_google_token" });
+    }
+  });
+
+  app.post("/auth/register", async (request, reply) => {
+    if (!config.passwordAuthEnabled) {
+      return reply.code(400).send({ error: "password_auth_disabled" });
+    }
+    const parsed = passwordAuthRequestSchema.safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_registration" });
+    try {
+      const user = await identityStore.register(parsed.data);
+      return sessionResponse(user);
+    } catch (error) {
+      if (error instanceof IdentityError) {
+        return reply.code(409).send({ error: error.message });
+      }
+      throw error;
+    }
+  });
+
+  app.post("/auth/login", async (request, reply) => {
+    if (!config.passwordAuthEnabled) {
+      return reply.code(400).send({ error: "password_auth_disabled" });
+    }
+    const parsed = passwordAuthRequestSchema.pick({ email: true, password: true }).safeParse(request.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_credentials" });
+    try {
+      return sessionResponse(await identityStore.authenticate(parsed.data.email, parsed.data.password));
+    } catch (error) {
+      if (error instanceof IdentityError) return reply.code(401).send({ error: error.message });
+      throw error;
     }
   });
 
@@ -210,6 +263,10 @@ export function buildApp(options: BuildAppOptions = {}) {
     try {
       const user = await sessionService.verify(token);
       ensureAllowedEmail(config, user.email);
+      if (config.passwordAuthEnabled && !(await identityStore.isMember(user.sub, parsedHouseholdId(request)))) {
+        reply.code(403).send({ error: "household_not_allowed" });
+        return true;
+      }
       return false;
     } catch (error) {
       if (error instanceof AuthError) {
@@ -220,4 +277,31 @@ export function buildApp(options: BuildAppOptions = {}) {
       return true;
     }
   }
+
+  async function sessionResponse(identity: {
+    id: string;
+    email: string;
+    householdId: string;
+    role: "admin" | "member";
+    name?: string;
+  }) {
+    const user = {
+      sub: identity.id,
+      email: identity.email,
+      householdId: identity.householdId,
+      role: identity.role,
+      name: identity.name,
+    };
+    return {
+      token: await sessionService.create(user),
+      expiresInSeconds: config.sessionTtlSeconds,
+      user,
+    };
+  }
+}
+
+function parsedHouseholdId(request: FastifyRequest): string {
+  const query = request.query as { householdId?: string };
+  const body = request.body as { householdId?: string } | undefined;
+  return body?.householdId ?? query.householdId ?? "";
 }

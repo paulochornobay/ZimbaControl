@@ -13,6 +13,9 @@ export type ApiConfig = {
   sessionJwtSecret?: string;
   sessionTtlSeconds: number;
   corsOrigins: string[];
+  passwordAuthEnabled: boolean;
+  devAdminEmail?: string;
+  devAdminPassword?: string;
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
@@ -37,6 +40,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       .split(",")
       .map((origin) => origin.trim())
       .filter(Boolean),
+    passwordAuthEnabled: env.PASSWORD_AUTH_ENABLED === "true",
+    devAdminEmail: optional(env.DEV_ADMIN_EMAIL),
+    devAdminPassword: optional(env.DEV_ADMIN_PASSWORD),
   };
 }
 

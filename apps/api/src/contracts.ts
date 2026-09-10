@@ -213,6 +213,12 @@ export const googleAuthRequestSchema = z.object({
   idToken: z.string().min(1),
 });
 
+export const passwordAuthRequestSchema = z.object({
+  email: z.string().trim().email().max(254),
+  password: z.string().min(9).max(256),
+  name: z.string().trim().min(1).max(100).optional(),
+});
+
 export type Transaction = z.infer<typeof transactionSchema>;
 export type SyncPushOperation = z.infer<typeof syncPushOperationSchema>;
 export type SyncPushRequest = z.infer<typeof syncPushRequestSchema>;
