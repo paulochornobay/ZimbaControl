@@ -12,6 +12,7 @@ import { loadConfig, type ApiConfig } from "./config.js";
 import {
   googleAuthRequestSchema,
   passwordAuthRequestSchema,
+  syncEntityTypeSchema,
   syncPullQuerySchema,
   syncPushRequestSchema,
 } from "./contracts.js";
@@ -211,11 +212,11 @@ export function buildApp(options: BuildAppOptions = {}) {
     if (!query.householdId || !query.entityType) {
       return reply.code(400).send({ error: "householdId_and_entityType_required" });
     }
-    const entityTypes = ["transaction", "rule", "reviewItem", "duplicateCandidate", "creditCardLimitGroup", "creditCard", "invoicePayment"] as const;
-    if (!entityTypes.includes(query.entityType as (typeof entityTypes)[number])) {
+    const entityType = syncEntityTypeSchema.safeParse(query.entityType);
+    if (!entityType.success) {
       return reply.code(400).send({ error: "invalid_entity_type" });
     }
-    return { data: await syncStore.listEntitySnapshots(query.householdId, query.entityType as (typeof entityTypes)[number]) };
+    return { data: await syncStore.listEntitySnapshots(query.householdId, entityType.data) };
   });
 
   app.get("/transactions", async () => ({

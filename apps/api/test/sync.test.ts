@@ -118,6 +118,90 @@ test("POST /sync/push accepts a versioned credit-limit group payload", async () 
   await app.close();
 });
 
+test("registry entities are validated and available as household snapshots", async () => {
+  const app = buildApp({ config: testConfig() });
+  await app.ready();
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/sync/push",
+    payload: {
+      deviceId: "device-registry",
+      householdId: "household-main",
+      operations: [
+        registryOperation("person", "person-1", {
+          schemaVersion: 1,
+          person: { id: "person-1", householdId: "household-main", displayName: "Paulo", kind: "adult", active: true },
+        }),
+        registryOperation("account", "account-1", {
+          schemaVersion: 1,
+          account: { id: "account-1", householdId: "household-main", ownerPersonId: "person-1", provider: "nubank", name: "Conta principal", type: "checking", currencyCode: "BRL", last4: "1234", externalAccountId: null, active: true },
+        }),
+        registryOperation("category", "category-1", {
+          schemaVersion: 1,
+          category: { id: "category-1", householdId: "household-main", parentId: null, systemKey: null, name: "Alimentação", kind: "expense", iconKey: "cart", colorKey: "amber", sortOrder: 10, isDefault: false, isHidden: false, active: true, createdAt: "2026-09-10T12:00:00.000Z", updatedAt: "2026-09-10T12:00:00.000Z" },
+        }),
+        registryOperation("costCenter", "center-1", {
+          schemaVersion: 1,
+          costCenter: { id: "center-1", householdId: "household-main", name: "Casa", iconKey: "home", colorKey: "green", active: true },
+        }),
+      ],
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(response.json().results.map((result: { result: string }) => result.result), ["applied", "applied", "applied", "applied"]);
+
+  const people = await app.inject({ method: "GET", url: "/data/entities?householdId=household-main&entityType=person" });
+  assert.equal(people.statusCode, 200);
+  assert.equal(people.json().data[0].payload.person.displayName, "Paulo");
+
+  const categories = await app.inject({ method: "GET", url: "/data/entities?householdId=household-main&entityType=category" });
+  assert.equal(categories.statusCode, 200);
+  assert.equal(categories.json().data[0].payload.category.name, "Alimentação");
+  await app.close();
+});
+
+test("registry payloads reject invalid fields", async () => {
+  const app = buildApp({ config: testConfig() });
+  await app.ready();
+  const response = await app.inject({
+    method: "POST",
+    url: "/sync/push",
+    payload: {
+      deviceId: "device-registry",
+      householdId: "household-main",
+      operations: [registryOperation("person", "person-invalid", {
+        schemaVersion: 1,
+        person: { id: "person-invalid", householdId: "household-main", displayName: "", kind: "adult", active: true },
+      })],
+    },
+  });
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.json().error, "invalid_sync_push");
+  await app.close();
+});
+
+test("registry payloads cannot target a different entity or household", async () => {
+  const app = buildApp({ config: testConfig() });
+  await app.ready();
+  const response = await app.inject({
+    method: "POST",
+    url: "/sync/push",
+    payload: {
+      deviceId: "device-registry",
+      householdId: "household-main",
+      operations: [registryOperation("person", "person-expected", {
+        schemaVersion: 1,
+        person: { id: "person-other", householdId: "another-household", displayName: "Paulo", kind: "adult", active: true },
+      })],
+    },
+  });
+  assert.equal(response.statusCode, 400);
+  assert.equal(response.json().error, "invalid_sync_push");
+  await app.close();
+});
+
 test("GET /sync/pull returns incremental events in order", async () => {
   const app = buildApp({ config: testConfig() });
   await app.ready();
@@ -405,5 +489,23 @@ function transactionPayload(id: string, descriptionRaw: string, amountCents: num
         confidence: 1,
       },
     ],
+  };
+}
+
+function registryOperation(
+  entityType: "person" | "account" | "category" | "costCenter",
+  entityId: string,
+  payload: Record<string, unknown>,
+) {
+  return {
+    opId: `op-${entityType}-${entityId}`,
+    deviceId: "device-registry",
+    householdId: "household-main",
+    entityType,
+    entityId,
+    operationType: "create",
+    baseVersion: 0,
+    payload,
+    createdAt: "2026-09-10T12:00:00.000Z",
   };
 }
