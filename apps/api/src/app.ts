@@ -246,7 +246,7 @@ export function buildApp(options: BuildAppOptions = {}) {
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<boolean> {
-    if (!config.googleOidcEnabled) {
+    if (!config.googleOidcEnabled && !config.passwordAuthEnabled) {
       return false;
     }
 
