@@ -23,7 +23,11 @@ void main() {
           jsonEncode({
             'token': 'session-token',
             'expiresInSeconds': 3600,
-            'user': {'email': 'admin@zimbacontrol.com.br', 'name': 'Admin'},
+            'user': {
+              'email': 'admin@zimbacontrol.com.br',
+              'householdId': 'household-admin',
+              'name': 'Admin',
+            },
           }),
           200,
         );
@@ -37,8 +41,10 @@ void main() {
 
     expect(session.token, 'session-token');
     expect(session.email, 'admin@zimbacontrol.com.br');
+    expect(session.householdId, 'household-admin');
     expect(await client.readSessionToken(), 'session-token');
     expect(await client.readSessionEmail(), 'admin@zimbacontrol.com.br');
+    expect(await client.readSessionHousehold(), 'household-admin');
     expect(storage.values.values, isNot(contains('senha-de-teste')));
   });
 

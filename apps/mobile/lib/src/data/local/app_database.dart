@@ -1889,7 +1889,12 @@ class AppDatabase extends _$AppDatabase {
     return query.get();
   }
 
-  Future<SyncRunSummary> runSyncOnce(SyncApiClient client) async {
+  Future<SyncRunSummary> runSyncOnce(
+    SyncApiClient client, {
+    String? remoteHouseholdId,
+  }) async {
+    await _enqueueChangedRegistries();
+    final syncHouseholdId = remoteHouseholdId ?? householdMain;
     final operations = await listPendingSyncOutbox();
     final sinceSeq =
         int.tryParse(await _preferenceValue('sync_pull_since_seq') ?? '0') ?? 0;
@@ -1903,9 +1908,10 @@ class AppDatabase extends _$AppDatabase {
       final response = await client.push(
         SyncPushPayload(
           deviceId: operations.first.deviceId,
-          householdId: householdMain,
+          householdId: syncHouseholdId,
           operations: [
-            for (final operation in operations) _syncOperationJson(operation),
+            for (final operation in operations)
+              _syncOperationJson(operation, syncHouseholdId),
           ],
         ),
       );
@@ -1935,11 +1941,14 @@ class AppDatabase extends _$AppDatabase {
     }
 
     final pulled = await client.pull(
-      householdId: householdMain,
+      householdId: syncHouseholdId,
       sinceSeq: sinceSeq,
     );
     final pullSummary = await _applyPulledSyncEvents(
-      pulled.events,
+      [
+        for (final event in pulled.events)
+          _localizeSyncEvent(event),
+      ],
       sinceSeq: sinceSeq,
       localDeviceId: localDeviceId,
     );
@@ -1990,6 +1999,10 @@ class AppDatabase extends _$AppDatabase {
         } else {
           result = switch (_requiredSyncString(event, 'entityType')) {
             'transaction' => await _applyRemoteTransactionEvent(event),
+            'person' => await _applyRemotePersonEvent(event),
+            'account' => await _applyRemoteAccountEvent(event),
+            'category' => await _applyRemoteCategoryEvent(event),
+            'costCenter' => await _applyRemoteCostCenterEvent(event),
             'creditCardLimitGroup' =>
               await _applyRemoteCreditCardLimitGroupEvent(event),
             'creditCard' => await _applyRemoteCreditCardEvent(event),
@@ -2103,6 +2116,78 @@ class AppDatabase extends _$AppDatabase {
       mode: InsertMode.insertOrIgnore,
     );
     return const _RemoteApplyResult(conflict: true);
+  }
+
+  Future<_RemoteApplyResult> _applyRemotePersonEvent(
+    Map<String, dynamic> event,
+  ) async {
+    final payload = _syncMap(event['payload'], 'payload');
+    _requireSyncSchemaVersion(payload);
+    final person = PersonRow.fromJson(_syncMap(payload['person'], 'payload.person'));
+    await into(people).insertOnConflictUpdate(person.toCompanion(false));
+    await _rememberRegistryPayload('person', person.id, payload);
+    await _setSyncEntityVersion(
+      'person',
+      person.id,
+      _syncEventBaseVersion(event) + 1,
+    );
+    return const _RemoteApplyResult();
+  }
+
+  Future<_RemoteApplyResult> _applyRemoteAccountEvent(
+    Map<String, dynamic> event,
+  ) async {
+    final payload = _syncMap(event['payload'], 'payload');
+    _requireSyncSchemaVersion(payload);
+    final account = AccountRow.fromJson(
+      _syncMap(payload['account'], 'payload.account'),
+    );
+    await into(accounts).insertOnConflictUpdate(account.toCompanion(false));
+    await _rememberRegistryPayload('account', account.id, payload);
+    await _setSyncEntityVersion(
+      'account',
+      account.id,
+      _syncEventBaseVersion(event) + 1,
+    );
+    return const _RemoteApplyResult();
+  }
+
+  Future<_RemoteApplyResult> _applyRemoteCategoryEvent(
+    Map<String, dynamic> event,
+  ) async {
+    final payload = _syncMap(event['payload'], 'payload');
+    _requireSyncSchemaVersion(payload);
+    final category = CategoryRow.fromJson(
+      _syncMap(payload['category'], 'payload.category'),
+    );
+    await into(categories).insertOnConflictUpdate(category.toCompanion(false));
+    await _rememberRegistryPayload('category', category.id, payload);
+    await _setSyncEntityVersion(
+      'category',
+      category.id,
+      _syncEventBaseVersion(event) + 1,
+    );
+    return const _RemoteApplyResult();
+  }
+
+  Future<_RemoteApplyResult> _applyRemoteCostCenterEvent(
+    Map<String, dynamic> event,
+  ) async {
+    final payload = _syncMap(event['payload'], 'payload');
+    _requireSyncSchemaVersion(payload);
+    final costCenter = CostCenterRow.fromJson(
+      _syncMap(payload['costCenter'], 'payload.costCenter'),
+    );
+    await into(
+      costCenters,
+    ).insertOnConflictUpdate(costCenter.toCompanion(false));
+    await _rememberRegistryPayload('costCenter', costCenter.id, payload);
+    await _setSyncEntityVersion(
+      'costCenter',
+      costCenter.id,
+      _syncEventBaseVersion(event) + 1,
+    );
+    return const _RemoteApplyResult();
   }
 
   Future<_RemoteApplyResult> _applyRemoteCreditCardLimitGroupEvent(
@@ -4574,6 +4659,73 @@ class AppDatabase extends _$AppDatabase {
         );
   }
 
+  Future<void> _enqueueChangedRegistries() async {
+    final peopleRows = await select(people).get();
+    for (final person in peopleRows) {
+      await _enqueueRegistryPayload(
+        entityType: 'person',
+        entityId: person.id,
+        payload: {'schemaVersion': 1, 'person': person.toJson()},
+      );
+    }
+
+    final accountRows = await select(accounts).get();
+    for (final account in accountRows) {
+      await _enqueueRegistryPayload(
+        entityType: 'account',
+        entityId: account.id,
+        payload: {'schemaVersion': 1, 'account': account.toJson()},
+      );
+    }
+
+    final categoryRows = await select(categories).get();
+    for (final category in categoryRows) {
+      await _enqueueRegistryPayload(
+        entityType: 'category',
+        entityId: category.id,
+        payload: {'schemaVersion': 1, 'category': category.toJson()},
+      );
+    }
+
+    final costCenterRows = await select(costCenters).get();
+    for (final costCenter in costCenterRows) {
+      await _enqueueRegistryPayload(
+        entityType: 'costCenter',
+        entityId: costCenter.id,
+        payload: {'schemaVersion': 1, 'costCenter': costCenter.toJson()},
+      );
+    }
+  }
+
+  Future<void> _enqueueRegistryPayload({
+    required String entityType,
+    required String entityId,
+    required Map<String, dynamic> payload,
+  }) async {
+    final pending = await (select(syncOutbox)
+          ..where((row) => row.entityType.equals(entityType))
+          ..where((row) => row.entityId.equals(entityId))
+          ..where((row) => row.status.isIn(['pending', 'failed'])))
+        .getSingleOrNull();
+    if (pending != null) {
+      return;
+    }
+    final payloadHash = _syncPayloadHash(payload);
+    final previousHash = await _preferenceValue(
+      'sync_entity_hash:$entityType:$entityId',
+    );
+    if (payloadHash == previousHash) {
+      return;
+    }
+    final version = await _syncEntityVersion(entityType, entityId);
+    await _enqueueSyncEntity(
+      entityType: entityType,
+      entityId: entityId,
+      operationType: version == 0 ? 'create' : 'update',
+      payload: payload,
+    );
+  }
+
   Future<void> _enqueueOutbox(String entityId, String operationType) async {
     final transaction = await getTransaction(entityId);
     if (transaction == null) {
@@ -4705,6 +4857,21 @@ class AppDatabase extends _$AppDatabase {
     int version,
   ) => _setPreference('sync_entity_version:$entityType:$entityId', '$version');
 
+  Future<void> _rememberRegistryPayload(
+    String entityType,
+    String entityId,
+    Map<String, dynamic> payload,
+  ) => _setPreference(
+    'sync_entity_hash:$entityType:$entityId',
+    _syncPayloadHash(payload),
+  );
+
+  String _syncPayloadHash(Map<String, dynamic> payload) =>
+      sha256.convert(utf8.encode(jsonEncode(payload))).toString();
+
+  bool _isRegistryEntityType(String entityType) =>
+      const {'person', 'account', 'category', 'costCenter'}.contains(entityType);
+
   Future<String> _deviceId() async {
     final existing = await _preferenceValue(syncDeviceIdPreferenceKey);
     if (existing != null && existing.isNotEmpty) {
@@ -4715,7 +4882,10 @@ class AppDatabase extends _$AppDatabase {
     return generated;
   }
 
-  Map<String, dynamic> _syncOperationJson(SyncOutboxRow operation) {
+  Map<String, dynamic> _syncOperationJson(
+    SyncOutboxRow operation,
+    String remoteHouseholdId,
+  ) {
     final decoded = jsonDecode(operation.payloadJson);
     final payload = decoded is Map
         ? Map<String, dynamic>.from(decoded)
@@ -4723,14 +4893,76 @@ class AppDatabase extends _$AppDatabase {
     return {
       'opId': operation.opId,
       'deviceId': operation.deviceId,
-      'householdId': operation.householdId,
+      'householdId': remoteHouseholdId,
       'entityType': operation.entityType,
       'entityId': operation.entityId,
       'operationType': operation.operationType,
       'baseVersion': operation.baseVersion,
-      'payload': payload,
+      'payload': _replacePayloadHousehold(
+        payload,
+        operation.entityType,
+        remoteHouseholdId,
+      ),
       'createdAt': operation.createdAt.toIso8601String(),
     };
+  }
+
+  Map<String, dynamic> _localizeSyncEvent(Map<String, dynamic> event) {
+    final localized = Map<String, dynamic>.from(event);
+    final entityType = _requiredSyncString(localized, 'entityType');
+    final payload = _syncMap(localized['payload'], 'payload');
+    localized['householdId'] = householdMain;
+    localized['payload'] = _replacePayloadHousehold(
+      payload,
+      entityType,
+      householdMain,
+    );
+    return localized;
+  }
+
+  Map<String, dynamic> _replacePayloadHousehold(
+    Map<String, dynamic> payload,
+    String entityType,
+    String householdId,
+  ) {
+    final replaced = Map<String, dynamic>.from(payload);
+
+    void replaceRow(String field) {
+      final value = replaced[field];
+      if (value is! Map) return;
+      replaced[field] = {...Map<String, dynamic>.from(value), 'householdId': householdId};
+    }
+
+    switch (entityType) {
+      case 'transaction':
+        replaceRow('transaction');
+      case 'person':
+        replaceRow('person');
+      case 'account':
+        replaceRow('account');
+      case 'category':
+        replaceRow('category');
+      case 'costCenter':
+        replaceRow('costCenter');
+      case 'creditCardLimitGroup':
+        replaceRow('group');
+      case 'creditCard':
+        replaceRow('creditCard');
+        replaceRow('account');
+      case 'invoicePayment':
+        replaceRow('payment');
+        replaceRow('invoice');
+        final audits = replaced['audits'];
+        if (audits is List) {
+          replaced['audits'] = [
+            for (final value in audits)
+              value is Map
+                  ? {...Map<String, dynamic>.from(value), 'householdId': householdId}
+                  : value,
+          ];
+        }
+    }
+    return replaced;
   }
 
   Future<Map<String, dynamic>> _syncTransactionPayload(
@@ -4824,6 +5056,13 @@ class AppDatabase extends _$AppDatabase {
         operation.entityId,
         operation.baseVersion + 1,
       );
+      if (_isRegistryEntityType(operation.entityType)) {
+        await _rememberRegistryPayload(
+          operation.entityType,
+          operation.entityId,
+          Map<String, dynamic>.from(jsonDecode(operation.payloadJson) as Map),
+        );
+      }
       return;
     }
     final transaction = await getTransaction(operation.entityId);

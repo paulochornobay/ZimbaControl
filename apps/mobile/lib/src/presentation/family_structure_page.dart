@@ -1078,6 +1078,7 @@ class _SyncPanelState extends State<SyncPanel> {
   var loading = false;
   String? sessionToken;
   String? sessionEmail;
+  String? sessionHouseholdId;
   String? message;
 
   bool get configured => syncEnabled && apiBaseUrl.isNotEmpty;
@@ -1101,12 +1102,14 @@ class _SyncPanelState extends State<SyncPanel> {
     }
     final token = await sessionClient.readSessionToken();
     final email = await sessionClient.readSessionEmail();
+    final householdId = await sessionClient.readSessionHousehold();
     if (!mounted) {
       return;
     }
     setState(() {
       sessionToken = token;
       sessionEmail = email;
+      sessionHouseholdId = householdId;
     });
   }
 
@@ -1124,6 +1127,7 @@ class _SyncPanelState extends State<SyncPanel> {
         loading = false;
         sessionToken = session.token;
         sessionEmail = session.email;
+        sessionHouseholdId = session.householdId;
         message = 'Conta conectada: ${session.email}.';
       });
     } catch (_) {
@@ -1162,6 +1166,7 @@ class _SyncPanelState extends State<SyncPanel> {
         loading = false;
         sessionToken = session.token;
         sessionEmail = session.email;
+        sessionHouseholdId = session.householdId;
         message = 'Conta conectada: ${session.email}.';
       });
     } on GoogleSessionException catch (error) {
@@ -1199,6 +1204,7 @@ class _SyncPanelState extends State<SyncPanel> {
         loading = false;
         sessionToken = null;
         sessionEmail = null;
+        sessionHouseholdId = null;
         message = 'Conta desconectada.';
       });
     } catch (_) {
@@ -1220,6 +1226,7 @@ class _SyncPanelState extends State<SyncPanel> {
     try {
       final summary = await widget.database.runSyncOnce(
         HttpSyncApiClient(baseUrl: apiBaseUrl, sessionToken: sessionToken),
+        remoteHouseholdId: sessionHouseholdId,
       );
       if (!mounted) {
         return;

@@ -9,6 +9,7 @@ class ApiSession {
     required this.token,
     required this.expiresInSeconds,
     required this.email,
+    required this.householdId,
     this.name,
     this.picture,
   });
@@ -16,6 +17,7 @@ class ApiSession {
   final String token;
   final int expiresInSeconds;
   final String email;
+  final String householdId;
   final String? name;
   final String? picture;
 
@@ -25,6 +27,7 @@ class ApiSession {
       token: json['token'] as String,
       expiresInSeconds: json['expiresInSeconds'] as int? ?? 0,
       email: user['email'] as String,
+      householdId: user['householdId'] as String,
       name: user['name'] as String?,
       picture: user['picture'] as String?,
     );
@@ -67,6 +70,7 @@ class GoogleSessionClient {
 
   static const _tokenKey = 'zimbacontrol.sessionToken';
   static const _emailKey = 'zimbacontrol.sessionEmail';
+  static const _householdKey = 'zimbacontrol.sessionHousehold';
   static bool _initialized = false;
 
   final String apiBaseUrl;
@@ -78,12 +82,15 @@ class GoogleSessionClient {
 
   Future<String?> readSessionEmail() => storage.read(key: _emailKey);
 
+  Future<String?> readSessionHousehold() => storage.read(key: _householdKey);
+
   static Future<void> clearStoredSession({
     FlutterSecureStorage? storage,
   }) async {
     final secureStorage = storage ?? const FlutterSecureStorage();
     await secureStorage.delete(key: _tokenKey);
     await secureStorage.delete(key: _emailKey);
+    await secureStorage.delete(key: _householdKey);
   }
 
   Future<ApiSession> signIn() async {
@@ -124,6 +131,7 @@ class GoogleSessionClient {
   Future<void> signOut() async {
     await storage.delete(key: _tokenKey);
     await storage.delete(key: _emailKey);
+    await storage.delete(key: _householdKey);
     if (googleWebClientId.isEmpty) {
       return;
     }
@@ -145,6 +153,7 @@ class GoogleSessionClient {
     );
     await storage.write(key: _tokenKey, value: session.token);
     await storage.write(key: _emailKey, value: session.email);
+    await storage.write(key: _householdKey, value: session.householdId);
     return session;
   }
 }
