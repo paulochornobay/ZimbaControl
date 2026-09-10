@@ -1096,7 +1096,7 @@ class _SyncPanelState extends State<SyncPanel> {
   }
 
   Future<void> _loadSession() async {
-    if (!configured || !googleConfigured) {
+    if (!configured) {
       return;
     }
     final token = await sessionClient.readSessionToken();
@@ -1133,6 +1133,54 @@ class _SyncPanelState extends State<SyncPanel> {
       setState(() {
         loading = false;
         message = 'Nao foi possivel conectar com Google.';
+      });
+    }
+  }
+
+  Future<void> _connectWithPassword() async {
+    final credentials = await showDialog<_PasswordCredentials>(
+      context: context,
+      builder: (context) => const _PasswordSignInDialog(),
+    );
+    if (credentials == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      loading = true;
+      message = null;
+    });
+    try {
+      final session = await sessionClient.signInWithPassword(
+        email: credentials.email,
+        password: credentials.password,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        loading = false;
+        sessionToken = session.token;
+        sessionEmail = session.email;
+        message = 'Conta conectada: ${session.email}.';
+      });
+    } on GoogleSessionException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        loading = false;
+        message = error.message.endsWith('_401')
+            ? 'E-mail ou senha invalidos.'
+            : 'Nao foi possivel conectar agora.';
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        loading = false;
+        message = 'Nao foi possivel conectar agora.';
       });
     }
   }
@@ -1209,17 +1257,17 @@ class _SyncPanelState extends State<SyncPanel> {
               ? apiBaseUrl
               : 'Use --dart-define=SYNC_ENABLED=true e API_BASE_URL.',
         ),
-        if (configured && googleConfigured) ...[
+        if (configured) ...[
           const SizedBox(height: 8),
           _InfoRow(
             icon: sessionEmail == null
                 ? Icons.account_circle_outlined
                 : Icons.verified_user_outlined,
             title: sessionEmail == null
-                ? 'Google nao conectado'
-                : 'Google conectado',
+                ? 'Conta nao conectada'
+                : 'Conta conectada',
             subtitle:
-                sessionEmail ?? 'Use o email liberado na allowlist da API.',
+                sessionEmail ?? 'Entre com e-mail e senha para sincronizar.',
           ),
         ],
         const SizedBox(height: 8),
@@ -1234,20 +1282,129 @@ class _SyncPanelState extends State<SyncPanel> {
           icon: const Icon(Icons.sync),
           label: const Text('Sincronizar agora'),
         ),
-        if (configured && googleConfigured) ...[
+        if (configured && sessionToken == null) ...[
           const SizedBox(height: 8),
           OutlinedButton.icon(
-            onPressed: loading
-                ? null
-                : sessionToken == null
-                ? _connectGoogle
-                : _disconnectGoogle,
-            icon: Icon(sessionToken == null ? Icons.login : Icons.logout),
-            label: Text(
-              sessionToken == null ? 'Conectar Google' : 'Sair do Google',
-            ),
+            onPressed: loading ? null : _connectWithPassword,
+            icon: const Icon(Icons.password_outlined),
+            label: const Text('Entrar com e-mail e senha'),
           ),
         ],
+        if (configured && googleConfigured && sessionToken == null) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: loading ? null : _connectGoogle,
+            icon: const Icon(Icons.login),
+            label: const Text('Conectar Google'),
+          ),
+        ],
+        if (configured && sessionToken != null) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: loading ? null : _disconnectGoogle,
+            icon: const Icon(Icons.logout),
+            label: const Text('Sair da conta'),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PasswordCredentials {
+  const _PasswordCredentials({required this.email, required this.password});
+
+  final String email;
+  final String password;
+}
+
+class _PasswordSignInDialog extends StatefulWidget {
+  const _PasswordSignInDialog();
+
+  @override
+  State<_PasswordSignInDialog> createState() => _PasswordSignInDialogState();
+}
+
+class _PasswordSignInDialogState extends State<_PasswordSignInDialog> {
+  final formKey = GlobalKey<FormState>();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  var obscurePassword = true;
+
+  @override
+  void dispose() {
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!formKey.currentState!.validate()) {
+      return;
+    }
+    Navigator.of(context).pop(
+      _PasswordCredentials(
+        email: emailController.text.trim(),
+        password: passwordController.text,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Entrar para sincronizar'),
+      content: Form(
+        key: formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: emailController,
+              autofocus: true,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autofillHints: const [AutofillHints.username],
+              decoration: const InputDecoration(labelText: 'E-mail'),
+              validator: (value) {
+                final email = value?.trim() ?? '';
+                return email.contains('@') ? null : 'Informe um e-mail valido.';
+              },
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: passwordController,
+              obscureText: obscurePassword,
+              textInputAction: TextInputAction.done,
+              autofillHints: const [AutofillHints.password],
+              onFieldSubmitted: (_) => _submit(),
+              decoration: InputDecoration(
+                labelText: 'Senha',
+                suffixIcon: IconButton(
+                  tooltip: obscurePassword ? 'Mostrar senha' : 'Ocultar senha',
+                  onPressed: () {
+                    setState(() => obscurePassword = !obscurePassword);
+                  },
+                  icon: Icon(
+                    obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                ),
+              ),
+              validator: (value) => (value?.isEmpty ?? true)
+                  ? 'Informe a senha.'
+                  : null,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Entrar')),
       ],
     );
   }

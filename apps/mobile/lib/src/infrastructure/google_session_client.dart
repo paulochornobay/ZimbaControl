@@ -31,14 +31,39 @@ class ApiSession {
   }
 }
 
+abstract class SessionStorage {
+  Future<String?> read({required String key});
+
+  Future<void> write({required String key, required String value});
+
+  Future<void> delete({required String key});
+}
+
+class SecureSessionStorage implements SessionStorage {
+  SecureSessionStorage([FlutterSecureStorage? storage])
+    : _storage = storage ?? const FlutterSecureStorage();
+
+  final FlutterSecureStorage _storage;
+
+  @override
+  Future<void> delete({required String key}) => _storage.delete(key: key);
+
+  @override
+  Future<String?> read({required String key}) => _storage.read(key: key);
+
+  @override
+  Future<void> write({required String key, required String value}) =>
+      _storage.write(key: key, value: value);
+}
+
 class GoogleSessionClient {
   GoogleSessionClient({
     required this.apiBaseUrl,
     required this.googleWebClientId,
     http.Client? httpClient,
-    FlutterSecureStorage? storage,
+    SessionStorage? storage,
   }) : httpClient = httpClient ?? http.Client(),
-       storage = storage ?? const FlutterSecureStorage();
+       storage = storage ?? SecureSessionStorage();
 
   static const _tokenKey = 'zimbacontrol.sessionToken';
   static const _emailKey = 'zimbacontrol.sessionEmail';
@@ -47,7 +72,7 @@ class GoogleSessionClient {
   final String apiBaseUrl;
   final String googleWebClientId;
   final http.Client httpClient;
-  final FlutterSecureStorage storage;
+  final SessionStorage storage;
 
   Future<String?> readSessionToken() => storage.read(key: _tokenKey);
 
@@ -78,17 +103,30 @@ class GoogleSessionClient {
       throw GoogleSessionException('auth_failed_${response.statusCode}');
     }
 
-    final session = ApiSession.fromJson(
-      jsonDecode(response.body) as Map<String, dynamic>,
+    return _storeSession(response);
+  }
+
+  Future<ApiSession> signInWithPassword({
+    required String email,
+    required String password,
+  }) async {
+    final response = await httpClient.post(
+      Uri.parse('$apiBaseUrl/auth/login'),
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({'email': email.trim(), 'password': password}),
     );
-    await storage.write(key: _tokenKey, value: session.token);
-    await storage.write(key: _emailKey, value: session.email);
-    return session;
+    if (response.statusCode != 200) {
+      throw GoogleSessionException('password_auth_failed_${response.statusCode}');
+    }
+    return _storeSession(response);
   }
 
   Future<void> signOut() async {
     await storage.delete(key: _tokenKey);
     await storage.delete(key: _emailKey);
+    if (googleWebClientId.isEmpty) {
+      return;
+    }
     await _initializeGoogle();
     await GoogleSignIn.instance.signOut();
   }
@@ -99,6 +137,15 @@ class GoogleSessionClient {
     }
     await GoogleSignIn.instance.initialize(serverClientId: googleWebClientId);
     _initialized = true;
+  }
+
+  Future<ApiSession> _storeSession(http.Response response) async {
+    final session = ApiSession.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+    await storage.write(key: _tokenKey, value: session.token);
+    await storage.write(key: _emailKey, value: session.email);
+    return session;
   }
 }
 
