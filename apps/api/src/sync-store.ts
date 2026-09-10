@@ -22,12 +22,21 @@ export type SyncPushResult = {
   seq: number;
 };
 
+export type EntitySnapshot = {
+  entityId: string;
+  entityType: SyncPushOperation["entityType"];
+  baseVersion: number;
+  payload: Record<string, unknown>;
+  updatedAt?: string;
+};
+
 export interface SyncStore {
   init(): Promise<void>;
   close(): Promise<void>;
   pushOperation(operation: SyncPushOperation): Promise<SyncPushResult>;
   pullEvents(householdId: string, sinceSeq: number): Promise<SyncEvent[]>;
   latestSeq(householdId: string): Promise<number>;
+  listEntitySnapshots(householdId: string, entityType: SyncPushOperation["entityType"]): Promise<EntitySnapshot[]>;
 }
 
 type StoredOperation = SyncPushResult & {
@@ -43,7 +52,7 @@ type StoredOperation = SyncPushResult & {
 
 export class MemorySyncStore implements SyncStore {
   private operations = new Map<string, StoredOperation>();
-  private entities = new Map<string, { baseVersion: number }>();
+  private entities = new Map<string, EntitySnapshot>();
   private events: SyncEvent[] = [];
   private seq = 0;
 
@@ -98,7 +107,13 @@ export class MemorySyncStore implements SyncStore {
     this.operations.set(operation.opId, stored);
 
     if (result === "applied") {
-      this.entities.set(entityKey, { baseVersion: operation.baseVersion + 1 });
+      this.entities.set(entityKey, {
+        entityId: operation.entityId,
+        entityType: operation.entityType,
+        baseVersion: operation.baseVersion + 1,
+        payload: operation.payload,
+        updatedAt: stored.serverAt,
+      });
       this.events.push({
         seq,
         opId: operation.opId,
@@ -132,6 +147,13 @@ export class MemorySyncStore implements SyncStore {
     return this.events
       .filter((event) => event.householdId === householdId)
       .reduce((latest, event) => Math.max(latest, event.seq), 0);
+  }
+
+  async listEntitySnapshots(householdId: string, entityType: SyncPushOperation["entityType"]): Promise<EntitySnapshot[]> {
+    const prefix = `${householdId}:${entityType}:`;
+    return [...this.entities.entries()]
+      .filter(([key]) => key.startsWith(prefix))
+      .map(([, entity]) => entity);
   }
 }
 
@@ -249,6 +271,17 @@ export class MongoSyncStore implements SyncStore {
 
   async latestSeq(householdId: string): Promise<number> {
     return (await this.cursors.findOne({ householdId }))?.latestSeq ?? 0;
+  }
+
+  async listEntitySnapshots(householdId: string, entityType: SyncPushOperation["entityType"]): Promise<EntitySnapshot[]> {
+    const rows = await this.entities.find({ householdId, entityType, deletedAt: null }).sort({ updatedAt: -1 }).toArray();
+    return rows.map((row) => ({
+      entityId: String(row.entityId),
+      entityType: row.entityType as SyncPushOperation["entityType"],
+      baseVersion: Number(row.baseVersion ?? 0),
+      payload: row.payload as Record<string, unknown>,
+      updatedAt: typeof row.updatedAt === "string" ? row.updatedAt : undefined,
+    }));
   }
 
   private async resultFor(

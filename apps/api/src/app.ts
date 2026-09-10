@@ -204,6 +204,20 @@ export function buildApp(options: BuildAppOptions = {}) {
     };
   });
 
+  app.get("/data/entities", async (request, reply) => {
+    const unauthorized = await requireSyncAuth(request, reply);
+    if (unauthorized) return;
+    const query = request.query as { householdId?: string; entityType?: string };
+    if (!query.householdId || !query.entityType) {
+      return reply.code(400).send({ error: "householdId_and_entityType_required" });
+    }
+    const entityTypes = ["transaction", "rule", "reviewItem", "duplicateCandidate", "creditCardLimitGroup", "creditCard", "invoicePayment"] as const;
+    if (!entityTypes.includes(query.entityType as (typeof entityTypes)[number])) {
+      return reply.code(400).send({ error: "invalid_entity_type" });
+    }
+    return { data: await syncStore.listEntitySnapshots(query.householdId, query.entityType as (typeof entityTypes)[number]) };
+  });
+
   app.get("/transactions", async () => ({
     data: [],
   }));
