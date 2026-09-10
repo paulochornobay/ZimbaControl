@@ -12,6 +12,7 @@ export type ApiConfig = {
   allowedEmails: string[];
   sessionJwtSecret?: string;
   sessionTtlSeconds: number;
+  corsOrigins: string[];
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
@@ -32,6 +33,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
       .filter(Boolean),
     sessionJwtSecret: optional(env.SESSION_JWT_SECRET),
     sessionTtlSeconds: Number(env.SESSION_TTL_SECONDS ?? 2_592_000),
+    corsOrigins: (env.CORS_ORIGINS ?? "")
+      .split(",")
+      .map((origin) => origin.trim())
+      .filter(Boolean),
   };
 }
 

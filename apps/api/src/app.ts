@@ -41,7 +41,9 @@ export function buildApp(options: BuildAppOptions = {}) {
   });
 
   app.register(cors, {
-    origin: true,
+    origin:
+      (config.corsOrigins?.length ?? 0) === 0 ? false : config.corsOrigins,
+    credentials: true,
   });
 
   app.addHook("onReady", async () => {

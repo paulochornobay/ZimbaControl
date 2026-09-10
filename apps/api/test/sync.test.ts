@@ -313,6 +313,7 @@ function testConfig(overrides: Partial<ApiConfig> = {}): ApiConfig {
     googleOidcEnabled: false,
     allowedEmails: [],
     sessionTtlSeconds: 2_592_000,
+    corsOrigins: [],
     ...overrides,
   };
 }

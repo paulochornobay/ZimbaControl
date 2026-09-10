@@ -1,4 +1,4 @@
-import type { Collection, Db, MongoClient } from "mongodb";
+import type { Collection, Db, MongoClient, ClientSession } from "mongodb";
 import type { SyncOperationResult, SyncPushOperation } from "./contracts.js";
 
 export type SyncEvent = {
@@ -141,6 +141,7 @@ export class MongoSyncStore implements SyncStore {
   private entities!: Collection<Record<string, unknown>>;
   private devices!: Collection<Record<string, unknown>>;
   private conflicts!: Collection<Record<string, unknown>>;
+  private cursors!: Collection<{ householdId: string; latestSeq: number }>;
 
   constructor(
     private readonly client: MongoClient,
@@ -155,6 +156,9 @@ export class MongoSyncStore implements SyncStore {
     this.entities = db.collection<Record<string, unknown>>("entities");
     this.devices = db.collection<Record<string, unknown>>("devices");
     this.conflicts = db.collection<Record<string, unknown>>("conflicts");
+    this.cursors = db.collection<{ householdId: string; latestSeq: number }>(
+      "sync_cursors",
+    );
 
     await Promise.all([
       this.operations.createIndex({ opId: 1 }, { unique: true }),
@@ -166,6 +170,7 @@ export class MongoSyncStore implements SyncStore {
       ),
       this.devices.createIndex({ householdId: 1, deviceId: 1 }, { unique: true }),
       this.conflicts.createIndex({ householdId: 1, entityId: 1, status: 1 }),
+      this.cursors.createIndex({ householdId: 1 }, { unique: true }),
     ]);
   }
 
@@ -174,103 +179,64 @@ export class MongoSyncStore implements SyncStore {
   }
 
   async pushOperation(operation: SyncPushOperation): Promise<SyncPushResult> {
-    const existing = await this.operations.findOne({ opId: operation.opId });
-    if (existing) {
-      return {
-        opId: operation.opId,
-        result: "duplicate",
-        entityId: existing.entityId,
-        seq: existing.seq,
-      };
-    }
+    const session = this.client.startSession();
+    try {
+      let response: SyncPushResult | undefined;
+      await session.withTransaction(async () => {
+        const existing = await this.operations.findOne(
+          { opId: operation.opId },
+          { session },
+        );
+        if (existing) {
+          response = {
+            opId: operation.opId,
+            result: "duplicate",
+            entityId: existing.entityId,
+            seq: existing.seq,
+          };
+          return;
+        }
 
-    const result = await this.resultFor(operation);
-    const seq = (await this.latestSeq(operation.householdId)) + 1;
-    const serverAt = new Date().toISOString();
-    const stored: StoredOperation = {
-      opId: operation.opId,
-      result,
-      entityId: operation.entityId,
-      seq,
-      deviceId: operation.deviceId,
-      householdId: operation.householdId,
-      entityType: operation.entityType,
-      operationType: operation.operationType,
-      baseVersion: operation.baseVersion,
-      payload: operation.payload,
-      createdAt: operation.createdAt,
-      serverAt,
-    };
-
-    await this.operations.insertOne(stored);
-    await this.devices.updateOne(
-      { householdId: operation.householdId, deviceId: operation.deviceId },
-      {
-        $set: {
-          householdId: operation.householdId,
-          deviceId: operation.deviceId,
-          lastSeenAt: serverAt,
-        },
-        $setOnInsert: { createdAt: serverAt },
-      },
-      { upsert: true },
-    );
-
-    if (result === "applied") {
-      await this.entities.updateOne(
-        {
-          householdId: operation.householdId,
-          entityType: operation.entityType,
-          entityId: operation.entityId,
-        },
-        {
-          $set: {
-            householdId: operation.householdId,
-            entityType: operation.entityType,
-            entityId: operation.entityId,
-            payload: operation.payload,
-            baseVersion: operation.baseVersion + 1,
-            updatedAt: serverAt,
-            deletedAt: operation.operationType === "delete" ? serverAt : null,
-          },
-          $setOnInsert: { createdAt: serverAt },
-        },
-        { upsert: true },
-      );
-      await this.events.insertOne({
-        seq,
-        opId: operation.opId,
-        deviceId: operation.deviceId,
-        householdId: operation.householdId,
-        entityType: operation.entityType,
-        entityId: operation.entityId,
-        operationType: operation.operationType,
-        baseVersion: operation.baseVersion,
-        payload: operation.payload,
-        createdAt: operation.createdAt,
-        serverAt,
+        const result = await this.resultFor(operation, session);
+        const cursor = await this.cursors.findOneAndUpdate(
+          { householdId: operation.householdId },
+          { $inc: { latestSeq: 1 }, $setOnInsert: { householdId: operation.householdId } },
+          { upsert: true, returnDocument: "after", session },
+        );
+        const seq = cursor?.latestSeq;
+        if (!seq) throw new Error("sync_sequence_unavailable");
+        const serverAt = new Date().toISOString();
+        const stored: StoredOperation = {
+          opId: operation.opId, result, entityId: operation.entityId, seq,
+          deviceId: operation.deviceId, householdId: operation.householdId,
+          entityType: operation.entityType, operationType: operation.operationType,
+          baseVersion: operation.baseVersion, payload: operation.payload,
+          createdAt: operation.createdAt, serverAt,
+        };
+        await this.operations.insertOne(stored, { session });
+        await this.devices.updateOne(
+          { householdId: operation.householdId, deviceId: operation.deviceId },
+          { $set: { householdId: operation.householdId, deviceId: operation.deviceId, lastSeenAt: serverAt }, $setOnInsert: { createdAt: serverAt } },
+          { upsert: true, session },
+        );
+        if (result === "applied") {
+          await this.entities.updateOne(
+            { householdId: operation.householdId, entityType: operation.entityType, entityId: operation.entityId },
+            { $set: { householdId: operation.householdId, entityType: operation.entityType, entityId: operation.entityId, payload: operation.payload, baseVersion: operation.baseVersion + 1, updatedAt: serverAt, deletedAt: operation.operationType === "delete" ? serverAt : null }, $setOnInsert: { createdAt: serverAt } },
+            { upsert: true, session },
+          );
+          await this.events.insertOne({ seq, opId: operation.opId, deviceId: operation.deviceId, householdId: operation.householdId, entityType: operation.entityType, entityId: operation.entityId, operationType: operation.operationType, baseVersion: operation.baseVersion, payload: operation.payload, createdAt: operation.createdAt, serverAt }, { session });
+        }
+        if (result === "conflict") {
+          await this.conflicts.insertOne({ householdId: operation.householdId, entityType: operation.entityType, entityId: operation.entityId, opId: operation.opId, status: "pending_review", payload: operation.payload, baseVersion: operation.baseVersion, createdAt: serverAt }, { session });
+        }
+        response = { opId: operation.opId, result, entityId: operation.entityId, seq };
       });
+      if (!response) throw new Error("sync_operation_unavailable");
+      return response;
+    } finally {
+      await session.endSession();
     }
-
-    if (result === "conflict") {
-      await this.conflicts.insertOne({
-        householdId: operation.householdId,
-        entityType: operation.entityType,
-        entityId: operation.entityId,
-        opId: operation.opId,
-        status: "pending_review",
-        payload: operation.payload,
-        baseVersion: operation.baseVersion,
-        createdAt: serverAt,
-      });
-    }
-
-    return {
-      opId: operation.opId,
-      result,
-      entityId: operation.entityId,
-      seq,
-    };
   }
 
   async pullEvents(householdId: string, sinceSeq: number): Promise<SyncEvent[]> {
@@ -282,15 +248,13 @@ export class MongoSyncStore implements SyncStore {
   }
 
   async latestSeq(householdId: string): Promise<number> {
-    const latest = await this.events
-      .find({ householdId })
-      .sort({ seq: -1 })
-      .limit(1)
-      .next();
-    return latest?.seq ?? 0;
+    return (await this.cursors.findOne({ householdId }))?.latestSeq ?? 0;
   }
 
-  private async resultFor(operation: SyncPushOperation): Promise<SyncOperationResult> {
+  private async resultFor(
+    operation: SyncPushOperation,
+    session?: ClientSession,
+  ): Promise<SyncOperationResult> {
     if (operation.baseVersion < 0) {
       return "rejected";
     }
@@ -299,11 +263,10 @@ export class MongoSyncStore implements SyncStore {
       return "applied";
     }
 
-    const existing = await this.entities.findOne({
-      householdId: operation.householdId,
-      entityType: operation.entityType,
-      entityId: operation.entityId,
-    });
+    const existing = await this.entities.findOne(
+      { householdId: operation.householdId, entityType: operation.entityType, entityId: operation.entityId },
+      { session },
+    );
     const existingVersion = Number(existing?.baseVersion ?? 0);
     if (existing && existingVersion !== operation.baseVersion) {
       return "conflict";
