@@ -419,6 +419,42 @@ test("password registration creates an isolated admin household and session", as
   await app.close();
 });
 
+test("GET /sync/status exposes only devices that wrote to the household", async () => {
+  const app = buildApp({ config: testConfig() });
+  await app.ready();
+  await app.inject({
+    method: "POST",
+    url: "/sync/push",
+    payload: {
+      deviceId: "device-mobile",
+      householdId: "household-main",
+      operations: [{
+        opId: "op-status-1",
+        deviceId: "device-mobile",
+        householdId: "household-main",
+        entityType: "transaction",
+        entityId: "tx-status",
+        operationType: "create",
+        baseVersion: 0,
+        payload: transactionPayload("tx-status", "Sincronização", -1000),
+        createdAt: "2026-09-10T12:00:00.000Z",
+      }],
+    },
+  });
+
+  const status = await app.inject({
+    method: "GET",
+    url: "/sync/status?householdId=household-main",
+  });
+  assert.equal(status.statusCode, 200);
+  assert.equal(status.json().latestSeq, 1);
+  assert.deepEqual(status.json().devices.map((device: { deviceId: string }) => device.deviceId), ["device-mobile"]);
+
+  const missingHousehold = await app.inject({ method: "GET", url: "/sync/status" });
+  assert.equal(missingHousehold.statusCode, 400);
+  await app.close();
+});
+
 function testConfig(overrides: Partial<ApiConfig> = {}): ApiConfig {
   return {
     nodeEnv: "test",

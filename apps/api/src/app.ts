@@ -205,6 +205,19 @@ export function buildApp(options: BuildAppOptions = {}) {
     };
   });
 
+  app.get("/sync/status", async (request, reply) => {
+    const unauthorized = await requireSyncAuth(request, reply);
+    if (unauthorized) return;
+    const householdId = (request.query as { householdId?: string }).householdId;
+    if (!householdId) {
+      return reply.code(400).send({ error: "household_id_required" });
+    }
+    return {
+      latestSeq: await syncStore.latestSeq(householdId),
+      devices: await syncStore.listDevices(householdId),
+    };
+  });
+
   app.get("/data/entities", async (request, reply) => {
     const unauthorized = await requireSyncAuth(request, reply);
     if (unauthorized) return;

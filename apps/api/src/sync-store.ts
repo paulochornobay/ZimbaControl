@@ -30,6 +30,11 @@ export type EntitySnapshot = {
   updatedAt?: string;
 };
 
+export type SyncDevice = {
+  deviceId: string;
+  lastSeenAt: string;
+};
+
 export interface SyncStore {
   init(): Promise<void>;
   close(): Promise<void>;
@@ -37,6 +42,7 @@ export interface SyncStore {
   pullEvents(householdId: string, sinceSeq: number): Promise<SyncEvent[]>;
   latestSeq(householdId: string): Promise<number>;
   listEntitySnapshots(householdId: string, entityType: SyncPushOperation["entityType"]): Promise<EntitySnapshot[]>;
+  listDevices(householdId: string): Promise<SyncDevice[]>;
 }
 
 type StoredOperation = SyncPushResult & {
@@ -154,6 +160,20 @@ export class MemorySyncStore implements SyncStore {
     return [...this.entities.entries()]
       .filter(([key]) => key.startsWith(prefix))
       .map(([, entity]) => entity);
+  }
+
+  async listDevices(householdId: string): Promise<SyncDevice[]> {
+    const devices = new Map<string, string>();
+    for (const operation of this.operations.values()) {
+      if (operation.householdId !== householdId) continue;
+      const previous = devices.get(operation.deviceId);
+      if (!previous || operation.serverAt > previous) {
+        devices.set(operation.deviceId, operation.serverAt);
+      }
+    }
+    return [...devices.entries()]
+      .map(([deviceId, lastSeenAt]) => ({ deviceId, lastSeenAt }))
+      .sort((left, right) => right.lastSeenAt.localeCompare(left.lastSeenAt));
   }
 }
 
@@ -282,6 +302,18 @@ export class MongoSyncStore implements SyncStore {
       payload: row.payload as Record<string, unknown>,
       updatedAt: typeof row.updatedAt === "string" ? row.updatedAt : undefined,
     }));
+  }
+
+  async listDevices(householdId: string): Promise<SyncDevice[]> {
+    const rows = await this.devices
+      .find({ householdId })
+      .sort({ lastSeenAt: -1 })
+      .toArray();
+    return rows.flatMap((row) => {
+      const deviceId = typeof row.deviceId === "string" ? row.deviceId : undefined;
+      const lastSeenAt = typeof row.lastSeenAt === "string" ? row.lastSeenAt : undefined;
+      return deviceId && lastSeenAt ? [{ deviceId, lastSeenAt }] : [];
+    });
   }
 
   private async resultFor(
