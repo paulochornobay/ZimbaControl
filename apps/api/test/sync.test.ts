@@ -410,12 +410,83 @@ test("password registration creates an isolated admin household and session", as
   assert.equal(first.json().user.role, "admin");
   assert.notEqual(first.json().user.householdId, second.json().user.householdId);
 
+  const firstPeople = await app.inject({
+    method: "GET",
+    url: `/data/entities?householdId=${first.json().user.householdId}&entityType=person`,
+    headers: { authorization: `Bearer ${first.json().token}` },
+  });
+  const secondPeople = await app.inject({
+    method: "GET",
+    url: `/data/entities?householdId=${second.json().user.householdId}&entityType=person`,
+    headers: { authorization: `Bearer ${second.json().token}` },
+  });
+  assert.equal(firstPeople.json().data.length, 1);
+  assert.equal(firstPeople.json().data[0].entityId, `person-${first.json().user.sub}`);
+  assert.equal(firstPeople.json().data[0].payload.person.displayName, "admin@zimbacontrol.com.br");
+  assert.equal(secondPeople.json().data.length, 1);
+  assert.equal(secondPeople.json().data[0].payload.person.displayName, "other@example.com");
+
+  const relogin = await app.inject({
+    method: "POST",
+    url: "/auth/login",
+    payload: { email: "admin@zimbacontrol.com.br", password: "123mudar!" },
+  });
+  assert.equal(relogin.statusCode, 200);
+  const peopleAfterLogin = await app.inject({
+    method: "GET",
+    url: `/data/entities?householdId=${first.json().user.householdId}&entityType=person`,
+    headers: { authorization: `Bearer ${relogin.json().token}` },
+  });
+  assert.equal(peopleAfterLogin.json().data.length, 1);
+
   const forbidden = await app.inject({
     method: "GET",
     url: `/sync/pull?householdId=${second.json().user.householdId}&sinceSeq=0`,
     headers: { authorization: `Bearer ${first.json().token}` },
   });
   assert.equal(forbidden.statusCode, 403);
+  await app.close();
+});
+
+test("authenticated sync forces the account owner and transaction payer to the email owner", async () => {
+  const app = buildApp({ config: testConfig({ passwordAuthEnabled: true, sessionJwtSecret: "test-secret-with-enough-length" }) });
+  await app.ready();
+  const registration = await app.inject({
+    method: "POST",
+    url: "/auth/register",
+    payload: { email: "owner@example.com", password: "123mudar!" },
+  });
+  const { token, user } = registration.json();
+  const householdId = user.householdId as string;
+  const ownerId = `person-${user.sub}`;
+  const response = await app.inject({
+    method: "POST",
+    url: "/sync/push",
+    headers: { authorization: `Bearer ${token}` },
+    payload: {
+      deviceId: "web-test",
+      householdId,
+      operations: [
+        {
+          ...registryOperation("account", "account-owner", {
+            schemaVersion: 1,
+            account: { id: "account-owner", householdId, ownerPersonId: null, provider: "manual", name: "Conta", type: "checking", currencyCode: "BRL", last4: null, externalAccountId: null, active: true },
+          }),
+          householdId,
+        },
+        {
+          ...registryOperation("transaction" as never, "tx-owner", transactionPayload("tx-owner", "Teste", -100)),
+          householdId,
+        },
+      ],
+    },
+  });
+  assert.equal(response.statusCode, 200);
+  const account = await app.inject({ method: "GET", url: `/data/entities?householdId=${householdId}&entityType=account`, headers: { authorization: `Bearer ${token}` } });
+  const transaction = await app.inject({ method: "GET", url: `/data/entities?householdId=${householdId}&entityType=transaction`, headers: { authorization: `Bearer ${token}` } });
+  assert.equal(account.json().data[0].payload.account.ownerPersonId, ownerId);
+  assert.equal(transaction.json().data[0].payload.transaction.payerId, ownerId);
+  assert.equal(transaction.json().data[0].payload.beneficiaries[0].personId, ownerId);
   await app.close();
 });
 

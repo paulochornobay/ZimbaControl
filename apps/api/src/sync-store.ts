@@ -1,4 +1,5 @@
 import type { Collection, Db, MongoClient, ClientSession } from "mongodb";
+import { randomUUID } from "node:crypto";
 import type { SyncOperationResult, SyncPushOperation } from "./contracts.js";
 
 export type SyncEvent = {
@@ -28,12 +29,23 @@ export type EntitySnapshot = {
   baseVersion: number;
   payload: Record<string, unknown>;
   updatedAt?: string;
+  deletedAt?: boolean;
 };
 
 export type SyncDevice = {
   deviceId: string;
   lastSeenAt: string;
 };
+
+export type OwnerProfile = {
+  userId: string;
+  email: string;
+  householdId: string;
+};
+
+export function ownerPersonId(userId: string): string {
+  return `person-${userId}`;
+}
 
 export interface SyncStore {
   init(): Promise<void>;
@@ -43,6 +55,119 @@ export interface SyncStore {
   latestSeq(householdId: string): Promise<number>;
   listEntitySnapshots(householdId: string, entityType: SyncPushOperation["entityType"]): Promise<EntitySnapshot[]>;
   listDevices(householdId: string): Promise<SyncDevice[]>;
+  ensureOwnerProfile(owner: OwnerProfile): Promise<void>;
+}
+
+/**
+ * Keeps the financial owner deterministic and repairs legacy records without
+ * creating a second person. This is deliberately part of the sync store so
+ * every client (Web and mobile) observes the same data contract.
+ */
+async function ensureOwnerProfileForStore(
+  store: Pick<SyncStore, "listEntitySnapshots" | "pushOperation">,
+  owner: OwnerProfile,
+): Promise<void> {
+  const id = ownerPersonId(owner.userId);
+  const now = new Date().toISOString();
+  const operation = async (
+    snapshot: EntitySnapshot | undefined,
+    entityType: SyncPushOperation["entityType"],
+    entityId: string,
+    payload: Record<string, unknown>,
+  ) => {
+    await store.pushOperation({
+      opId: `owner-reconcile-${randomUUID()}`,
+      deviceId: "server-owner-reconcile",
+      householdId: owner.householdId,
+      entityType,
+      entityId,
+      operationType: "update",
+      baseVersion: snapshot?.baseVersion ?? 0,
+      payload,
+      createdAt: now,
+    });
+  };
+
+  const people = await store.listEntitySnapshots(owner.householdId, "person");
+  const currentOwner = people.find((person) => person.entityId === id);
+  const canonicalOwner = {
+    schemaVersion: 1,
+    person: {
+      id,
+      householdId: owner.householdId,
+      displayName: owner.email,
+      kind: "adult",
+      active: true,
+    },
+  };
+  const ownerRow = currentOwner?.payload.person as Record<string, unknown> | undefined;
+  if (
+    !ownerRow ||
+    ownerRow.displayName !== owner.email ||
+    ownerRow.kind !== "adult" ||
+    ownerRow.active !== true
+  ) {
+    await operation(currentOwner, "person", id, canonicalOwner);
+  }
+
+  for (const person of people) {
+    if (person.entityId === id) continue;
+    const row = person.payload.person as Record<string, unknown> | undefined;
+    if (!row || row.kind !== "adult") continue;
+    await operation(person, "person", person.entityId, {
+      ...person.payload,
+      person: { ...row, kind: "other" },
+    });
+  }
+
+  const accounts = await store.listEntitySnapshots(owner.householdId, "account");
+  for (const account of accounts) {
+    const row = account.payload.account as Record<string, unknown> | undefined;
+    if (!row || row.ownerPersonId === id) continue;
+    await operation(account, "account", account.entityId, {
+      ...account.payload,
+      account: { ...row, ownerPersonId: id },
+    });
+  }
+
+  const cards = await store.listEntitySnapshots(owner.householdId, "creditCard");
+  for (const card of cards) {
+    const row = card.payload.creditCard as Record<string, unknown> | undefined;
+    if (!row || row.ownerPersonId === id) continue;
+    await operation(card, "creditCard", card.entityId, {
+      ...card.payload,
+      creditCard: { ...row, ownerPersonId: id },
+    });
+  }
+
+  const transactions = await store.listEntitySnapshots(owner.householdId, "transaction");
+  for (const transaction of transactions) {
+    const row = transaction.payload.transaction as Record<string, unknown> | undefined;
+    const beneficiaries = Array.isArray(transaction.payload.beneficiaries)
+      ? transaction.payload.beneficiaries
+      : [];
+    if (!row || (row.payerId === id && beneficiaries.length > 0)) continue;
+    await operation(transaction, "transaction", transaction.entityId, {
+      ...transaction.payload,
+      transaction: { ...row, payerId: id },
+      beneficiaries:
+        beneficiaries.length > 0
+          ? beneficiaries
+          : [ownerBeneficiary(transaction.entityId, id)],
+    });
+  }
+}
+
+function ownerBeneficiary(transactionId: string, personId: string) {
+  return {
+    id: `beneficiary-${transactionId}-${personId}`,
+    transactionId,
+    personId,
+    allocationMode: "full",
+    allocatedAmountCents: null,
+    allocatedPercent: null,
+    isPrimary: true,
+  };
 }
 
 type StoredOperation = SyncPushResult & {
@@ -119,6 +244,7 @@ export class MemorySyncStore implements SyncStore {
         baseVersion: operation.baseVersion + 1,
         payload: operation.payload,
         updatedAt: stored.serverAt,
+        deletedAt: operation.operationType === "delete",
       });
       this.events.push({
         seq,
@@ -155,10 +281,14 @@ export class MemorySyncStore implements SyncStore {
       .reduce((latest, event) => Math.max(latest, event.seq), 0);
   }
 
+  async ensureOwnerProfile(owner: OwnerProfile): Promise<void> {
+    await ensureOwnerProfileForStore(this, owner);
+  }
+
   async listEntitySnapshots(householdId: string, entityType: SyncPushOperation["entityType"]): Promise<EntitySnapshot[]> {
     const prefix = `${householdId}:${entityType}:`;
     return [...this.entities.entries()]
-      .filter(([key]) => key.startsWith(prefix))
+      .filter(([key, entity]) => key.startsWith(prefix) && !entity.deletedAt)
       .map(([, entity]) => entity);
   }
 
@@ -302,6 +432,10 @@ export class MongoSyncStore implements SyncStore {
       payload: row.payload as Record<string, unknown>,
       updatedAt: typeof row.updatedAt === "string" ? row.updatedAt : undefined,
     }));
+  }
+
+  async ensureOwnerProfile(owner: OwnerProfile): Promise<void> {
+    await ensureOwnerProfileForStore(this, owner);
   }
 
   async listDevices(householdId: string): Promise<SyncDevice[]> {

@@ -5,6 +5,7 @@ import {
   AuthError,
   ensureAllowedEmail,
   GoogleOidcVerifier,
+  type AuthenticatedUser,
   type GoogleTokenVerifier,
   SessionService,
 } from "./auth.js";
@@ -15,10 +16,12 @@ import {
   syncEntityTypeSchema,
   syncPullQuerySchema,
   syncPushRequestSchema,
+  type SyncPushOperation,
 } from "./contracts.js";
 import {
   MemorySyncStore,
   MongoSyncStore,
+  ownerPersonId,
   type SyncStore,
 } from "./sync-store.js";
 import {
@@ -152,8 +155,8 @@ export function buildApp(options: BuildAppOptions = {}) {
   });
 
   app.post("/sync/push", async (request, reply) => {
-    const unauthorized = await requireSyncAuth(request, reply);
-    if (unauthorized) {
+    const authenticatedUser = await requireSyncAuth(request, reply);
+    if (authenticatedUser === undefined) {
       return;
     }
 
@@ -166,9 +169,16 @@ export function buildApp(options: BuildAppOptions = {}) {
       });
     }
 
+    const owner = authenticatedUser
+      ? { userId: authenticatedUser.sub, email: authenticatedUser.email, householdId: parsed.data.householdId }
+      : undefined;
+    if (owner) await syncStore.ensureOwnerProfile(owner);
+
     const results = [];
     for (const operation of parsed.data.operations) {
-      results.push(await syncStore.pushOperation(operation));
+      results.push(await syncStore.pushOperation(
+        owner ? normalizeOperationForOwner(operation, owner) : operation,
+      ));
     }
     const latestSeq = await syncStore.latestSeq(parsed.data.householdId);
 
@@ -179,8 +189,8 @@ export function buildApp(options: BuildAppOptions = {}) {
   });
 
   app.get("/sync/pull", async (request, reply) => {
-    const unauthorized = await requireSyncAuth(request, reply);
-    if (unauthorized) {
+    const authenticatedUser = await requireSyncAuth(request, reply);
+    if (authenticatedUser === undefined) {
       return;
     }
 
@@ -206,8 +216,8 @@ export function buildApp(options: BuildAppOptions = {}) {
   });
 
   app.get("/sync/status", async (request, reply) => {
-    const unauthorized = await requireSyncAuth(request, reply);
-    if (unauthorized) return;
+    const authenticatedUser = await requireSyncAuth(request, reply);
+    if (authenticatedUser === undefined) return;
     const householdId = (request.query as { householdId?: string }).householdId;
     if (!householdId) {
       return reply.code(400).send({ error: "household_id_required" });
@@ -219,8 +229,8 @@ export function buildApp(options: BuildAppOptions = {}) {
   });
 
   app.get("/data/entities", async (request, reply) => {
-    const unauthorized = await requireSyncAuth(request, reply);
-    if (unauthorized) return;
+    const authenticatedUser = await requireSyncAuth(request, reply);
+    if (authenticatedUser === undefined) return;
     const query = request.query as { householdId?: string; entityType?: string };
     if (!query.householdId || !query.entityType) {
       return reply.code(400).send({ error: "householdId_and_entityType_required" });
@@ -273,9 +283,9 @@ export function buildApp(options: BuildAppOptions = {}) {
   async function requireSyncAuth(
     request: FastifyRequest,
     reply: FastifyReply,
-  ): Promise<boolean> {
+  ): Promise<AuthenticatedUser | null | undefined> {
     if (!config.googleOidcEnabled && !config.passwordAuthEnabled) {
-      return false;
+      return null;
     }
 
     const authorization = request.headers.authorization;
@@ -285,7 +295,7 @@ export function buildApp(options: BuildAppOptions = {}) {
 
     if (!token) {
       reply.code(401).send({ error: "missing_session" });
-      return true;
+      return undefined;
     }
 
     try {
@@ -293,23 +303,30 @@ export function buildApp(options: BuildAppOptions = {}) {
       ensureAllowedEmail(config, user.email);
       if (config.passwordAuthEnabled && !(await identityStore.isMember(user.sub, parsedHouseholdId(request)))) {
         reply.code(403).send({ error: "household_not_allowed" });
-        return true;
+        return undefined;
       }
-      return false;
+      if (config.passwordAuthEnabled && user.householdId) {
+        await syncStore.ensureOwnerProfile({
+          userId: user.sub,
+          email: user.email,
+          householdId: user.householdId,
+        });
+      }
+      return user;
     } catch (error) {
       if (error instanceof AuthError) {
         reply.code(error.statusCode).send({ error: error.message });
-        return true;
+        return undefined;
       }
       reply.code(401).send({ error: "invalid_session" });
-      return true;
+      return undefined;
     }
   }
 
   async function sessionResponse(identity: {
     id: string;
     email: string;
-    householdId: string;
+    householdId?: string;
     role: "admin" | "member";
     name?: string;
   }) {
@@ -320,12 +337,84 @@ export function buildApp(options: BuildAppOptions = {}) {
       role: identity.role,
       name: identity.name,
     };
+    if (identity.householdId) {
+      await syncStore.ensureOwnerProfile({
+        userId: identity.id,
+        email: identity.email,
+        householdId: identity.householdId,
+      });
+    }
     return {
       token: await sessionService.create(user),
       expiresInSeconds: config.sessionTtlSeconds,
       user,
     };
   }
+}
+
+function normalizeOperationForOwner(
+  operation: SyncPushOperation,
+  owner: { userId: string; email: string; householdId: string },
+): SyncPushOperation {
+  const id = ownerPersonId(owner.userId);
+  const payload = operation.payload as Record<string, unknown>;
+
+  if (operation.entityType === "person") {
+    const person = payload.person as Record<string, unknown> | undefined;
+    if (operation.entityId === id) {
+      return {
+        ...operation,
+        operationType: "update",
+        payload: {
+          schemaVersion: 1,
+          person: { id, householdId: owner.householdId, displayName: owner.email, kind: "adult", active: true },
+        },
+      };
+    }
+    if (person?.kind === "adult") {
+      return { ...operation, payload: { ...payload, person: { ...person, kind: "other" } } };
+    }
+  }
+
+  if (operation.entityType === "account") {
+    const account = payload.account as Record<string, unknown> | undefined;
+    if (account) {
+      return { ...operation, payload: { ...payload, account: { ...account, ownerPersonId: id } } };
+    }
+  }
+
+  if (operation.entityType === "creditCard") {
+    const card = payload.creditCard as Record<string, unknown> | undefined;
+    if (card) {
+      return { ...operation, payload: { ...payload, creditCard: { ...card, ownerPersonId: id } } };
+    }
+  }
+
+  if (operation.entityType === "transaction" && operation.operationType !== "delete") {
+    const transaction = payload.transaction as Record<string, unknown> | undefined;
+    const beneficiaries = Array.isArray(payload.beneficiaries) ? payload.beneficiaries : [];
+    if (transaction) {
+      return {
+        ...operation,
+        payload: {
+          ...payload,
+          transaction: { ...transaction, payerId: id },
+          beneficiaries: beneficiaries.length > 0
+            ? beneficiaries
+            : [{
+                id: `beneficiary-${operation.entityId}-${id}`,
+                transactionId: operation.entityId,
+                personId: id,
+                allocationMode: "full",
+                allocatedAmountCents: null,
+                allocatedPercent: null,
+                isPrimary: true,
+              }],
+        },
+      };
+    }
+  }
+  return operation;
 }
 
 function parsedHouseholdId(request: FastifyRequest): string {
