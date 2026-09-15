@@ -13,6 +13,7 @@ Antes de implementar novos marcos, leia estes arquivos:
 - `docs/context/PROJECT_BRIEF.md`
 - `docs/context/CURRENT_STATE.md`
 - `docs/context/ARCHITECTURE.md`
+- `docs/context/FRONTEND_REPOSITORIES.md`
 
 Os documentos em `docs/product` são a fonte canônica para requisito, paridade
 visual e ordem de implementação. Os marcos anteriores permanecem em

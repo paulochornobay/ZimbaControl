@@ -41,6 +41,15 @@ bloquear o uso local.
 - Ferramentas gratis por padrao: Flutter, Android Studio, Node.js, GitHub,
   MongoDB Atlas Free/M0 e deploy gratuito apenas quando couber.
 
+## Clientes e referência web
+
+- Flutter permanece o cliente mobile final neste repositório.
+- O cliente React web independente está em `C:\dev\ZimbaFront`
+  (`paulochornobay/ZimbaFront`) e compartilha a API e os contratos atuais.
+- `pixel-perfect-pixels` continua como referência visual Lovable externa, sem
+  integração automática de código. O fluxo operacional está em
+  `docs/context/FRONTEND_REPOSITORIES.md`.
+
 ## Produto
 
 A experiencia principal e a caixa de revisao. Todo evento entra como rascunho
