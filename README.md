@@ -1,6 +1,8 @@
 # ZimbaControl
 
-App familiar de finanças pessoais com arquitetura offline-first.
+App familiar de finanças pessoais online: MongoDB é a fonte de dados e todo
+acesso financeiro passa pela API autenticada. O desenho técnico vigente está
+em [`docs/context/MONGODB_ONLINE_ARCHITECTURE.md`](docs/context/MONGODB_ONLINE_ARCHITECTURE.md).
 
 ## Leitura obrigatória para próximos ciclos
 
@@ -83,8 +85,7 @@ Mobile apontando para a API local:
 ```sh
 cd apps/mobile
 flutter run \
-  --dart-define=API_BASE_URL=http://SEU_IP_LOCAL:3333 \
-  --dart-define=SYNC_ENABLED=true
+  --dart-define=API_BASE_URL=http://SEU_IP_LOCAL:3333
 ```
 
 Mobile com Google Sign-In opcional:
@@ -93,7 +94,6 @@ Mobile com Google Sign-In opcional:
 cd apps/mobile
 flutter run \
   --dart-define=API_BASE_URL=http://SEU_IP_LOCAL:3333 \
-  --dart-define=SYNC_ENABLED=true \
   --dart-define=GOOGLE_WEB_CLIENT_ID=SEU_CLIENT_ID_WEB.apps.googleusercontent.com
 ```
 

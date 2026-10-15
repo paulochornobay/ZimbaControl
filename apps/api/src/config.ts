@@ -4,9 +4,6 @@ export type ApiConfig = {
   host: string;
   mongodbUri?: string;
   mongodbDb: string;
-  defaultHouseholdId: string;
-  allowDevAuth: boolean;
-  devDeviceSecret?: string;
   googleOidcEnabled: boolean;
   googleOidcAudience?: string;
   allowedEmails: string[];
@@ -25,9 +22,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ApiConfig {
     host: env.HOST ?? "0.0.0.0",
     mongodbUri: optional(env.MONGODB_URI),
     mongodbDb: env.MONGODB_DB ?? "zimbacontrol",
-    defaultHouseholdId: env.SYNC_DEFAULT_HOUSEHOLD_ID ?? "household-main",
-    allowDevAuth: env.SYNC_ALLOW_DEV_AUTH !== "false",
-    devDeviceSecret: optional(env.SYNC_DEV_DEVICE_SECRET),
     googleOidcEnabled: env.GOOGLE_OIDC_ENABLED === "true",
     googleOidcAudience: optional(env.GOOGLE_OIDC_AUDIENCE),
     allowedEmails: (env.ALLOWED_EMAILS ?? "")

@@ -39,6 +39,7 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
   String kind = 'expense';
   String? accountId;
   String? categoryId;
+  String? subcategoryId;
   String? costCenterId;
   String? payerId;
   DateTime occurredAt = DateTime.now();
@@ -91,6 +92,7 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
       kind = loadedTransaction?.kind ?? 'expense';
       accountId = loadedTransaction?.accountId;
       categoryId = loadedTransaction?.categoryId;
+      subcategoryId = loadedTransaction?.subcategoryId;
       costCenterId = loadedTransaction?.costCenterId;
       payerId = loadedTransaction?.payerId;
       occurredAt = loadedTransaction?.occurredAt ?? DateTime.now();
@@ -146,6 +148,7 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
           : competenceController.text.trim(),
       accountId: accountId,
       categoryId: kind == 'transfer' ? null : categoryId,
+      subcategoryId: kind == 'transfer' ? null : subcategoryId,
       costCenterId: kind == 'transfer' ? null : costCenterId,
       payerId: fallbackPayerId,
       beneficiaryIds: selectedBeneficiaries,
@@ -165,6 +168,18 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
       ),
     );
     if (closeAfterSave) Navigator.of(context).pop();
+  }
+
+  Future<void> convertToTransfer() async {
+    await widget.database.convertToTransfer(widget.transactionId);
+    await load();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      ZimbaFeedbackSnackBar(
+        message: 'Convertido em transferência interna.',
+        tone: ZimbaTone.accent,
+      ),
+    );
   }
 
   Future<void> pickDate() async {
@@ -187,9 +202,8 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
     required String? selectedId,
     required ValueChanged<String?> onSelected,
   }) async {
-    final value = await showModalBottomSheet<_PickedValue>(
+    final value = await showZimbaSheet<_PickedValue>(
       context: context,
-      backgroundColor: Colors.transparent,
       builder: (sheetContext) => _PickerSheet(
         title: title,
         options: options,
@@ -242,7 +256,21 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
         .where((item) => item.account.active || item.account.id == accountId)
         .toList(growable: false);
     final visibleCategories = categories
-        .where((item) => item.active || item.id == categoryId)
+        .where(
+          (item) =>
+              item.parentId == null &&
+              (item.active || item.id == categoryId) &&
+              (!item.isHidden || item.id == categoryId) &&
+              item.kind == kind,
+        )
+        .toList(growable: false);
+    final visibleSubcategories = categories
+        .where(
+          (item) =>
+              item.parentId == categoryId &&
+              (item.active || item.id == subcategoryId) &&
+              (!item.isHidden || item.id == subcategoryId),
+        )
         .toList(growable: false);
     final visibleCostCenters = costCenters
         .where((item) => item.active || item.id == costCenterId)
@@ -265,6 +293,12 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
             .map((item) => item.name)
             .firstOrNull ??
         'Sem categoria';
+    final subcategoryName =
+        visibleSubcategories
+            .where((item) => item.id == subcategoryId)
+            .map((item) => item.name)
+            .firstOrNull ??
+        'Não se aplica';
     final costCenterName =
         visibleCostCenters
             .where((item) => item.id == costCenterId)
@@ -277,6 +311,12 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
             .map((item) => item.displayName)
             .firstOrNull ??
         'Sem pagador';
+    final confidence = current.sourceConfidence.clamp(0.0, 1.0);
+    final hasLowConfidence = details?.hasLowConfidence ?? confidence < .8;
+    final probableDuplicate =
+        details?.isProbableDuplicate ?? current.duplicateStatus != 'none';
+    final suggestsTransfer =
+        (details?.suggestsTransfer ?? false) && kind != 'transfer';
 
     return Scaffold(
       appBar: _DetailAppBar(
@@ -324,6 +364,9 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
             originalDescription: current.descriptionRaw,
             amountCents: current.amountCents,
             status: _reviewStatusLabel(current.reviewStatus),
+            kind: kind,
+            source: details?.sourceLabel ?? 'Local',
+            confidence: confidence,
             provider: details?.providerLabel ?? 'ZimbaControl',
             date: _formatDetailDate(occurredAt),
             currency: current.currencyCode,
@@ -345,6 +388,16 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
               onSelected: (value) => setState(() => categoryId = value),
             ),
           ),
+          if (probableDuplicate || suggestsTransfer || hasLowConfidence) ...[
+            const SizedBox(height: 16),
+            _TransactionAlerts(
+              probableDuplicate: probableDuplicate,
+              suggestsTransfer: suggestsTransfer,
+              lowConfidence: hasLowConfidence,
+              confidence: confidence,
+              onConvertTransfer: convertToTransfer,
+            ),
+          ],
           const SizedBox(height: 28),
           const ZimbaSectionTitle('Classificação'),
           ZimbaRows(
@@ -361,8 +414,11 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
                           _PickerOption('income', 'Receita'),
                           _PickerOption('transfer', 'Transferência'),
                         ],
-                        onSelected: (value) =>
-                            setState(() => kind = value ?? kind),
+                        onSelected: (value) => setState(() {
+                          kind = value ?? kind;
+                          categoryId = null;
+                          subcategoryId = null;
+                        }),
                       )
                     : null,
               ),
@@ -393,13 +449,33 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
                               ),
                             ),
                         ],
-                        onSelected: (value) =>
-                            setState(() => categoryId = value),
+                        onSelected: (value) => setState(() {
+                          categoryId = value;
+                          subcategoryId = null;
+                        }),
                       )
                     : null,
               ),
+              if (kind != 'transfer' && visibleSubcategories.isNotEmpty)
+                _DetailSelectRow(
+                  label: 'Subcategoria',
+                  value: subcategoryName,
+                  onTap: editing
+                      ? () => pickValue(
+                          title: 'Subcategoria',
+                          selectedId: subcategoryId,
+                          options: [
+                            const _PickerOption(null, 'Sem subcategoria'),
+                            for (final item in visibleSubcategories)
+                              _PickerOption(item.id, item.name),
+                          ],
+                          onSelected: (value) =>
+                              setState(() => subcategoryId = value),
+                        )
+                      : null,
+                ),
               _DetailSelectRow(
-                label: 'Centro de custo',
+                label: 'Grupo / Contexto',
                 value: kind == 'transfer' ? 'Não se aplica' : costCenterName,
                 enabled: kind != 'transfer',
                 onTap: editing && kind != 'transfer'
@@ -533,6 +609,12 @@ class _EditTransactionPageState extends State<EditTransactionPage> {
                 label: 'Fonte do dado',
                 value: _sourceDescription(details?.sourceLabel),
               ),
+              if ((details?.sources.length ?? 0) > 1)
+                _DetailStaticRow(
+                  label: 'Origens conciliadas',
+                  value: '${details!.sources.length} fontes preservadas',
+                  icon: Icons.account_tree_outlined,
+                ),
               _DetailStaticRow(
                 label: 'Parcelamento',
                 value: selectedPlan == null
@@ -615,6 +697,58 @@ class _DetailAppBar extends StatelessWidget implements PreferredSizeWidget {
   }
 }
 
+class _TransactionAlerts extends StatelessWidget {
+  const _TransactionAlerts({
+    required this.probableDuplicate,
+    required this.suggestsTransfer,
+    required this.lowConfidence,
+    required this.confidence,
+    required this.onConvertTransfer,
+  });
+
+  final bool probableDuplicate;
+  final bool suggestsTransfer;
+  final bool lowConfidence;
+  final double confidence;
+  final VoidCallback onConvertTransfer;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      if (probableDuplicate)
+        const ZimbaFeedbackBanner(
+          tone: ZimbaTone.danger,
+          icon: Icons.copy_all_outlined,
+          title: 'Possível duplicidade',
+          body:
+              'Há um lançamento semelhante em outra fonte. Revise antes de confirmar.',
+        ),
+      if (probableDuplicate && (suggestsTransfer || lowConfidence))
+        const SizedBox(height: 8),
+      if (suggestsTransfer)
+        ZimbaFeedbackBanner(
+          tone: ZimbaTone.accent,
+          icon: Icons.swap_horiz_outlined,
+          title: 'Parece uma transferência interna',
+          body:
+              'Este lançamento não deve entrar como receita ou despesa caso seja transferência entre contas.',
+          action: TextButton(
+            onPressed: onConvertTransfer,
+            child: const Text('Converter'),
+          ),
+        ),
+      if (suggestsTransfer && lowConfidence) const SizedBox(height: 8),
+      if (lowConfidence)
+        ZimbaFeedbackBanner(
+          tone: ZimbaTone.warning,
+          icon: Icons.shield_outlined,
+          title: 'Baixa confiança (${(confidence * 100).round()}%)',
+          body: 'Revise categoria e participantes antes de confirmar.',
+        ),
+    ],
+  );
+}
+
 class _TransactionSummaryCard extends StatelessWidget {
   const _TransactionSummaryCard({
     required this.titleController,
@@ -622,6 +756,9 @@ class _TransactionSummaryCard extends StatelessWidget {
     required this.originalDescription,
     required this.amountCents,
     required this.status,
+    required this.kind,
+    required this.source,
+    required this.confidence,
     required this.provider,
     required this.date,
     required this.currency,
@@ -636,6 +773,9 @@ class _TransactionSummaryCard extends StatelessWidget {
   final String originalDescription;
   final int amountCents;
   final String status;
+  final String kind;
+  final String source;
+  final double confidence;
   final String provider;
   final String date;
   final String currency;
@@ -652,25 +792,37 @@ class _TransactionSummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
             children: [
               ZimbaBadge(label: status, tone: ZimbaTone.info),
-              const Spacer(),
-              Flexible(
-                child: Text(
-                  '$provider · $date',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: ZimbaColors.secondaryText,
-                    fontSize: 13,
-                  ),
-                ),
+              ZimbaBadge(
+                label: _kindLabel(kind),
+                tone: kind == 'income'
+                    ? ZimbaTone.success
+                    : kind == 'transfer'
+                    ? ZimbaTone.accent
+                    : ZimbaTone.neutral,
+              ),
+              ZimbaBadge(label: source, tone: ZimbaTone.neutral),
+              ZimbaBadge(
+                label: 'Confiança ${(confidence * 100).round()}%',
+                tone: confidence < .8 ? ZimbaTone.warning : ZimbaTone.success,
               ),
             ],
           ),
           const SizedBox(height: 12),
+          Text(
+            '$provider · $date',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: ZimbaColors.secondaryText,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 8),
           if (editing)
             TextField(
               controller: titleController,
@@ -760,6 +912,25 @@ class _TransactionSummaryCard extends StatelessWidget {
                     color: ZimbaColors.secondaryText,
                     height: 1.35,
                   ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.lock_outline,
+                      size: 14,
+                      color: ZimbaColors.secondaryText,
+                    ),
+                    const SizedBox(width: 5),
+                    Expanded(
+                      child: Text(
+                        'Texto externo preservado para auditoria.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: ZimbaColors.secondaryText,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1015,59 +1186,46 @@ class _PickerSheet extends StatelessWidget {
   final ValueChanged<_PickedValue> onSelected;
 
   @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      top: false,
-      child: Container(
-        constraints: const BoxConstraints(maxHeight: 520),
-        decoration: const BoxDecoration(
-          color: ZimbaColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+  Widget build(BuildContext context) => SizedBox(
+    height: 520,
+    child: Column(
+      children: [
+        Center(
+          child: Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: ZimbaColors.border,
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: ZimbaColors.border,
-                borderRadius: BorderRadius.circular(99),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-            ),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: options.length,
-                itemBuilder: (context, index) {
-                  final option = options[index];
-                  final selected = option.id == selectedId;
-                  return ListTile(
-                    onTap: () => onSelected(_PickedValue(option.id)),
-                    title: option.content ?? Text(option.label),
-                    trailing: selected
-                        ? const Icon(Icons.check, color: ZimbaColors.accent)
-                        : null,
-                  );
-                },
-              ),
-            ),
-          ],
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 18, 4, 8),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(title, style: Theme.of(context).textTheme.titleLarge),
+          ),
         ),
-      ),
-    );
-  }
+        Expanded(
+          child: ListView.builder(
+            itemCount: options.length,
+            itemBuilder: (context, index) {
+              final option = options[index];
+              final selected = option.id == selectedId;
+              return ListTile(
+                onTap: () => onSelected(_PickedValue(option.id)),
+                title: option.content ?? Text(option.label),
+                trailing: selected
+                    ? const Icon(Icons.check, color: ZimbaColors.accent)
+                    : null,
+              );
+            },
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 String _reviewStatusLabel(String status) => switch (status) {

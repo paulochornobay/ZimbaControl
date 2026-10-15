@@ -90,33 +90,46 @@ async function ensureOwnerProfileForStore(
 
   const people = await store.listEntitySnapshots(owner.householdId, "person");
   const currentOwner = people.find((person) => person.entityId === id);
+  const ownerRow = currentOwner?.payload.person as Record<string, unknown> | undefined;
+  const displayName = typeof ownerRow?.displayName === "string" && ownerRow.displayName.trim().length > 0
+    ? ownerRow.displayName.trim()
+    : owner.email;
   const canonicalOwner = {
     schemaVersion: 1,
     person: {
       id,
       householdId: owner.householdId,
-      displayName: owner.email,
+      displayName,
       kind: "adult",
+      relationship: "self",
       active: true,
     },
   };
-  const ownerRow = currentOwner?.payload.person as Record<string, unknown> | undefined;
   if (
     !ownerRow ||
-    ownerRow.displayName !== owner.email ||
     ownerRow.kind !== "adult" ||
+    ownerRow.relationship !== "self" ||
     ownerRow.active !== true
   ) {
     await operation(currentOwner, "person", id, canonicalOwner);
   }
 
+  // These are templates, not demonstration data. They are copied once when a
+  // private account is created and can subsequently be changed independently.
+  await ensureDefaultCatalog(store, owner);
+
   for (const person of people) {
     if (person.entityId === id) continue;
     const row = person.payload.person as Record<string, unknown> | undefined;
-    if (!row || row.kind !== "adult") continue;
+    if (!row) continue;
+    const kind = row.kind === "adult" ? "other" : row.kind;
+    const relationship = row.relationship === "spouse" || row.relationship === "child" || row.relationship === "other"
+      ? row.relationship
+      : kind === "child" ? "child" : "other";
+    if (row.kind === kind && row.relationship === relationship) continue;
     await operation(person, "person", person.entityId, {
       ...person.payload,
-      person: { ...row, kind: "other" },
+      person: { ...row, kind, relationship },
     });
   }
 
@@ -156,6 +169,78 @@ async function ensureOwnerProfileForStore(
           : [ownerBeneficiary(transaction.entityId, id)],
     });
   }
+}
+
+async function ensureDefaultCatalog(
+  store: Pick<SyncStore, "listEntitySnapshots" | "pushOperation">,
+  owner: OwnerProfile,
+): Promise<void> {
+  const current = await store.listEntitySnapshots(owner.householdId, "category");
+  const known = new Set(current.map((item) => item.entityId));
+  const now = new Date().toISOString();
+  const templates = [
+    ["alimentacao", "AlimentaÃ§Ã£o", "expense", "cart", "amber"],
+    ["moradia", "Moradia", "expense", "home", "blue"],
+    ["transporte", "Transporte", "expense", "car", "violet"],
+    ["saude", "SaÃºde", "expense", "heart-pulse", "red"],
+    ["receitas", "Receitas", "income", "wallet", "green"],
+  ] as const;
+  const templateLabels = {
+    alimentacao: "Alimenta\u00e7\u00e3o",
+    moradia: "Moradia",
+    transporte: "Transporte",
+    saude: "Sa\u00fade",
+    receitas: "Receitas",
+  } as const;
+  await Promise.all(templates.filter(([key]) => !known.has(`category-system-${key}`)).map(async ([key, , kind, iconKey, colorKey], index) => {
+    const entityId = `category-system-${key}`;
+    await store.pushOperation({
+      opId: `catalog-${owner.householdId}-${key}`,
+      deviceId: "server-catalog-provisioning",
+      householdId: owner.householdId,
+      entityType: "category",
+      entityId,
+      operationType: "create",
+      baseVersion: 0,
+      payload: {
+        schemaVersion: 1,
+        category: {
+          id: entityId, householdId: owner.householdId, parentId: null, systemKey: key,
+          name: templateLabels[key], kind, iconKey, colorKey, sortOrder: (index + 1) * 10,
+          isDefault: true, isHidden: false, active: true, createdAt: now, updatedAt: now,
+        },
+      },
+      createdAt: now,
+    });
+  }));
+
+  // Corrige somente os rótulos de template que foram gravados com codificação
+  // quebrada em versões anteriores, sem sobrescrever nomes personalizados.
+  await Promise.all(templates.map(async ([key, , kind, iconKey, colorKey], index) => {
+    const snapshot = current.find((item) => item.entityId === `category-system-${key}`);
+    const category = snapshot?.payload.category as Record<string, unknown> | undefined;
+    const name = typeof category?.name === "string" ? category.name : "";
+    if (!snapshot || !category || (!name.includes("\u00c3") && !name.includes("\u00c2"))) return;
+    await store.pushOperation({
+      opId: `catalog-text-repair-${owner.householdId}-${key}-${randomUUID()}`,
+      deviceId: "server-catalog-provisioning",
+      householdId: owner.householdId,
+      entityType: "category",
+      entityId: snapshot.entityId,
+      operationType: "update",
+      baseVersion: snapshot.baseVersion,
+      payload: {
+        schemaVersion: 1,
+        category: {
+          ...category, id: snapshot.entityId, householdId: owner.householdId, systemKey: key,
+          name: templateLabels[key], kind, iconKey, colorKey, sortOrder: (index + 1) * 10,
+          isDefault: true, isHidden: category.isHidden === true, active: category.active !== false,
+          updatedAt: now,
+        },
+      },
+      createdAt: now,
+    });
+  }));
 }
 
 function ownerBeneficiary(transactionId: string, personId: string) {

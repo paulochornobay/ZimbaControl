@@ -178,12 +178,18 @@ void main() {
           ),
         ),
       );
+      await _pumpUntilFound(tester, find.text('Conta ou cartão'));
+      await tester.tap(find.text('Conta ou cartão'));
+      await tester.pumpAndSettle();
       await _pumpUntilFound(tester, find.text('Nubank crédito'));
 
       expect(find.textContaining('Conta corrente'), findsAtLeastNWidgets(1));
       expect(find.textContaining('Cartão de crédito'), findsOneWidget);
       expect(find.text('•••• 9876'), findsOneWidget);
       expect(find.text('•••• 4321'), findsOneWidget);
+
+      await tester.tap(find.text('Nubank corrente').last);
+      await tester.pumpAndSettle();
 
       await tester.tap(find.text('Criar').first);
       await tester.pumpAndSettle();
@@ -194,9 +200,9 @@ void main() {
       await tester.tap(find.byTooltip('Salvar'));
       await _pumpForAsync(tester);
       await _pumpUntilFound(tester, find.byType(Scrollable));
-      await tester.drag(find.byType(Scrollable).first, const Offset(0, -500));
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, -1800));
       await tester.pumpAndSettle();
-      await _pumpUntilFound(tester, find.text('CENTRO DE CUSTO'));
+      await _pumpUntilFound(tester, find.text('GRUPO / CONTEXTO'));
       await tester.tap(find.text('Criar').last);
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField).first, 'Filhos');

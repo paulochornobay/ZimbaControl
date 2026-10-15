@@ -5,6 +5,9 @@ import '../application/dashboard_summary.dart';
 import '../data/local/app_database.dart';
 import 'design/zimba_theme.dart';
 import 'design/zimba_ui.dart';
+import 'import_page.dart';
+import 'registries_page.dart';
+import 'reports_page.dart';
 
 /// Dashboard presentation follows the local Lovable `/summary` hierarchy.
 /// Domain values are still calculated exclusively by Drift.
@@ -13,6 +16,8 @@ class DashboardPage extends StatefulWidget {
     required this.database,
     this.referenceDate,
     this.onNavigate,
+    this.onOpenRegistries,
+    this.onOpenImport,
     this.detailsStream,
     this.structureFuture,
     super.key,
@@ -21,6 +26,8 @@ class DashboardPage extends StatefulWidget {
   final AppDatabase database;
   final DateTime? referenceDate;
   final ValueChanged<int>? onNavigate;
+  final ValueChanged<String>? onOpenRegistries;
+  final VoidCallback? onOpenImport;
   @visibleForTesting
   final Stream<List<ReviewTransactionDetails>>? detailsStream;
   @visibleForTesting
@@ -32,12 +39,14 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int breakdownIndex = 0;
+  late DateTime _referenceDate;
   late final Future<FamilyStructureSnapshot> _structureFuture;
   late final Stream<List<ReviewTransactionDetails>> _detailsStream;
 
   @override
   void initState() {
     super.initState();
+    _referenceDate = widget.referenceDate ?? DateTime.now();
     _structureFuture =
         widget.structureFuture ?? widget.database.getFamilyStructureSnapshot();
     _detailsStream =
@@ -46,7 +55,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    final referenceDate = widget.referenceDate ?? DateTime.now();
+    final referenceDate = _referenceDate;
     return Scaffold(
       body: SafeArea(
         bottom: false,
@@ -79,7 +88,18 @@ class _DashboardPageState extends State<DashboardPage> {
                                     ConnectionState.waiting &&
                                 details.isEmpty)
                               const LinearProgressIndicator(minHeight: 1),
-                            if (details.isEmpty)
+                            if (structure != null &&
+                                structure.accounts.isEmpty &&
+                                structure.creditCards.isEmpty)
+                              ZimbaSection(
+                                padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+                                child: _InitialHomeState(
+                                  onOpenAccount: () => _openRegistry('account'),
+                                  onOpenCard: () => _openRegistry('card'),
+                                  onOpenImport: _openImport,
+                                ),
+                              )
+                            else if (details.isEmpty)
                               const ZimbaSection(
                                 padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
                                 child: _EmptyDashboardState(),
@@ -92,7 +112,52 @@ class _DashboardPageState extends State<DashboardPage> {
                                   16,
                                   0,
                                 ),
-                                child: SummaryCard(summary: summary),
+                                child: Column(
+                                  children: [
+                                    _SummaryMonthSelector(
+                                      referenceDate: referenceDate,
+                                      onPrevious: () => setState(
+                                        () => _referenceDate = DateTime(
+                                          referenceDate.year,
+                                          referenceDate.month - 1,
+                                        ),
+                                      ),
+                                      onNext: () => setState(
+                                        () => _referenceDate = DateTime(
+                                          referenceDate.year,
+                                          referenceDate.month + 1,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    SummaryCard(summary: summary),
+                                  ],
+                                ),
+                              ),
+                              ZimbaSection(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  8,
+                                  16,
+                                  0,
+                                ),
+                                child: OutlinedButton.icon(
+                                  onPressed: () => Navigator.of(context).push(
+                                    MaterialPageRoute<void>(
+                                      builder: (_) => ReportsPage(
+                                        database: widget.database,
+                                        referenceDate: referenceDate,
+                                      ),
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.assessment_outlined,
+                                    size: 18,
+                                  ),
+                                  label: const Text(
+                                    'Ver relatórios mensais e parcelas',
+                                  ),
+                                ),
                               ),
                               ZimbaSection(
                                 padding: const EdgeInsets.fromLTRB(
@@ -186,6 +251,32 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
     );
   }
+
+  void _openRegistry(String kind) {
+    if (widget.onOpenRegistries != null) {
+      widget.onOpenRegistries!(kind);
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RegistriesPage(
+          database: widget.database,
+          initialTabIndex: 1,
+          initialInstrumentKind: kind,
+        ),
+      ),
+    );
+  }
+
+  void _openImport() {
+    if (widget.onOpenImport != null) {
+      widget.onOpenImport!();
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => ImportPage(database: widget.database)),
+    );
+  }
 }
 
 class _DashboardHeader extends StatelessWidget {
@@ -223,6 +314,56 @@ class _DashboardHeader extends StatelessWidget {
             FontWeight.w400,
             color: ZimbaColors.secondaryText,
           ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SummaryMonthSelector extends StatelessWidget {
+  const _SummaryMonthSelector({
+    required this.referenceDate,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final DateTime referenceDate;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+
+  @override
+  Widget build(BuildContext context) => ZimbaCard(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+    child: Row(
+      children: [
+        IconButton(
+          tooltip: 'Competência anterior',
+          onPressed: onPrevious,
+          icon: const Icon(Icons.chevron_left),
+        ),
+        Expanded(
+          child: Column(
+            children: [
+              Text(
+                _monthTitle(referenceDate),
+                style: _text(context, 14, FontWeight.w600),
+              ),
+              Text(
+                'Competência',
+                style: _text(
+                  context,
+                  11,
+                  FontWeight.w400,
+                  color: ZimbaColors.secondaryText,
+                ),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          tooltip: 'Próxima competência',
+          onPressed: onNext,
+          icon: const Icon(Icons.chevron_right),
         ),
       ],
     ),
@@ -287,38 +428,64 @@ class SummaryCard extends StatelessWidget {
             color: ZimbaColors.accentSoft,
             borderRadius: BorderRadius.circular(ZimbaRadii.md),
           ),
-          child: Row(
-            children: [
-              const Icon(
-                LucideIcons.repeat2,
-                color: ZimbaColors.accent,
-                size: 14,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  'Transferências internas (não contam como despesa)',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _text(
-                    context,
-                    12,
-                    FontWeight.w500,
-                    color: ZimbaColors.accent,
-                  ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final label = Text(
+                'Transferências internas (não contam como despesa)',
+                maxLines: constraints.maxWidth < 320 ? 2 : 1,
+                overflow: TextOverflow.ellipsis,
+                style: _text(
+                  context,
+                  12,
+                  FontWeight.w500,
+                  color: ZimbaColors.accent,
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
+              );
+              final amount = Text(
                 formatBrl(summary.transferCents),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: _text(
                   context,
                   13,
                   FontWeight.w600,
                   color: ZimbaColors.accent,
                 ),
-              ),
-            ],
+              );
+              if (constraints.maxWidth < 320) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(
+                          LucideIcons.repeat2,
+                          color: ZimbaColors.accent,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(child: label),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Align(alignment: Alignment.centerRight, child: amount),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  const Icon(
+                    LucideIcons.repeat2,
+                    color: ZimbaColors.accent,
+                    size: 14,
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(child: label),
+                  const SizedBox(width: 8),
+                  Flexible(child: amount),
+                ],
+              );
+            },
           ),
         ),
       ],
@@ -910,6 +1077,76 @@ class _EmptyDashboardState extends StatelessWidget {
     child: const EmptyCompactState(
       icon: LucideIcons.receiptText,
       text: 'Seu resumo começa aqui. Adicione ou importe um lançamento.',
+    ),
+  );
+}
+
+class _InitialHomeState extends StatelessWidget {
+  const _InitialHomeState({
+    required this.onOpenAccount,
+    required this.onOpenCard,
+    required this.onOpenImport,
+  });
+
+  final VoidCallback onOpenAccount;
+  final VoidCallback onOpenCard;
+  final VoidCallback onOpenImport;
+
+  @override
+  Widget build(BuildContext context) => ZimbaCard(
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(LucideIcons.sparkles, color: ZimbaColors.accent, size: 28),
+          const SizedBox(height: 14),
+          Text('Seu controle começa aqui', style: _text(context, 20, FontWeight.w700)),
+          const SizedBox(height: 8),
+          Text(
+            'Nada será criado automaticamente. Adicione apenas o que quiser acompanhar.',
+            style: _text(
+              context,
+              14,
+              FontWeight.w400,
+              color: ZimbaColors.secondaryText,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onOpenAccount,
+              icon: const Icon(Icons.account_balance_wallet_outlined),
+              label: const Text('Adicionar conta'),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: onOpenCard,
+              icon: const Icon(Icons.credit_card_outlined),
+              label: const Text('Adicionar cartão'),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: onOpenImport,
+              icon: const Icon(Icons.file_upload_outlined),
+              label: const Text('Importar OFX ou CSV'),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Ao importar, você confirmará a conta ou cartão de destino.',
+            style: _text(context, 12, FontWeight.w400, color: ZimbaColors.secondaryText),
+          ),
+        ],
+      ),
     ),
   );
 }

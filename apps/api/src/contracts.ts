@@ -114,6 +114,13 @@ export const syncEntityTypes = [
   "creditCardLimitGroup",
   "creditCard",
   "invoicePayment",
+  "recurringSchedule",
+  "installmentPlan",
+  "creditCardInvoice",
+  "importBatch",
+  "reconciliationRun",
+  "backup",
+  "preference",
 ] as const;
 
 export const syncEntityTypeSchema = z.enum(syncEntityTypes);
@@ -123,6 +130,7 @@ export const syncPersonPayloadSchema = z.object({
   person: syncedRowSchema.extend({
     displayName: z.string().trim().min(1).max(160),
     kind: z.enum(["adult", "child", "other"]),
+    relationship: z.enum(["self", "spouse", "child", "other"]).optional(),
     active: z.boolean(),
   }),
 });
@@ -268,9 +276,12 @@ export const syncPushOperationSchema = z.object({
   if (schema === undefined) return;
   const payload = schema.safeParse(operation.payload);
   if (!payload.success) {
+    const fieldPath = payload.error.issues[0]?.path
+      .map((segment) => String(segment))
+      .join("_") || "payload";
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      message: `invalid_${operation.entityType}_sync_payload`,
+      message: `invalid_${operation.entityType}_sync_payload_${fieldPath}`,
       path: ["payload"],
     });
     return;
@@ -295,17 +306,6 @@ export const syncPushOperationSchema = z.object({
   }
 });
 
-export const syncPushRequestSchema = z.object({
-  deviceId: z.string(),
-  householdId: z.string(),
-  operations: z.array(syncPushOperationSchema),
-});
-
-export const syncPullQuerySchema = z.object({
-  householdId: z.string().min(1),
-  sinceSeq: z.coerce.number().int().nonnegative().default(0),
-});
-
 export const googleAuthRequestSchema = z.object({
   idToken: z.string().min(1),
 });
@@ -319,7 +319,5 @@ export const passwordAuthRequestSchema = z.object({
 export type Transaction = z.infer<typeof transactionSchema>;
 export type SyncEntityType = z.infer<typeof syncEntityTypeSchema>;
 export type SyncPushOperation = z.infer<typeof syncPushOperationSchema>;
-export type SyncPushRequest = z.infer<typeof syncPushRequestSchema>;
 export type SyncOperationResult = z.infer<typeof syncOperationResultSchema>;
-export type SyncPullQuery = z.infer<typeof syncPullQuerySchema>;
 export type GoogleAuthRequest = z.infer<typeof googleAuthRequestSchema>;

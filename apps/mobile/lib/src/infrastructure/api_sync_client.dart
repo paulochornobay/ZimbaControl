@@ -108,7 +108,9 @@ class HttpSyncApiClient implements SyncApiClient {
       body: jsonEncode(payload.toJson()),
     );
     if (response.statusCode != 200) {
-      throw SyncApiException('push_failed_${response.statusCode}');
+      throw SyncApiException(
+        'push_failed_${response.statusCode}${_safeFailureSuffix(response.body)}',
+      );
     }
     return SyncPushResponse.fromJson(
       jsonDecode(response.body) as Map<String, dynamic>,
@@ -141,6 +143,22 @@ class HttpSyncApiClient implements SyncApiClient {
       if (sessionToken != null && sessionToken!.isNotEmpty)
         'authorization': 'Bearer $sessionToken',
     };
+  }
+}
+
+String _safeFailureSuffix(String body) {
+  try {
+    final decoded = jsonDecode(body);
+    if (decoded is! Map) return '';
+    final issues = decoded['issues'];
+    if (issues is! List || issues.isEmpty || issues.first is! Map) return '';
+    final message = issues.first['message'];
+    if (message is! String || !RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(message)) {
+      return '';
+    }
+    return '_$message';
+  } catch (_) {
+    return '';
   }
 }
 

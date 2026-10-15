@@ -61,6 +61,45 @@ void main() {
       throwsA(isA<GoogleSessionException>()),
     );
   });
+
+  test('cria familia por senha e nunca persiste a senha', () async {
+    final storage = _MemorySessionStorage();
+    final client = GoogleSessionClient(
+      apiBaseUrl: 'https://api.example.test',
+      googleWebClientId: '',
+      storage: storage,
+      httpClient: MockClient((request) async {
+        expect(request.url.toString(), 'https://api.example.test/auth/register');
+        expect(jsonDecode(request.body), {
+          'name': 'Paulo',
+          'email': 'paulo@example.test',
+          'password': 'senha-segura',
+        });
+        return http.Response(
+          jsonEncode({
+            'token': 'new-session-token',
+            'expiresInSeconds': 3600,
+            'user': {
+              'email': 'paulo@example.test',
+              'householdId': 'household-new',
+              'name': 'Paulo',
+            },
+          }),
+          200,
+        );
+      }),
+    );
+
+    final session = await client.registerWithPassword(
+      name: ' Paulo ',
+      email: ' paulo@example.test ',
+      password: 'senha-segura',
+    );
+
+    expect(session.householdId, 'household-new');
+    expect(await client.readStoredSession(), isNotNull);
+    expect(storage.values.values, isNot(contains('senha-segura')));
+  });
 }
 
 class _MemorySessionStorage implements SessionStorage {

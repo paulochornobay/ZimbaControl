@@ -19,26 +19,15 @@ class CommitmentsPage extends StatefulWidget {
   State<CommitmentsPage> createState() => _CommitmentsPageState();
 }
 
-class _CommitmentsPageState extends State<CommitmentsPage>
-    with SingleTickerProviderStateMixin {
-  late final TabController tabController;
+class _CommitmentsPageState extends State<CommitmentsPage> {
   late Future<FamilyStructureSnapshot> future;
+  late int selectedTabIndex;
 
   @override
   void initState() {
     super.initState();
-    tabController = TabController(
-      length: 2,
-      initialIndex: widget.initialTabIndex,
-      vsync: this,
-    );
+    selectedTabIndex = widget.initialTabIndex;
     future = widget.database.getFamilyStructureSnapshot();
-  }
-
-  @override
-  void dispose() {
-    tabController.dispose();
-    super.dispose();
   }
 
   void refresh() {
@@ -54,7 +43,7 @@ class _CommitmentsPageState extends State<CommitmentsPage>
     }
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => tabController.index == 0
+        builder: (_) => selectedTabIndex == 0
             ? RecurringScheduleFormPage(
                 database: widget.database,
                 snapshot: snapshot,
@@ -73,82 +62,81 @@ class _CommitmentsPageState extends State<CommitmentsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 72,
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Compromissos'),
-            Text(
-              'Parcelas, consórcio e recorrências',
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
+      body: Column(
+        children: [
+          ZimbaCompactHeader(
+            title: 'Compromissos',
+            subtitle: 'Parcelas, consórcio e recorrências',
+            leading: IconButton(
+              tooltip: 'Voltar',
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back, size: 21),
             ),
-          ],
-        ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: FilledButton.icon(
+            trailing: IconButton(
+              tooltip: 'Novo compromisso',
               onPressed: openCreateForm,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Novo'),
+              icon: const Icon(Icons.add, size: 21),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: Wrap(
+              spacing: 8,
+              children: [
+                ChoiceChip(
+                  label: const Text('Recorrências'),
+                  selected: selectedTabIndex == 0,
+                  onSelected: (_) => setState(() => selectedTabIndex = 0),
+                ),
+                ChoiceChip(
+                  label: const Text('Parcelas'),
+                  selected: selectedTabIndex == 1,
+                  onSelected: (_) => setState(() => selectedTabIndex = 1),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<FamilyStructureSnapshot>(
+              future: future,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
+                  return const ZimbaLoadingState(
+                    label: 'Carregando compromissos',
+                  );
+                }
+                final data = snapshot.data;
+                if (data == null) {
+                  return ZimbaStateMessage(
+                    icon: Icons.error_outline,
+                    title: 'Não foi possível carregar compromissos',
+                    body:
+                        'Tente atualizar. Nenhum plano ou recorrência foi alterado.',
+                    action: OutlinedButton.icon(
+                      onPressed: refresh,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Atualizar'),
+                    ),
+                  );
+                }
+                return selectedTabIndex == 0
+                    ? _RecurringList(
+                        database: widget.database,
+                        snapshot: data,
+                        onChanged: refresh,
+                        onCreate: openCreateForm,
+                      )
+                    : _InstallmentList(
+                        database: widget.database,
+                        snapshot: data,
+                        onChanged: refresh,
+                        onCreate: openCreateForm,
+                      );
+              },
             ),
           ),
         ],
-        bottom: TabBar(
-          controller: tabController,
-          indicatorSize: TabBarIndicatorSize.tab,
-          indicator: BoxDecoration(
-            color: ZimbaColors.surface,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: ZimbaColors.border),
-          ),
-          dividerColor: Colors.transparent,
-          tabs: const [
-            Tab(text: 'Recorrências'),
-            Tab(text: 'Parcelas'),
-          ],
-        ),
-      ),
-      body: FutureBuilder<FamilyStructureSnapshot>(
-        future: future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              !snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final data = snapshot.data;
-          if (data == null) {
-            return ZimbaStateMessage(
-              icon: Icons.error_outline,
-              title: 'Não foi possível carregar compromissos',
-              body:
-                  'Tente atualizar. Nenhum plano ou recorrência foi alterado.',
-              action: OutlinedButton.icon(
-                onPressed: refresh,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Atualizar'),
-              ),
-            );
-          }
-          return TabBarView(
-            controller: tabController,
-            children: [
-              _RecurringList(
-                database: widget.database,
-                snapshot: data,
-                onChanged: refresh,
-                onCreate: openCreateForm,
-              ),
-              _InstallmentList(
-                database: widget.database,
-                snapshot: data,
-                onChanged: refresh,
-                onCreate: openCreateForm,
-              ),
-            ],
-          );
-        },
       ),
     );
   }
@@ -809,22 +797,32 @@ class _CommitmentFormScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        actions: [
-          IconButton(
-            tooltip: 'Salvar',
-            onPressed: onSave,
-            icon: const Icon(Icons.check),
-          ),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      body: Column(
         children: [
-          ZimbaCard(
-            padding: const EdgeInsets.all(14),
-            child: Column(children: children),
+          ZimbaCompactHeader(
+            title: title,
+            subtitle: 'Compromisso salvo somente neste aparelho',
+            leading: IconButton(
+              tooltip: 'Voltar',
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.arrow_back, size: 21),
+            ),
+            trailing: IconButton(
+              tooltip: 'Salvar',
+              onPressed: onSave,
+              icon: const Icon(Icons.check, size: 21),
+            ),
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+              children: [
+                ZimbaCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(children: children),
+                ),
+              ],
+            ),
           ),
         ],
       ),

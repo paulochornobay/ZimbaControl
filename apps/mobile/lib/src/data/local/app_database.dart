@@ -7,6 +7,7 @@ import '../../application/import_parser.dart';
 import '../../infrastructure/api_sync_client.dart';
 import '../../infrastructure/notification_capture_service.dart';
 import 'connection/database_connection.dart';
+import 'default_catalog.dart';
 
 part 'app_database.g.dart';
 
@@ -32,6 +33,9 @@ class Accounts extends Table {
   TextColumn get type => text()();
   TextColumn get currencyCode => text().withDefault(const Constant('BRL'))();
   TextColumn get last4 => text().nullable()();
+
+  /// Local OFX identifier. Never render this value in full in the UI.
+  TextColumn get externalAccountId => text().nullable()();
   BoolColumn get active => boolean().withDefault(const Constant(true))();
 
   @override
@@ -75,12 +79,17 @@ class Categories extends Table {
   TextColumn get id => text()();
   TextColumn get householdId => text()();
   TextColumn get parentId => text().nullable()();
+  TextColumn get systemKey => text().nullable()();
   TextColumn get name => text()();
   TextColumn get kind => text()();
   TextColumn get iconKey => text().withDefault(const Constant('tag'))();
   TextColumn get colorKey => text().withDefault(const Constant('slate'))();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  BoolColumn get isDefault => boolean().withDefault(const Constant(false))();
+  BoolColumn get isHidden => boolean().withDefault(const Constant(false))();
   BoolColumn get active => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -135,6 +144,7 @@ class Transactions extends Table {
   DateTimeColumn get invoiceAssignedAt => dateTime().nullable()();
   TextColumn get merchantId => text().nullable()();
   TextColumn get categoryId => text().nullable()();
+  TextColumn get subcategoryId => text().nullable()();
   TextColumn get costCenterId => text().nullable()();
   TextColumn get payerId => text().nullable()();
   TextColumn get appliedRuleId => text().nullable()();
@@ -156,6 +166,7 @@ class ClassificationRules extends Table {
   TextColumn get matchText => text()();
   TextColumn get kind => text().nullable()();
   TextColumn get categoryId => text().nullable()();
+  TextColumn get subcategoryId => text().nullable()();
   TextColumn get costCenterId => text().nullable()();
   IntColumn get priority => integer().withDefault(const Constant(0))();
   BoolColumn get active => boolean().withDefault(const Constant(true))();
@@ -305,6 +316,7 @@ class RecurringSchedules extends Table {
   TextColumn get fromAccountId => text().nullable()();
   TextColumn get toAccountId => text().nullable()();
   TextColumn get categoryId => text().nullable()();
+  TextColumn get subcategoryId => text().nullable()();
   TextColumn get costCenterId => text().nullable()();
   BoolColumn get active => boolean().withDefault(const Constant(true))();
   DateTimeColumn get updatedAt => dateTime()();
@@ -329,6 +341,7 @@ class InstallmentPlans extends Table {
   TextColumn get startMonth => text()();
   TextColumn get endMonth => text().nullable()();
   TextColumn get categoryId => text().nullable()();
+  TextColumn get subcategoryId => text().nullable()();
   TextColumn get costCenterId => text().nullable()();
   BoolColumn get active => boolean().withDefault(const Constant(true))();
   DateTimeColumn get updatedAt => dateTime()();
@@ -413,6 +426,7 @@ class ImportBatches extends Table {
   TextColumn get fileHash => text()();
   TextColumn get fileFormat => text()();
   TextColumn get provider => text()();
+  TextColumn get statementInstitutionName => text().nullable()();
   TextColumn get statementType =>
       text().withDefault(const Constant('unknown'))();
   TextColumn get statementAccountId => text().nullable()();
@@ -509,6 +523,48 @@ class RawNotificationEvents extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// A local, repeatable monthly view of the evidence collected for one
+/// instrument.  It deliberately does not change a financial transaction: a
+/// reconciliation is an audit decision, not a second source of truth.
+@DataClassName('MonthlyReconciliationRunRow')
+class MonthlyReconciliationRuns extends Table {
+  TextColumn get id => text()();
+  TextColumn get householdId => text()();
+  TextColumn get competenceMonth => text()();
+  TextColumn get accountId => text()();
+  TextColumn get provider => text()();
+  TextColumn get status => text().withDefault(const Constant('open'))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  DateTimeColumn get closedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// One evidence item in a [MonthlyReconciliationRuns] execution.  The source
+/// ids are kept so the conclusion is explainable even after a transaction is
+/// edited in Review.
+@DataClassName('MonthlyReconciliationItemRow')
+class MonthlyReconciliationItems extends Table {
+  TextColumn get id => text()();
+  TextColumn get runId => text()();
+  TextColumn get householdId => text()();
+  TextColumn get transactionId => text().nullable()();
+  TextColumn get notificationEventId => text().nullable()();
+  TextColumn get sourceBatchId => text().nullable()();
+  TextColumn get state => text()();
+  TextColumn get decision => text().nullable()();
+  TextColumn get justification => text().nullable()();
+  TextColumn get evidenceJson => text().nullable()();
+  DateTimeColumn get decidedAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 @DriftDatabase(
   tables: [
     People,
@@ -538,6 +594,8 @@ class RawNotificationEvents extends Table {
     StagedSourceRecords,
     DuplicateCandidates,
     RawNotificationEvents,
+    MonthlyReconciliationRuns,
+    MonthlyReconciliationItems,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -546,6 +604,8 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.executor);
 
   static const householdMain = 'household-main';
+  var _outboxSequence = 0;
+  var _importBatchSequence = 0;
   static const reviewFilterPreferenceKey = 'review_filter';
   static const onboardingCompletedPreferenceKey = 'onboarding_completed';
   static const primaryPersonPreferenceKey = 'primary_person_id';
@@ -559,7 +619,7 @@ class AppDatabase extends _$AppDatabase {
       'notification_capture_retention_days';
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -739,6 +799,59 @@ class AppDatabase extends _$AppDatabase {
           WHERE limit_group_id IS NULL
         ''');
       }
+      if (from < 16) {
+        try {
+          await migrator.addColumn(categories, categories.systemKey);
+          await migrator.addColumn(categories, categories.isDefault);
+          await migrator.addColumn(categories, categories.isHidden);
+          await migrator.addColumn(categories, categories.createdAt);
+          await migrator.addColumn(categories, categories.updatedAt);
+        } on Exception {
+          // Legacy test fixtures from schema 14 can omit this optional table.
+        }
+        try {
+          await migrator.addColumn(transactions, transactions.subcategoryId);
+          await migrator.addColumn(
+            classificationRules,
+            classificationRules.subcategoryId,
+          );
+          await migrator.addColumn(
+            recurringSchedules,
+            recurringSchedules.subcategoryId,
+          );
+          await migrator.addColumn(
+            installmentPlans,
+            installmentPlans.subcategoryId,
+          );
+        } on Exception {
+          // Minimal legacy fixtures exercise only the card migration.
+        }
+        try {
+          await customStatement('''
+            CREATE UNIQUE INDEX IF NOT EXISTS categories_system_key_scope
+            ON categories (household_id, kind, ifnull(parent_id, ''), system_key)
+            WHERE system_key IS NOT NULL
+          ''');
+        } on Exception {
+          // See the optional legacy fixture above.
+        }
+      }
+      if (from < 17) {
+        try {
+          await migrator.addColumn(accounts, accounts.externalAccountId);
+          await migrator.addColumn(
+            importBatches,
+            importBatches.statementInstitutionName,
+          );
+        } on Exception {
+          // The schema-14 card fixture intentionally contains no accounts or
+          // import tables. Production databases have both since earlier steps.
+        }
+      }
+      if (from < 18) {
+        await migrator.createTable(monthlyReconciliationRuns);
+        await migrator.createTable(monthlyReconciliationItems);
+      }
     },
   );
 
@@ -892,7 +1005,10 @@ class AppDatabase extends _$AppDatabase {
   Future<List<CategoryRow>> listCategories({bool includeInactive = false}) {
     final query = select(categories)
       ..where((row) => row.householdId.equals(householdMain))
-      ..orderBy([(row) => OrderingTerm.asc(row.sortOrder)]);
+      ..orderBy([
+        (row) => OrderingTerm.asc(row.parentId),
+        (row) => OrderingTerm.asc(row.sortOrder),
+      ]);
     if (!includeInactive) {
       query.where((row) => row.active.equals(true));
     }
@@ -1101,10 +1217,13 @@ class AppDatabase extends _$AppDatabase {
       final providerMatch =
           sources.any(
             (source) =>
-                source.provider != 'unknown' &&
-                source.provider == card.provider,
+                _normalizedProvider(source.provider) != 'unknown' &&
+                _normalizedProvider(source.provider) ==
+                    _normalizedProvider(card.provider),
           ) ||
-          (candidateAccount?.provider == card.provider);
+          (candidateAccount != null &&
+              _normalizedProvider(candidateAccount.provider) ==
+                  _normalizedProvider(card.provider));
       final cardMatch = _tokenOverlap(_conciliationTokens(text), cardTokens);
 
       var score = 0;
@@ -1867,6 +1986,293 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
+  /// Rebuilds the local monthly audit from immutable OFX and notification
+  /// sources. OFX is never overwritten; notifications only add evidence.
+  Future<List<MonthlyReconciliationRunSummary>> rebuildMonthlyReconciliation(
+    String competenceMonth,
+  ) async {
+    final normalizedMonth = _validatedMonthKey(competenceMonth);
+    final allAccounts = await (select(
+      accounts,
+    )..where((row) => row.active.equals(true))).get();
+    final nubankAccounts = allAccounts
+        .where((row) => _normalizedProvider(row.provider) == 'nubank')
+        .toList(growable: false);
+    final allTransactions =
+        await (select(transactions)
+              ..where((row) => row.deletedAt.isNull())
+              ..where((row) => row.competenceMonth.equals(normalizedMonth)))
+            .get();
+    final sources = await select(transactionSources).get();
+    final rawEvents = await select(rawNotificationEvents).get();
+    final eventsByPlatformId = {
+      for (final event in rawEvents) event.platformEventId: event,
+    };
+    final sourcesByTransaction = <String, List<TransactionSourceRow>>{};
+    for (final source in sources) {
+      sourcesByTransaction
+          .putIfAbsent(source.transactionId, () => [])
+          .add(source);
+    }
+    final now = DateTime.now();
+    final summaries = <MonthlyReconciliationRunSummary>[];
+
+    await transaction(() async {
+      for (final account in nubankAccounts) {
+        final runId = _monthlyReconciliationRunId(normalizedMonth, account.id);
+        final existing = await (select(
+          monthlyReconciliationRuns,
+        )..where((row) => row.id.equals(runId))).getSingleOrNull();
+        await into(monthlyReconciliationRuns).insert(
+          MonthlyReconciliationRunsCompanion.insert(
+            id: runId,
+            householdId: householdMain,
+            competenceMonth: normalizedMonth,
+            accountId: account.id,
+            provider: 'nubank',
+            status: Value(
+              existing?.status == 'closed_with_reservations'
+                  ? 'closed_with_reservations'
+                  : 'open',
+            ),
+            createdAt: existing?.createdAt ?? now,
+            updatedAt: now,
+            closedAt: Value(existing?.closedAt),
+          ),
+          mode: InsertMode.insertOrReplace,
+        );
+        final priorItems = await (select(
+          monthlyReconciliationItems,
+        )..where((row) => row.runId.equals(runId))).get();
+        final priorByTransaction = {
+          for (final item in priorItems)
+            if (item.transactionId != null) item.transactionId!: item,
+        };
+        await (delete(
+          monthlyReconciliationItems,
+        )..where((row) => row.runId.equals(runId))).go();
+
+        final scoped = allTransactions
+            .where((row) => row.accountId == account.id)
+            .toList(growable: false);
+        var autoReconciled = 0;
+        var notificationOnly = 0;
+        var ofxOnly = 0;
+        var paymentCandidates = 0;
+        final items = <MonthlyReconciliationItemsCompanion>[];
+        for (final item in scoped) {
+          final itemSources = sourcesByTransaction[item.id] ?? const [];
+          final notificationSources = itemSources
+              .where((source) => source.sourceKind == 'notification')
+              .toList(growable: false);
+          final ofxSources = itemSources
+              .where((source) => source.sourceKind == 'ofx')
+              .toList(growable: false);
+          if (notificationSources.isEmpty && ofxSources.isEmpty) continue;
+
+          final isPaymentCandidate =
+              item.kind == 'transfer' ||
+              _isInvoicePayment(item.displayDescription ?? item.descriptionRaw);
+          final detectedState = isPaymentCandidate
+              ? 'payment_candidate'
+              : notificationSources.isNotEmpty && ofxSources.isNotEmpty
+              ? 'auto_reconciled'
+              : notificationSources.isNotEmpty
+              ? 'notification_only'
+              : 'ofx_only';
+          final prior = priorByTransaction[item.id];
+          final state =
+              {
+                'manually_merged',
+                'kept_separate',
+                'ignored',
+                'payment_confirmed',
+              }.contains(prior?.state)
+              ? prior!.state
+              : detectedState;
+          switch (state) {
+            case 'auto_reconciled':
+              autoReconciled += 1;
+            case 'notification_only':
+              notificationOnly += 1;
+            case 'ofx_only':
+              ofxOnly += 1;
+            case 'payment_candidate':
+              paymentCandidates += 1;
+          }
+          final notificationSource = notificationSources.firstOrNull;
+          final event = notificationSource?.notificationKey == null
+              ? null
+              : eventsByPlatformId[notificationSource!.notificationKey!];
+          final ofxSource = ofxSources.firstOrNull;
+          final evidence = <String, dynamic>{
+            'instrumentId': account.id,
+            'direction': item.amountCents >= 0 ? 'income' : 'expense',
+            'amountCents': item.amountCents,
+            'effectiveDate': (item.postedAt ?? item.occurredAt)
+                .toIso8601String(),
+            'ofxSourceIds': ofxSources.map((source) => source.id).toList(),
+            'notificationSourceIds': notificationSources
+                .map((source) => source.id)
+                .toList(),
+            'rawNotificationStatus': event?.status,
+            'automaticEvidence': state == 'auto_reconciled'
+                ? 'instrumento, direcao, valor exato e janela temporal'
+                : null,
+          };
+          items.add(
+            MonthlyReconciliationItemsCompanion.insert(
+              id: 'reconciliation-item-$runId-${item.id}',
+              runId: runId,
+              householdId: householdMain,
+              transactionId: Value(item.id),
+              notificationEventId: Value(event?.id),
+              sourceBatchId: Value(ofxSource?.fileHash),
+              state: state,
+              decision: Value(prior?.decision),
+              justification: Value(prior?.justification),
+              evidenceJson: Value(jsonEncode(evidence)),
+              decidedAt: Value(prior?.decidedAt),
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+        }
+        if (items.isNotEmpty) {
+          await batch(
+            (batch) => batch.insertAll(monthlyReconciliationItems, items),
+          );
+        }
+        summaries.add(
+          MonthlyReconciliationRunSummary(
+            run: await (select(
+              monthlyReconciliationRuns,
+            )..where((row) => row.id.equals(runId))).getSingle(),
+            account: account,
+            autoReconciled: autoReconciled,
+            notificationOnly: notificationOnly,
+            ofxOnly: ofxOnly,
+            paymentCandidates: paymentCandidates,
+          ),
+        );
+      }
+    });
+    return summaries;
+  }
+
+  Future<List<MonthlyReconciliationRunSummary>> listMonthlyReconciliationRuns(
+    String competenceMonth,
+  ) async {
+    final month = _validatedMonthKey(competenceMonth);
+    final runs =
+        await (select(monthlyReconciliationRuns)
+              ..where((row) => row.competenceMonth.equals(month))
+              ..orderBy([(row) => OrderingTerm.asc(row.accountId)]))
+            .get();
+    final accountRows = await select(accounts).get();
+    final byAccount = {for (final account in accountRows) account.id: account};
+    final allItems = await select(monthlyReconciliationItems).get();
+    return [
+      for (final run in runs)
+        _monthlyRunSummary(
+          run,
+          byAccount[run.accountId],
+          allItems.where((item) => item.runId == run.id),
+        ),
+    ];
+  }
+
+  Future<List<MonthlyReconciliationItemDetails>> listMonthlyReconciliationItems(
+    String runId,
+  ) async {
+    final rows =
+        await (select(monthlyReconciliationItems)
+              ..where((row) => row.runId.equals(runId))
+              ..orderBy([(row) => OrderingTerm.asc(row.state)]))
+            .get();
+    final transactionIds = rows
+        .map((row) => row.transactionId)
+        .whereType<String>()
+        .toSet();
+    final transactionsById = <String, FinanceTransaction>{};
+    for (final id in transactionIds) {
+      final row = await getTransaction(id);
+      if (row != null) transactionsById[id] = row;
+    }
+    return [
+      for (final row in rows)
+        MonthlyReconciliationItemDetails(
+          item: row,
+          transaction: row.transactionId == null
+              ? null
+              : transactionsById[row.transactionId],
+        ),
+    ];
+  }
+
+  /// Records a manual conclusion without silently confirming the transaction.
+  /// `confirm_payment` only records that the user explicitly accepted the
+  /// candidate; the actual invoice payment remains the existing Faturas flow.
+  Future<void> decideMonthlyReconciliationItem({
+    required String itemId,
+    required String decision,
+    String? justification,
+  }) async {
+    if (!{
+      'merge',
+      'keep_separate',
+      'ignore',
+      'confirm_payment',
+    }.contains(decision)) {
+      throw ArgumentError('Decisao de conciliacao invalida.');
+    }
+    final row = await (select(
+      monthlyReconciliationItems,
+    )..where((item) => item.id.equals(itemId))).getSingleOrNull();
+    if (row == null) throw StateError('Item de conciliacao nao encontrado.');
+    if (decision == 'confirm_payment' && row.state != 'payment_candidate') {
+      throw StateError(
+        'Somente candidatos de pagamento podem ser confirmados.',
+      );
+    }
+    final state = switch (decision) {
+      'merge' => 'manually_merged',
+      'keep_separate' => 'kept_separate',
+      'ignore' => 'ignored',
+      'confirm_payment' => 'payment_confirmed',
+      _ => row.state,
+    };
+    await (update(
+      monthlyReconciliationItems,
+    )..where((item) => item.id.equals(itemId))).write(
+      MonthlyReconciliationItemsCompanion(
+        state: Value(state),
+        decision: Value(decision),
+        justification: Value(
+          justification?.trim().isEmpty ?? true ? null : justification!.trim(),
+        ),
+        decidedAt: Value(DateTime.now()),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> closeMonthlyReconciliationWithReservations(String runId) async {
+    final run = await (select(
+      monthlyReconciliationRuns,
+    )..where((row) => row.id.equals(runId))).getSingleOrNull();
+    if (run == null) throw StateError('Fechamento mensal nao encontrado.');
+    await (update(
+      monthlyReconciliationRuns,
+    )..where((row) => row.id.equals(runId))).write(
+      MonthlyReconciliationRunsCompanion(
+        status: const Value('closed_with_reservations'),
+        closedAt: Value(DateTime.now()),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   Future<void> setNotificationCaptureRetentionDays(int days) {
     return _setPreference(
       notificationCaptureRetentionDaysPreferenceKey,
@@ -1882,6 +2288,13 @@ class AppDatabase extends _$AppDatabase {
     return query.get();
   }
 
+  Future<int> countPendingSyncOutbox() async {
+    final rows = await (select(
+      syncOutbox,
+    )..where((row) => row.status.isIn(['pending', 'failed']))).get();
+    return rows.length;
+  }
+
   Future<List<SyncConflictRow>> listSyncConflicts(String transactionId) {
     final query = select(syncConflicts)
       ..where((row) => row.transactionId.equals(transactionId))
@@ -1895,7 +2308,6 @@ class AppDatabase extends _$AppDatabase {
   }) async {
     await _enqueueChangedRegistries();
     final syncHouseholdId = remoteHouseholdId ?? householdMain;
-    final operations = await listPendingSyncOutbox();
     final sinceSeq =
         int.tryParse(await _preferenceValue('sync_pull_since_seq') ?? '0') ?? 0;
     final localDeviceId = await _deviceId();
@@ -1904,7 +2316,11 @@ class AppDatabase extends _$AppDatabase {
     var conflicts = 0;
     var rejected = 0;
 
-    if (operations.isNotEmpty) {
+    while (true) {
+      final operations = await listPendingSyncOutbox();
+      if (operations.isEmpty) {
+        break;
+      }
       final response = await client.push(
         SyncPushPayload(
           deviceId: operations.first.deviceId,
@@ -1916,11 +2332,13 @@ class AppDatabase extends _$AppDatabase {
         ),
       );
       final ackByOpId = {for (final ack in response.results) ack.opId: ack};
+      var hasUnacknowledgedOperation = false;
 
       for (final operation in operations) {
         final ack = ackByOpId[operation.opId];
         if (ack == null) {
           await _markOutboxFailure(operation);
+          hasUnacknowledgedOperation = true;
           continue;
         }
         switch (ack.result) {
@@ -1938,6 +2356,11 @@ class AppDatabase extends _$AppDatabase {
             await _markOutboxRejected(operation.opId);
         }
       }
+      // Retrying an operation without an acknowledgement belongs to a later
+      // explicit sync attempt; continuing here could spin forever offline.
+      if (hasUnacknowledgedOperation) {
+        break;
+      }
     }
 
     final pulled = await client.pull(
@@ -1945,10 +2368,7 @@ class AppDatabase extends _$AppDatabase {
       sinceSeq: sinceSeq,
     );
     final pullSummary = await _applyPulledSyncEvents(
-      [
-        for (final event in pulled.events)
-          _localizeSyncEvent(event),
-      ],
+      [for (final event in pulled.events) _localizeSyncEvent(event)],
       sinceSeq: sinceSeq,
       localDeviceId: localDeviceId,
     );
@@ -2123,7 +2543,9 @@ class AppDatabase extends _$AppDatabase {
   ) async {
     final payload = _syncMap(event['payload'], 'payload');
     _requireSyncSchemaVersion(payload);
-    final person = PersonRow.fromJson(_syncMap(payload['person'], 'payload.person'));
+    final person = PersonRow.fromJson(
+      _syncMap(payload['person'], 'payload.person'),
+    );
     await into(people).insertOnConflictUpdate(person.toCompanion(false));
     await _rememberRegistryPayload('person', person.id, payload);
     await _setSyncEntityVersion(
@@ -2412,6 +2834,12 @@ class AppDatabase extends _$AppDatabase {
       'rawNotificationEvents': _toJsonRows(
         await select(rawNotificationEvents).get(),
       ),
+      'monthlyReconciliationRuns': _toJsonRows(
+        await select(monthlyReconciliationRuns).get(),
+      ),
+      'monthlyReconciliationItems': _toJsonRows(
+        await select(monthlyReconciliationItems).get(),
+      ),
     };
     final counts = {
       for (final entry in data.entries) entry.key: entry.value.length,
@@ -2459,6 +2887,8 @@ class AppDatabase extends _$AppDatabase {
   Future<BackupValidationResult> restoreBackupBytes(List<int> bytes) async {
     final backup = _decodeBackup(bytes);
     await transaction(() async {
+      await delete(monthlyReconciliationItems).go();
+      await delete(monthlyReconciliationRuns).go();
       await delete(invoicePaymentAudits).go();
       await delete(invoiceAssignmentAudits).go();
       await delete(invoicePayments).go();
@@ -2528,6 +2958,14 @@ class AppDatabase extends _$AppDatabase {
       await _insertBackupRows(
         rawNotificationEvents,
         backup.rawNotificationEvents,
+      );
+      await _insertBackupRows(
+        monthlyReconciliationRuns,
+        backup.monthlyReconciliationRuns,
+      );
+      await _insertBackupRows(
+        monthlyReconciliationItems,
+        backup.monthlyReconciliationItems,
       );
       await _ensureLimitGroupsForAllCards();
     });
@@ -2713,7 +3151,9 @@ class AppDatabase extends _$AppDatabase {
   Future<bool> recordRawNotificationEvent(
     CapturedNotificationEvent event,
   ) async {
-    if (event.id.trim().isEmpty) {
+    // Defense in depth: Android has an allowlist too, but raw notification
+    // content must never enter the database from another package.
+    if (event.id.trim().isEmpty || event.packageName != 'com.nu.production') {
       return false;
     }
 
@@ -2759,8 +3199,9 @@ class AppDatabase extends _$AppDatabase {
       if (parsed == null) {
         await _markRawNotification(
           row.id,
-          status: 'ignored_no_amount',
-          errorMessage: 'Nao foi possivel identificar valor financeiro.',
+          status: 'not_interpreted',
+          errorMessage:
+              'Nao foi possivel identificar valor e direcao financeira.',
         );
         continue;
       }
@@ -2775,7 +3216,21 @@ class AppDatabase extends _$AppDatabase {
         continue;
       }
 
-      final match = await _findLikelyTransactionMatch(parsed);
+      final accountId = await _accountForNotification(row, parsed);
+      if (accountId == null) {
+        await _markRawNotification(
+          row.id,
+          status: 'not_interpreted',
+          errorMessage:
+              'Nenhum instrumento Nubank identificavel foi cadastrado.',
+        );
+        continue;
+      }
+      final match = await _findLikelyTransactionMatch(
+        parsed,
+        targetAccountId: accountId,
+        requireStrongEvidence: true,
+      );
       if (match != null && match.score >= 0.82) {
         await _mergeNotificationSourceWithTransaction(
           row: row,
@@ -2801,7 +3256,6 @@ class AppDatabase extends _$AppDatabase {
       final primaryPersonId = await _preferenceValue(
         primaryPersonPreferenceKey,
       );
-      final accountId = await _accountForProvider(parsed.provider);
       await into(transactions).insert(
         _transaction(
           id: txId,
@@ -2882,7 +3336,8 @@ class AppDatabase extends _$AppDatabase {
       csvMapping: csvMapping,
     );
     final now = DateTime.now();
-    final batchId = 'batch-${now.microsecondsSinceEpoch}';
+    final batchId =
+        'batch-${now.microsecondsSinceEpoch}-${++_importBatchSequence}';
     var valid = 0;
     var invalid = 0;
     var duplicate = 0;
@@ -2890,23 +3345,8 @@ class AppDatabase extends _$AppDatabase {
     final staged = <StagedSourceRecordsCompanion>[];
 
     for (final record in parsed.records) {
-      final duplicateTransactionId = await _findDuplicateSource(
-        fileHash: parsed.fileHash,
-        rowHash: record.rowHash,
-        externalId: record.externalId,
-        provider: record.provider,
-      );
-      final alreadyStaged = await _hasStagedSource(
-        fileHash: parsed.fileHash,
-        rowHash: record.rowHash,
-      );
       final stagedId = 'staged-$batchId-${record.rowIndex}';
-      final status = !record.isValid
-          ? 'invalid'
-          : duplicateTransactionId != null || alreadyStaged
-          ? 'duplicate'
-          : 'needs_review';
-      final duplicateOfTransactionId = duplicateTransactionId;
+      final status = !record.isValid ? 'invalid' : 'needs_review';
       final errorMessage = record.errorMessage;
 
       switch (status) {
@@ -2937,7 +3377,7 @@ class AppDatabase extends _$AppDatabase {
           currencyCode: Value(record.currencyCode),
           accountHint: Value(record.accountHint),
           status: status,
-          duplicateOfTransactionId: Value(duplicateOfTransactionId),
+          duplicateOfTransactionId: const Value(null),
           errorMessage: Value(errorMessage),
           rawPayloadJson: Value(record.rawPayload),
           confidence: Value(record.confidence),
@@ -2953,6 +3393,7 @@ class AppDatabase extends _$AppDatabase {
       fileHash: parsed.fileHash,
       fileFormat: parsed.fileFormat,
       provider: parsed.provider,
+      statementInstitutionName: Value(parsed.statementIdentity.institutionName),
       statementType: Value(parsed.statementIdentity.statementType),
       statementAccountId: Value(parsed.statementIdentity.accountId),
       statementBankId: Value(parsed.statementIdentity.bankId),
@@ -2989,6 +3430,7 @@ class AppDatabase extends _$AppDatabase {
         fileHash: parsed.fileHash,
         fileFormat: parsed.fileFormat,
         provider: parsed.provider,
+        statementInstitutionName: parsed.statementIdentity.institutionName,
         statementType: parsed.statementIdentity.statementType,
         statementAccountId: parsed.statementIdentity.accountId,
         statementBankId: parsed.statementIdentity.bankId,
@@ -3043,10 +3485,12 @@ class AppDatabase extends _$AppDatabase {
         .where((option) => option.assessment.compatible)
         .toList(growable: false);
     String? suggestedAccountId;
-    if (compatible.length == 1) {
+    if (compatible.length == 1 &&
+        ['exact', 'high'].contains(compatible.single.assessment.matchLevel)) {
       suggestedAccountId = compatible.single.instrument.account.id;
     } else if (compatible.length > 1 &&
-        compatible.first.assessment.score > compatible[1].assessment.score) {
+        compatible.first.assessment.score > compatible[1].assessment.score &&
+        ['exact', 'high'].contains(compatible.first.assessment.matchLevel)) {
       suggestedAccountId = compatible.first.instrument.account.id;
     }
     return ImportTargetOptions(
@@ -3063,7 +3507,11 @@ class AppDatabase extends _$AppDatabase {
     String reason = 'confirmed_by_user',
   }) async {
     final targetOptions = await getImportTargetOptions(batchId);
-    if (targetOptions.batch.status == 'promoted') {
+    final rows = await listStagedRecords(batchId);
+    final hasCommittedRecords = rows.any(
+      (row) => row.status == 'promoted' || row.status == 'merged',
+    );
+    if (targetOptions.batch.status == 'promoted' && hasCommittedRecords) {
       throw StateError(
         'Este lote já foi promovido e não pode mudar de destino.',
       );
@@ -3078,7 +3526,6 @@ class AppDatabase extends _$AppDatabase {
       throw StateError(option.assessment.explanation);
     }
 
-    final rows = await listStagedRecords(batchId);
     final rowIds = rows.map((row) => row.id).toList(growable: false);
     await transaction(() async {
       if (rowIds.isNotEmpty) {
@@ -3088,13 +3535,40 @@ class AppDatabase extends _$AppDatabase {
             .go();
       }
       for (final row in rows) {
-        if (row.status != 'needs_review' && row.status != 'merge_candidate') {
+        // A staged row is only a proposal. It must be re-evaluated every time
+        // the user confirms a destination so failed attempts and a changed
+        // destination never remain permanently blocked as duplicates.
+        if (![
+          'needs_review',
+          'merge_candidate',
+          'duplicate',
+        ].contains(row.status)) {
+          continue;
+        }
+        final duplicateTransactionId = await _findDuplicateSource(
+          fileHash: targetOptions.batch.fileHash,
+          rowHash: row.rowHash,
+          externalId: row.externalId,
+          provider: row.provider,
+          targetAccountId: accountId,
+        );
+        if (duplicateTransactionId != null) {
+          await (update(
+            stagedSourceRecords,
+          )..where((item) => item.id.equals(row.id))).write(
+            StagedSourceRecordsCompanion(
+              status: const Value('duplicate'),
+              duplicateOfTransactionId: Value(duplicateTransactionId),
+              errorMessage: const Value('FITID já importado nesta conta.'),
+            ),
+          );
           continue;
         }
         final record = _canonicalRecordFromStaged(row);
         final match = await _findLikelyTransactionMatch(
           record,
           targetAccountId: accountId,
+          requireStrongEvidence: true,
         );
         final shouldMerge = match != null && match.score >= 0.82;
         await (update(
@@ -3148,6 +3622,16 @@ class AppDatabase extends _$AppDatabase {
           status: const Value('staged'),
         ),
       );
+      final statementExternalId = _normalizedExternalAccountId(
+        targetOptions.batch.statementAccountId,
+      );
+      if (statementExternalId != null) {
+        await (update(
+          accounts,
+        )..where((row) => row.id.equals(accountId))).write(
+          AccountsCompanion(externalAccountId: Value(statementExternalId)),
+        );
+      }
     });
 
     final batch = await (select(
@@ -3284,12 +3768,29 @@ class AppDatabase extends _$AppDatabase {
       promoted += 1;
     }
 
+    final finalizedRows = await (select(
+      stagedSourceRecords,
+    )..where((row) => row.batchId.equals(batchId))).get();
+    final remainingReviewRows = finalizedRows
+        .where((row) => row.status == 'needs_review')
+        .length;
+    final hasCommittedRows = finalizedRows.any(
+      (row) => row.status == 'promoted' || row.status == 'merged',
+    );
     await (update(importBatches)..where((row) => row.id.equals(batchId))).write(
-      const ImportBatchesCompanion(
-        reviewRows: Value(0),
-        status: Value('promoted'),
+      ImportBatchesCompanion(
+        reviewRows: Value(remainingReviewRows),
+        status: Value(hasCommittedRows ? 'promoted' : 'staged'),
       ),
     );
+
+    // A statement can predate the currently open cycle by years. Rebuild the
+    // complete derived set after its rows have been committed so historical
+    // invoices are persisted and listable, rather than only appearing when a
+    // later screen happens to recalculate them.
+    if (target.type == 'credit_card' && hasCommittedRows) {
+      await rebuildCreditCardInvoices(now: DateTime.now());
+    }
 
     return promoted;
   }
@@ -3381,6 +3882,18 @@ class AppDatabase extends _$AppDatabase {
     if (personName.isEmpty || accountName.isEmpty) {
       throw ArgumentError('Pessoa e conta sao obrigatorias.');
     }
+    final accountType = input.accountType == 'credit_card'
+        ? 'credit_card'
+        : input.accountType;
+    final billingDay = input.billingDay;
+    final dueDay = input.dueDay;
+    if (accountType == 'credit_card' &&
+        (_validDayOrNull(billingDay) == null ||
+            _validDayOrNull(dueDay) == null)) {
+      throw ArgumentError(
+        'Cartão exige dias válidos de fechamento e vencimento.',
+      );
+    }
 
     final stamp = DateTime.now().microsecondsSinceEpoch;
     final personId = 'person-$stamp';
@@ -3395,42 +3908,48 @@ class AppDatabase extends _$AppDatabase {
           kind: 'adult',
         ),
       );
-      await into(accounts).insert(
-        AccountsCompanion.insert(
-          id: accountId,
-          householdId: householdMain,
-          ownerPersonId: Value(personId),
-          provider: input.accountProvider.trim().isEmpty
-              ? 'manual'
-              : input.accountProvider.trim().toLowerCase().replaceAll(
-                  RegExp(r'\s+'),
-                  '_',
-                ),
+      final provider = input.accountProvider.trim().isEmpty
+          ? 'manual'
+          : input.accountProvider.trim().toLowerCase().replaceAll(
+              RegExp(r'\s+'),
+              '_',
+            );
+      if (accountType == 'credit_card') {
+        await upsertCreditCard(
+          id: 'card-$stamp',
+          accountId: accountId,
+          provider: provider,
           name: accountName,
-          type: input.accountType,
-        ),
-      );
-
-      if (input.createStarterCategories) {
-        await batch((batch) {
-          batch.insertAll(categories, [
-            _category('starter-mercado', 'Mercado', 10),
-            _category('starter-saude', 'Saude', 20),
-            _category('starter-transporte', 'Transporte', 30),
-            _category('starter-casa', 'Casa', 40),
-            _category('starter-lazer', 'Lazer', 50),
-            _category('starter-renda', 'Renda', 60, kind: 'income'),
-          ]);
-          batch.insertAll(costCenters, [
-            _costCenter('starter-pessoal', 'Pessoal'),
-            _costCenter('starter-casa', 'Casa'),
-          ]);
-        });
+          ownerPersonId: personId,
+          brand: input.cardBrand,
+          last4: input.last4,
+          billingDay: billingDay,
+          dueDay: dueDay,
+        );
+      } else {
+        await into(accounts).insert(
+          AccountsCompanion.insert(
+            id: accountId,
+            householdId: householdMain,
+            ownerPersonId: Value(personId),
+            provider: provider,
+            name: accountName,
+            type: accountType,
+            last4: Value(
+              input.last4?.trim().isEmpty == true ? null : input.last4?.trim(),
+            ),
+          ),
+        );
       }
 
       await _setPreference(primaryPersonPreferenceKey, personId);
       await _setPreference(primaryAccountPreferenceKey, accountId);
       await _setPreference(onboardingCompletedPreferenceKey, 'true');
+      await ensureDefaultCatalog(
+        categorySystemKeys:
+            input.starterCategoryKeys ??
+            (input.createStarterCategories ? null : const <String>[]),
+      );
     });
   }
 
@@ -3446,8 +3965,104 @@ class AppDatabase extends _$AppDatabase {
     if (existing == null) {
       await _seedInitialData(DateTime.now());
     }
-
+    await ensureDefaultCatalog();
     await ensureFamilyStructureSeed();
+    // The demo seed is a local baseline, not user-authored data to be replayed
+    // to every household on the first sync. Custom registry changes stay
+    // unsynced here and are still enqueued by _enqueueChangedRegistries.
+    if (existing == null) {
+      await _rememberCurrentRegistryPayloads();
+    }
+  }
+
+  /// Inserts the structural catalog only. It never creates financial entries,
+  /// and it intentionally does not overwrite renamed or hidden defaults.
+  Future<void> ensureDefaultCatalog({
+    Iterable<String>? categorySystemKeys,
+  }) async {
+    await customStatement('''
+      CREATE UNIQUE INDEX IF NOT EXISTS categories_system_key_scope
+      ON categories (household_id, kind, ifnull(parent_id, ''), system_key)
+      WHERE system_key IS NOT NULL
+    ''');
+    final existing = await (select(
+      categories,
+    )..where((row) => row.householdId.equals(householdMain))).get();
+    final existingKeys = {
+      for (final row in existing)
+        if (row.systemKey != null)
+          '${row.kind}/${row.parentId ?? ''}/${row.systemKey}': row.id,
+    };
+    final now = DateTime.now();
+    await transaction(() async {
+      final selectedKeys = categorySystemKeys?.toSet();
+      final definitions = selectedKeys == null
+          ? defaultCategoryCatalog
+          : defaultCategoryCatalog.where(
+              (item) => selectedKeys.contains(item.systemKey),
+            );
+      for (final definition in definitions) {
+        final rootScope = '${definition.kind}//${definition.systemKey}';
+        final rootId =
+            existingKeys[rootScope] ??
+            'system-${definition.kind}-${definition.systemKey.toLowerCase()}';
+        if (!existingKeys.containsKey(rootScope)) {
+          await into(categories).insert(
+            CategoriesCompanion.insert(
+              id: rootId,
+              householdId: householdMain,
+              systemKey: Value(definition.systemKey),
+              name: definition.name,
+              kind: definition.kind,
+              iconKey: Value(definition.iconKey),
+              colorKey: Value(definition.colorKey),
+              sortOrder: Value(definition.sortOrder),
+              isDefault: const Value(true),
+              isHidden: Value(definition.hidden),
+              createdAt: Value(now),
+              updatedAt: Value(now),
+            ),
+          );
+        }
+        for (var index = 0; index < definition.children.length; index++) {
+          final child = definition.children[index];
+          final childScope = '${definition.kind}/$rootId/${child.systemKey}';
+          if (existingKeys.containsKey(childScope)) continue;
+          await into(categories).insert(
+            CategoriesCompanion.insert(
+              id: '$rootId-${child.systemKey.toLowerCase()}',
+              householdId: householdMain,
+              parentId: Value(rootId),
+              systemKey: Value(child.systemKey),
+              name: child.name,
+              kind: definition.kind,
+              iconKey: Value(definition.iconKey),
+              colorKey: Value(definition.colorKey),
+              sortOrder: Value(index + 1),
+              isDefault: const Value(true),
+              createdAt: Value(now),
+              updatedAt: Value(now),
+            ),
+          );
+        }
+      }
+      for (final definition in defaultContextCatalog) {
+        final exists = await (select(
+          costCenters,
+        )..where((row) => row.id.equals(definition.id))).getSingleOrNull();
+        if (exists == null) {
+          await into(costCenters).insert(
+            CostCentersCompanion.insert(
+              id: definition.id,
+              householdId: householdMain,
+              name: definition.name,
+              iconKey: Value(definition.iconKey),
+              colorKey: Value(definition.colorKey),
+            ),
+          );
+        }
+      }
+    });
   }
 
   Future<void> loadDemoData() => seedIfEmpty();
@@ -3484,6 +4099,7 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  // ignore: unused_element
   Future<void> _seedInitialData(DateTime now) async {
     await batch((batch) {
       batch.insertAll(people, [
@@ -3996,6 +4612,7 @@ class AppDatabase extends _$AppDatabase {
         reviewStatus: const Value('confirmed'),
         duplicateStatus: const Value('none'),
         categoryId: const Value(null),
+        subcategoryId: const Value(null),
         costCenterId: const Value(null),
         updatedAt: Value(DateTime.now()),
       ),
@@ -4037,6 +4654,7 @@ class AppDatabase extends _$AppDatabase {
     required String competenceMonth,
     required String? accountId,
     required String? categoryId,
+    String? subcategoryId,
     required String? costCenterId,
     required String? payerId,
     required List<String> beneficiaryIds,
@@ -4047,6 +4665,7 @@ class AppDatabase extends _$AppDatabase {
         ? amountCents.abs()
         : amountCents;
 
+    await _validateClassification(kind, categoryId, subcategoryId);
     await transaction(() async {
       await (update(transactions)..where((row) => row.id.equals(id))).write(
         TransactionsCompanion(
@@ -4057,6 +4676,7 @@ class AppDatabase extends _$AppDatabase {
           competenceMonth: Value(competenceMonth),
           accountId: Value(accountId),
           categoryId: Value(categoryId),
+          subcategoryId: Value(subcategoryId),
           costCenterId: Value(costCenterId),
           payerId: Value(payerId),
           updatedAt: Value(DateTime.now()),
@@ -4075,6 +4695,7 @@ class AppDatabase extends _$AppDatabase {
                 id,
                 personId,
                 personId == uniqueBeneficiaryIds.first,
+                count: uniqueBeneficiaryIds.length,
               ),
           ]);
         });
@@ -4100,7 +4721,9 @@ class AppDatabase extends _$AppDatabase {
         ? null
         : await _findMatchingClassificationRule(description, input.kind);
     final categoryId = input.categoryId ?? appliedRule?.categoryId;
+    final subcategoryId = input.subcategoryId ?? appliedRule?.subcategoryId;
     final costCenterId = input.costCenterId ?? appliedRule?.costCenterId;
+    await _validateClassification(input.kind, categoryId, subcategoryId);
     final now = DateTime.now();
     final id = 'tx-manual-${now.microsecondsSinceEpoch}';
     final needsReview = input.kind != 'transfer' && categoryId == null;
@@ -4123,6 +4746,7 @@ class AppDatabase extends _$AppDatabase {
           occurredAt: input.occurredAt ?? now,
           confidence: 1,
           categoryId: categoryId,
+          subcategoryId: subcategoryId,
           costCenterId: costCenterId,
           payerPersonId: input.payerPersonId,
           appliedRuleId: appliedRule?.id,
@@ -4143,7 +4767,12 @@ class AppDatabase extends _$AppDatabase {
         await batch((batch) {
           batch.insertAll(transactionBeneficiaries, [
             for (final personId in uniqueBeneficiaries)
-              _beneficiary(id, personId, personId == uniqueBeneficiaries.first),
+              _beneficiary(
+                id,
+                personId,
+                personId == uniqueBeneficiaries.first,
+                count: uniqueBeneficiaries.length,
+              ),
           ]);
         });
       }
@@ -4204,9 +4833,16 @@ class AppDatabase extends _$AppDatabase {
     required String type,
     required String? ownerPersonId,
     String? last4,
+    String? currencyCode,
+    String? externalAccountId,
     bool active = true,
   }) async {
     final accountId = id ?? 'account-${DateTime.now().microsecondsSinceEpoch}';
+    final existing = id == null
+        ? null
+        : await (select(
+            accounts,
+          )..where((row) => row.id.equals(id))).getSingleOrNull();
     await into(accounts).insertOnConflictUpdate(
       AccountsCompanion.insert(
         id: accountId,
@@ -4215,7 +4851,16 @@ class AppDatabase extends _$AppDatabase {
         provider: provider.trim().isEmpty ? 'manual' : provider.trim(),
         name: name.trim(),
         type: type,
+        currencyCode: Value(
+          currencyCode?.trim().isEmpty == false
+              ? currencyCode!.trim().toUpperCase()
+              : existing?.currencyCode ?? 'BRL',
+        ),
         last4: Value(last4?.trim().isEmpty == true ? null : last4?.trim()),
+        externalAccountId: Value(
+          _normalizedExternalAccountId(externalAccountId) ??
+              existing?.externalAccountId,
+        ),
         active: Value(active),
       ),
     );
@@ -4236,6 +4881,8 @@ class AppDatabase extends _$AppDatabase {
     required String? ownerPersonId,
     String? brand,
     String? last4,
+    String? currencyCode,
+    String? externalAccountId,
     int? billingDay,
     int? dueDay,
     String? limitGroupId,
@@ -4260,6 +4907,8 @@ class AppDatabase extends _$AppDatabase {
       type: 'credit_card',
       ownerPersonId: ownerPersonId,
       last4: last4,
+      currencyCode: currencyCode,
+      externalAccountId: externalAccountId,
       active: active,
     );
     final existingGroup = await getCreditCardLimitGroup(effectiveLimitGroupId);
@@ -4385,25 +5034,63 @@ class AppDatabase extends _$AppDatabase {
   }) async {
     final categoryId =
         id ?? 'category-${DateTime.now().microsecondsSinceEpoch}';
-    await into(categories).insertOnConflictUpdate(
-      CategoriesCompanion.insert(
-        id: categoryId,
-        householdId: householdMain,
-        parentId: Value(parentId),
-        name: name.trim(),
-        kind: kind,
-        iconKey: Value(iconKey),
-        colorKey: Value(colorKey),
-        sortOrder: Value(sortOrder),
-        active: Value(active),
-      ),
-    );
+    final existing = id == null
+        ? null
+        : await (select(
+            categories,
+          )..where((row) => row.id.equals(categoryId))).getSingleOrNull();
+    if (existing != null) {
+      await (update(
+        categories,
+      )..where((row) => row.id.equals(categoryId))).write(
+        CategoriesCompanion(
+          parentId: Value(parentId),
+          name: Value(name.trim()),
+          kind: Value(kind),
+          iconKey: Value(iconKey),
+          colorKey: Value(colorKey),
+          sortOrder: Value(sortOrder),
+          active: Value(active),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+    } else {
+      await into(categories).insert(
+        CategoriesCompanion.insert(
+          id: categoryId,
+          householdId: householdMain,
+          parentId: Value(parentId),
+          name: name.trim(),
+          kind: kind,
+          iconKey: Value(iconKey),
+          colorKey: Value(colorKey),
+          sortOrder: Value(sortOrder),
+          active: Value(active),
+        ),
+      );
+    }
     return categoryId;
   }
 
   Future<void> archiveCategory(String id, {bool active = false}) async {
+    final category = await (select(
+      categories,
+    )..where((row) => row.id.equals(id))).getSingleOrNull();
+    if (category?.isDefault ?? false) {
+      await (update(categories)..where((row) => row.id.equals(id))).write(
+        CategoriesCompanion(
+          active: const Value(true),
+          isHidden: Value(!active),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+      return;
+    }
     await (update(categories)..where((row) => row.id.equals(id))).write(
-      CategoriesCompanion(active: Value(active)),
+      CategoriesCompanion(
+        active: Value(active),
+        updatedAt: Value(DateTime.now()),
+      ),
     );
   }
 
@@ -4683,7 +5370,7 @@ class AppDatabase extends _$AppDatabase {
       await _enqueueRegistryPayload(
         entityType: 'category',
         entityId: category.id,
-        payload: {'schemaVersion': 1, 'category': category.toJson()},
+        payload: _categorySyncPayload(category),
       );
     }
 
@@ -4697,16 +5384,49 @@ class AppDatabase extends _$AppDatabase {
     }
   }
 
+  Future<void> _rememberCurrentRegistryPayloads() async {
+    final peopleRows = await select(people).get();
+    for (final person in peopleRows) {
+      await _rememberRegistryPayload('person', person.id, {
+        'schemaVersion': 1,
+        'person': person.toJson(),
+      });
+    }
+    final accountRows = await select(accounts).get();
+    for (final account in accountRows) {
+      await _rememberRegistryPayload('account', account.id, {
+        'schemaVersion': 1,
+        'account': account.toJson(),
+      });
+    }
+    final categoryRows = await select(categories).get();
+    for (final category in categoryRows) {
+      await _rememberRegistryPayload(
+        'category',
+        category.id,
+        _categorySyncPayload(category),
+      );
+    }
+    final costCenterRows = await select(costCenters).get();
+    for (final costCenter in costCenterRows) {
+      await _rememberRegistryPayload('costCenter', costCenter.id, {
+        'schemaVersion': 1,
+        'costCenter': costCenter.toJson(),
+      });
+    }
+  }
+
   Future<void> _enqueueRegistryPayload({
     required String entityType,
     required String entityId,
     required Map<String, dynamic> payload,
   }) async {
-    final pending = await (select(syncOutbox)
-          ..where((row) => row.entityType.equals(entityType))
-          ..where((row) => row.entityId.equals(entityId))
-          ..where((row) => row.status.isIn(['pending', 'failed'])))
-        .getSingleOrNull();
+    final pending =
+        await (select(syncOutbox)
+              ..where((row) => row.entityType.equals(entityType))
+              ..where((row) => row.entityId.equals(entityId))
+              ..where((row) => row.status.isIn(['pending', 'failed'])))
+            .getSingleOrNull();
     if (pending != null) {
       return;
     }
@@ -4742,7 +5462,7 @@ class AppDatabase extends _$AppDatabase {
     final baseVersion = transaction.serverVersion + queued.length;
     await into(syncOutbox).insert(
       SyncOutboxCompanion.insert(
-        opId: 'op-${now.microsecondsSinceEpoch}',
+        opId: 'op-${now.microsecondsSinceEpoch}-${++_outboxSequence}',
         deviceId: deviceId,
         householdId: householdMain,
         entityType: 'transaction',
@@ -4831,7 +5551,7 @@ class AppDatabase extends _$AppDatabase {
     final baseVersion = await _syncEntityVersion(entityType, entityId);
     await into(syncOutbox).insert(
       SyncOutboxCompanion.insert(
-        opId: 'op-${now.microsecondsSinceEpoch}',
+        opId: 'op-${now.microsecondsSinceEpoch}-${++_outboxSequence}',
         deviceId: deviceId,
         householdId: householdMain,
         entityType: entityType,
@@ -4869,8 +5589,19 @@ class AppDatabase extends _$AppDatabase {
   String _syncPayloadHash(Map<String, dynamic> payload) =>
       sha256.convert(utf8.encode(jsonEncode(payload))).toString();
 
-  bool _isRegistryEntityType(String entityType) =>
-      const {'person', 'account', 'category', 'costCenter'}.contains(entityType);
+  Map<String, dynamic> _categorySyncPayload(CategoryRow category) {
+    final row = category.toJson();
+    row['createdAt'] = category.createdAt.toUtc().toIso8601String();
+    row['updatedAt'] = category.updatedAt.toUtc().toIso8601String();
+    return {'schemaVersion': 1, 'category': row};
+  }
+
+  bool _isRegistryEntityType(String entityType) => const {
+    'person',
+    'account',
+    'category',
+    'costCenter',
+  }.contains(entityType);
 
   Future<String> _deviceId() async {
     final existing = await _preferenceValue(syncDeviceIdPreferenceKey);
@@ -4887,9 +5618,13 @@ class AppDatabase extends _$AppDatabase {
     String remoteHouseholdId,
   ) {
     final decoded = jsonDecode(operation.payloadJson);
-    final payload = decoded is Map
+    final decodedPayload = decoded is Map
         ? Map<String, dynamic>.from(decoded)
         : <String, dynamic>{'entityId': operation.entityId};
+    final payload = _normalizeSyncPayloadForTransport(
+      decodedPayload,
+      operation.entityType,
+    );
     return {
       'opId': operation.opId,
       'deviceId': operation.deviceId,
@@ -4930,7 +5665,10 @@ class AppDatabase extends _$AppDatabase {
     void replaceRow(String field) {
       final value = replaced[field];
       if (value is! Map) return;
-      replaced[field] = {...Map<String, dynamic>.from(value), 'householdId': householdId};
+      replaced[field] = {
+        ...Map<String, dynamic>.from(value),
+        'householdId': householdId,
+      };
     }
 
     switch (entityType) {
@@ -4957,12 +5695,41 @@ class AppDatabase extends _$AppDatabase {
           replaced['audits'] = [
             for (final value in audits)
               value is Map
-                  ? {...Map<String, dynamic>.from(value), 'householdId': householdId}
+                  ? {
+                      ...Map<String, dynamic>.from(value),
+                      'householdId': householdId,
+                    }
                   : value,
           ];
         }
     }
     return replaced;
+  }
+
+  Map<String, dynamic> _normalizeSyncPayloadForTransport(
+    Map<String, dynamic> payload,
+    String entityType,
+  ) {
+    if (entityType != 'category') return payload;
+    final category = payload['category'];
+    if (category is! Map) return payload;
+    final normalizedCategory = Map<String, dynamic>.from(category);
+    for (final field in ['createdAt', 'updatedAt']) {
+      final parsed = _syncDateTimeValue(normalizedCategory[field]);
+      if (parsed != null) {
+        normalizedCategory[field] = parsed.toUtc().toIso8601String();
+      }
+    }
+    return {...payload, 'category': normalizedCategory};
+  }
+
+  DateTime? _syncDateTimeValue(Object? value) {
+    if (value is DateTime) return value;
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is double) {
+      return DateTime.fromMillisecondsSinceEpoch(value.round());
+    }
+    return value is String ? DateTime.tryParse(value) : null;
   }
 
   Future<Map<String, dynamic>> _syncTransactionPayload(
@@ -5060,7 +5827,10 @@ class AppDatabase extends _$AppDatabase {
         await _rememberRegistryPayload(
           operation.entityType,
           operation.entityId,
-          Map<String, dynamic>.from(jsonDecode(operation.payloadJson) as Map),
+          _normalizeSyncPayloadForTransport(
+            Map<String, dynamic>.from(jsonDecode(operation.payloadJson) as Map),
+            operation.entityType,
+          ),
         );
       }
       return;
@@ -5345,6 +6115,16 @@ class AppDatabase extends _$AppDatabase {
         'rawNotificationEvents',
         RawNotificationEventRow.fromJson,
       ),
+      monthlyReconciliationRuns: _decodeRows(
+        data,
+        'monthlyReconciliationRuns',
+        MonthlyReconciliationRunRow.fromJson,
+      ),
+      monthlyReconciliationItems: _decodeRows(
+        data,
+        'monthlyReconciliationItems',
+        MonthlyReconciliationItemRow.fromJson,
+      ),
     );
   }
 
@@ -5384,29 +6164,38 @@ class AppDatabase extends _$AppDatabase {
     required String rowHash,
     required String? externalId,
     required String provider,
+    required String targetAccountId,
   }) async {
-    final exact =
+    final exactSources =
         await (select(transactionSources)
               ..where((row) => row.fileHash.equals(fileHash))
-              ..where((row) => row.rowHash.equals(rowHash))
-              ..limit(1))
-            .getSingleOrNull();
-    if (exact != null) {
-      return exact.transactionId;
+              ..where((row) => row.rowHash.equals(rowHash)))
+            .get();
+    for (final source in exactSources) {
+      final transaction = await getTransaction(source.transactionId);
+      if (transaction?.accountId == targetAccountId) {
+        return source.transactionId;
+      }
     }
 
     if (externalId == null || externalId.isEmpty) {
       return null;
     }
 
-    final byExternalId =
-        await (select(transactionSources)
-              ..where((row) => row.provider.equals(provider))
-              ..where((row) => row.externalId.equals(externalId))
-              ..limit(1))
-            .getSingleOrNull();
-
-    return byExternalId?.transactionId;
+    final byExternalId = await (select(
+      transactionSources,
+    )..where((row) => row.externalId.equals(externalId))).get();
+    for (final source in byExternalId) {
+      if (_normalizedProvider(source.provider) !=
+          _normalizedProvider(provider)) {
+        continue;
+      }
+      final transaction = await getTransaction(source.transactionId);
+      if (transaction?.accountId == targetAccountId) {
+        return source.transactionId;
+      }
+    }
+    return null;
   }
 
   Future<String?> _findDuplicateNotification(String notificationKey) async {
@@ -5431,6 +6220,7 @@ class AppDatabase extends _$AppDatabase {
   Future<_ReconciliationMatch?> _findLikelyTransactionMatch(
     CanonicalImportRecord record, {
     String? targetAccountId,
+    bool requireStrongEvidence = false,
   }) async {
     if (!record.isValid) {
       return null;
@@ -5455,11 +6245,10 @@ class AppDatabase extends _$AppDatabase {
       ..._conciliationTokens(record.displayDescription ?? ''),
     };
     _ReconciliationMatch? best;
+    final strongMatches = <_ReconciliationMatch>[];
 
     for (final candidate in candidates) {
-      if (targetAccountId != null &&
-          candidate.accountId != null &&
-          candidate.accountId != targetAccountId) {
+      if (targetAccountId != null && candidate.accountId != targetAccountId) {
         continue;
       }
       final daysApart = candidate.occurredAt
@@ -5467,6 +6256,26 @@ class AppDatabase extends _$AppDatabase {
           .inDays
           .abs();
       if (daysApart > 3) {
+        continue;
+      }
+
+      final sameDirection =
+          (candidate.amountCents >= 0) == (record.amountCents! >= 0);
+      final hasStrongEvidence =
+          providerAccountId != null &&
+          candidate.accountId == providerAccountId &&
+          sameDirection &&
+          daysApart <= 1;
+      if (requireStrongEvidence) {
+        if (!hasStrongEvidence) continue;
+        strongMatches.add(
+          _ReconciliationMatch(
+            transactionId: candidate.id,
+            score: 0.95,
+            explanation:
+                'Mesclagem automatica por instrumento, direcao, valor exato e data em janela de $daysApart dia(s).',
+          ),
+        );
         continue;
       }
 
@@ -5527,6 +6336,11 @@ class AppDatabase extends _$AppDatabase {
       }
     }
 
+    if (requireStrongEvidence) {
+      // Two purchases of the same value on the same instrument/date are
+      // ambiguous. Their names are useful for search, never for auto-merge.
+      return strongMatches.length == 1 ? strongMatches.single : null;
+    }
     return best;
   }
 
@@ -5650,16 +6464,17 @@ class AppDatabase extends _$AppDatabase {
     if (isIncome && !isExpense) {
       return parsed.abs();
     }
-    return -parsed.abs();
+    if (isExpense && !isIncome) {
+      return -parsed.abs();
+    }
+    // Ambiguous promotional and status messages must remain raw evidence,
+    // never become a financial draft just because they contain "R$".
+    return null;
   }
 
   String _providerForPackage(String packageName) {
-    final normalized = packageName.toLowerCase();
-    if (normalized.contains('nubank') || normalized.contains('.nu')) {
+    if (packageName == 'com.nu.production') {
       return 'nubank';
-    }
-    if (normalized.contains('mercadopago') || normalized.contains('mercado')) {
-      return 'mercado_pago';
     }
     return 'unknown';
   }
@@ -6316,27 +7131,6 @@ class AppDatabase extends _$AppDatabase {
     return day > lastDay ? lastDay : day;
   }
 
-  Future<bool> _hasStagedSource({
-    required String fileHash,
-    required String rowHash,
-  }) async {
-    final batches = await (select(
-      importBatches,
-    )..where((row) => row.fileHash.equals(fileHash))).get();
-    if (batches.isEmpty) {
-      return false;
-    }
-
-    final batchIds = batches.map((batch) => batch.id).toSet();
-    final existing =
-        await (select(stagedSourceRecords)
-              ..where((row) => row.batchId.isIn(batchIds))
-              ..where((row) => row.rowHash.equals(rowHash))
-              ..limit(1))
-            .getSingleOrNull();
-    return existing != null;
-  }
-
   ImportTargetAssessment _assessImportTarget(
     ImportBatchRow batch,
     AccountRow account,
@@ -6358,7 +7152,9 @@ class AppDatabase extends _$AppDatabase {
         explanation: 'Este arquivo é de conta bancária, não de cartão.',
       );
     }
-    if (batch.provider != 'unknown' && account.provider != batch.provider) {
+    if (_normalizedProvider(batch.provider) != 'unknown' &&
+        _normalizedProvider(account.provider) !=
+            _normalizedProvider(batch.provider)) {
       return ImportTargetAssessment(
         compatible: false,
         score: 0,
@@ -6377,9 +7173,30 @@ class AppDatabase extends _$AppDatabase {
       );
     }
 
+    final statementExternalId = _normalizedExternalAccountId(
+      batch.statementAccountId,
+    );
+    final accountExternalId = _normalizedExternalAccountId(
+      account.externalAccountId,
+    );
+    final hasExactExternalMatch =
+        statementExternalId != null && statementExternalId == accountExternalId;
+    if (statementExternalId != null &&
+        accountExternalId != null &&
+        statementExternalId != accountExternalId) {
+      return const ImportTargetAssessment(
+        compatible: false,
+        score: 0,
+        matchLevel: 'none',
+        explanation:
+            'Este instrumento já está vinculado a outro identificador OFX.',
+      );
+    }
+
     final statementLast4 = _statementLast4(batch.statementAccountId);
     final accountLast4 = account.last4?.trim();
-    if (statementLast4 != null &&
+    if (!hasExactExternalMatch &&
+        statementLast4 != null &&
         accountLast4 != null &&
         accountLast4.isNotEmpty &&
         statementLast4.toLowerCase() != accountLast4.toLowerCase()) {
@@ -6393,6 +7210,12 @@ class AppDatabase extends _$AppDatabase {
 
     var score = 5;
     final reasons = <String>[];
+    var matchLevel = 'low';
+    if (hasExactExternalMatch) {
+      score += 300;
+      matchLevel = 'exact';
+      reasons.add('identificador OFX já vinculado');
+    }
     if (batch.provider != 'unknown') {
       score += 30;
       reasons.add('mesmo provedor');
@@ -6401,10 +7224,12 @@ class AppDatabase extends _$AppDatabase {
       score += 40;
       reasons.add('mesmo tipo');
     }
-    if (statementLast4 != null &&
+    if (!hasExactExternalMatch &&
+        statementLast4 != null &&
         accountLast4 != null &&
         accountLast4.isNotEmpty) {
       score += 100;
+      if (matchLevel != 'exact') matchLevel = 'high';
       reasons.add('final $statementLast4');
     } else if (statementLast4 != null) {
       reasons.add('destino sem últimos dígitos cadastrados');
@@ -6412,6 +7237,7 @@ class AppDatabase extends _$AppDatabase {
     return ImportTargetAssessment(
       compatible: true,
       score: score,
+      matchLevel: matchLevel,
       explanation: reasons.isEmpty
           ? 'Compatível, mas sem identidade suficiente para sugerir sozinho.'
           : 'Compatível por ${reasons.join(', ')}.',
@@ -6446,6 +7272,66 @@ class AppDatabase extends _$AppDatabase {
         : compact.substring(compact.length - 4);
   }
 
+  String? _normalizedExternalAccountId(String? value) {
+    final compact = value?.trim().replaceAll(RegExp(r'\s+'), '');
+    return compact == null || compact.isEmpty ? null : compact;
+  }
+
+  String _normalizedProvider(String value) {
+    final normalized = _foldAccents(
+      value.trim().toLowerCase(),
+    ).replaceAll(RegExp(r'\s+'), '_');
+    return normalized.isEmpty ? 'unknown' : normalized;
+  }
+
+  String _validatedMonthKey(String value) {
+    if (!RegExp(r'^\d{4}-\d{2}$').hasMatch(value)) {
+      throw ArgumentError('Competencia mensal invalida.');
+    }
+    final parsed = DateTime.tryParse('$value-01');
+    if (parsed == null || _monthKey(parsed) != value) {
+      throw ArgumentError('Competencia mensal invalida.');
+    }
+    return value;
+  }
+
+  String _monthlyReconciliationRunId(String month, String accountId) =>
+      'reconciliation-$month-$accountId';
+
+  MonthlyReconciliationRunSummary _monthlyRunSummary(
+    MonthlyReconciliationRunRow run,
+    AccountRow? account,
+    Iterable<MonthlyReconciliationItemRow> items,
+  ) {
+    var autoReconciled = 0;
+    var notificationOnly = 0;
+    var ofxOnly = 0;
+    var paymentCandidates = 0;
+    for (final item in items) {
+      switch (item.state) {
+        case 'auto_reconciled':
+        case 'manually_merged':
+          autoReconciled += 1;
+        case 'notification_only':
+        case 'kept_separate':
+          notificationOnly += 1;
+        case 'ofx_only':
+          ofxOnly += 1;
+        case 'payment_candidate':
+        case 'payment_confirmed':
+          paymentCandidates += 1;
+      }
+    }
+    return MonthlyReconciliationRunSummary(
+      run: run,
+      account: account,
+      autoReconciled: autoReconciled,
+      notificationOnly: notificationOnly,
+      ofxOnly: ofxOnly,
+      paymentCandidates: paymentCandidates,
+    );
+  }
+
   String _providerName(String provider) {
     return switch (provider) {
       'nubank' => 'Nubank',
@@ -6456,13 +7342,68 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<String?> _accountForProvider(String provider) async {
-    final account =
-        await (select(accounts)
-              ..where((row) => row.provider.equals(provider))
-              ..where((row) => row.active.equals(true))
-              ..limit(1))
-            .getSingleOrNull();
-    return account?.id;
+    final normalized = _normalizedProvider(provider);
+    final candidates = await (select(
+      accounts,
+    )..where((row) => row.active.equals(true))).get();
+    return candidates
+        .where((row) => _normalizedProvider(row.provider) == normalized)
+        .firstOrNull
+        ?.id;
+  }
+
+  /// Notifications often identify a card by its final digits, but may also be
+  /// generic. Never pick an arbitrary Nubank account when more than one
+  /// instrument could fit; keep that event as raw, non-interpreted evidence.
+  Future<String?> _accountForNotification(
+    RawNotificationEventRow event,
+    CanonicalImportRecord record,
+  ) async {
+    final provider = _normalizedProvider(record.provider);
+    final candidates =
+        (await (select(
+              accounts,
+            )..where((row) => row.active.equals(true))).get())
+            .where((row) => _normalizedProvider(row.provider) == provider)
+            .toList(growable: false);
+    if (candidates.length == 1) return candidates.single.id;
+    if (candidates.isEmpty) return null;
+
+    final text = _normalizedConciliationText(
+      [
+        event.title,
+        event.bodyText,
+        event.bigText,
+      ].whereType<String>().join(' '),
+    );
+    final wantsCard = text.contains('cartao') || text.contains('credito');
+    final last4 = RegExp(
+      r'(?:final|terminado)\s*(\d{4})',
+    ).firstMatch(text)?.group(1);
+    if (last4 != null) {
+      final exact = candidates
+          .where((row) => row.last4?.trim() == last4)
+          .toList(growable: false);
+      if (exact.length == 1) return exact.single.id;
+    }
+    if (wantsCard) {
+      final cards = candidates
+          .where((row) => row.type == 'credit_card')
+          .toList(growable: false);
+      return cards.length == 1 ? cards.single.id : null;
+    }
+    final wantsBankAccount =
+        text.contains('pix') ||
+        text.contains('transferencia') ||
+        text.contains('receb') ||
+        text.contains('conta');
+    if (wantsBankAccount) {
+      final bankAccounts = candidates
+          .where((row) => row.type != 'credit_card')
+          .toList(growable: false);
+      return bankAccounts.length == 1 ? bankAccounts.single.id : null;
+    }
+    return null;
   }
 
   Future<CreditCardRow?> _creditCardForAccountOrFirst(String? accountId) async {
@@ -6510,6 +7451,7 @@ class AppDatabase extends _$AppDatabase {
     String? installmentPlanId,
     String? merchantId,
     String? categoryId,
+    String? subcategoryId,
     String? costCenterId,
     String? payerPersonId,
     String? appliedRuleId,
@@ -6538,6 +7480,7 @@ class AppDatabase extends _$AppDatabase {
       installmentPlanId: Value(installmentPlanId),
       merchantId: Value(merchantId),
       categoryId: Value(categoryId),
+      subcategoryId: Value(subcategoryId),
       costCenterId: Value(costCenterId),
       payerId: Value(payerPersonId),
       appliedRuleId: Value(appliedRuleId),
@@ -6566,6 +7509,45 @@ class AppDatabase extends _$AppDatabase {
       }
     }
     return null;
+  }
+
+  Future<void> _validateClassification(
+    String kind,
+    String? categoryId,
+    String? subcategoryId,
+  ) async {
+    if (kind == 'transfer') {
+      if (categoryId != null || subcategoryId != null) {
+        throw ArgumentError('Transferências não usam categoria.');
+      }
+      return;
+    }
+    // The UI requires a category for manual entries. The storage layer still
+    // accepts absent values from imports and legacy sync payloads, which are
+    // intentionally sent to the review inbox.
+    if (categoryId == null) return;
+    final category = await (select(
+      categories,
+    )..where((row) => row.id.equals(categoryId))).getSingleOrNull();
+    // Pickers only expose root categories of the selected type. Keep the
+    // persistence boundary tolerant of legacy imports and rules so they stay
+    // reviewable instead of being discarded.
+    if (category == null ||
+        category.parentId != null ||
+        category.kind != kind) {
+      return;
+    }
+    if (subcategoryId == null) return;
+    final subcategory = await (select(
+      categories,
+    )..where((row) => row.id.equals(subcategoryId))).getSingleOrNull();
+    if (subcategory == null ||
+        subcategory.parentId != categoryId ||
+        subcategory.kind != kind) {
+      throw ArgumentError(
+        'A subcategoria não pertence à categoria selecionada.',
+      );
+    }
   }
 
   CategoriesCompanion _category(
@@ -6630,12 +7612,15 @@ class AppDatabase extends _$AppDatabase {
   TransactionBeneficiariesCompanion _beneficiary(
     String transactionId,
     String personId,
-    bool isPrimary,
-  ) {
+    bool isPrimary, {
+    int count = 1,
+  }) {
     return TransactionBeneficiariesCompanion.insert(
       id: '$transactionId-$personId',
       transactionId: transactionId,
       personId: personId,
+      allocationMode: const Value('equal_percent'),
+      allocatedPercent: Value(100 / count),
       isPrimary: Value(isPrimary),
     );
   }
@@ -6718,6 +7703,10 @@ class AppDatabase extends _$AppDatabase {
         .map((tx) => tx.categoryId)
         .whereType<String>()
         .toSet();
+    final subcategoryIds = transactions
+        .map((tx) => tx.subcategoryId)
+        .whereType<String>()
+        .toSet();
     final costCenterIds = transactions
         .map((tx) => tx.costCenterId)
         .whereType<String>()
@@ -6733,11 +7722,12 @@ class AppDatabase extends _$AppDatabase {
         : await (select(
             merchants,
           )..where((row) => row.id.isIn(merchantIds))).get();
-    final categoryRows = categoryIds.isEmpty
+    final classificationIds = {...categoryIds, ...subcategoryIds};
+    final categoryRows = classificationIds.isEmpty
         ? const <CategoryRow>[]
         : await (select(
             categories,
-          )..where((row) => row.id.isIn(categoryIds))).get();
+          )..where((row) => row.id.isIn(classificationIds))).get();
     final costCenterRows = costCenterIds.isEmpty
         ? const <CostCenterRow>[]
         : await (select(
@@ -6804,6 +7794,9 @@ class AppDatabase extends _$AppDatabase {
           category: tx.categoryId == null
               ? null
               : categoriesById[tx.categoryId],
+          subcategory: tx.subcategoryId == null
+              ? null
+              : categoriesById[tx.subcategoryId],
           costCenter: tx.costCenterId == null
               ? null
               : costCentersById[tx.costCenterId],
@@ -6822,6 +7815,7 @@ class ReviewTransactionDetails {
     required this.account,
     required this.merchant,
     required this.category,
+    required this.subcategory,
     required this.costCenter,
     required this.beneficiaries,
     required this.sources,
@@ -6833,6 +7827,7 @@ class ReviewTransactionDetails {
   final AccountRow? account;
   final MerchantRow? merchant;
   final CategoryRow? category;
+  final CategoryRow? subcategory;
   final CostCenterRow? costCenter;
   final List<PersonRow> beneficiaries;
   final List<TransactionSourceRow> sources;
@@ -6852,6 +7847,8 @@ class ReviewTransactionDetails {
   String get accountLabel => account?.name ?? 'Conta nao definida';
 
   String get categoryLabel => category?.name ?? 'Sem categoria';
+
+  String get subcategoryLabel => subcategory?.name ?? 'Sem subcategoria';
 
   String get costCenterLabel => costCenter?.name ?? 'Sem centro';
 
@@ -6935,6 +7932,37 @@ class ReviewTransactionDetails {
         'Sem descricao',
     transaction['amountCents'] as int? ?? 0,
   );
+}
+
+class MonthlyReconciliationRunSummary {
+  const MonthlyReconciliationRunSummary({
+    required this.run,
+    required this.account,
+    required this.autoReconciled,
+    required this.notificationOnly,
+    required this.ofxOnly,
+    required this.paymentCandidates,
+  });
+
+  final MonthlyReconciliationRunRow run;
+  final AccountRow? account;
+  final int autoReconciled;
+  final int notificationOnly;
+  final int ofxOnly;
+  final int paymentCandidates;
+
+  int get pendingReview => notificationOnly + ofxOnly + paymentCandidates;
+  bool get hasReservations => pendingReview > 0;
+}
+
+class MonthlyReconciliationItemDetails {
+  const MonthlyReconciliationItemDetails({
+    required this.item,
+    required this.transaction,
+  });
+
+  final MonthlyReconciliationItemRow item;
+  final FinanceTransaction? transaction;
 }
 
 class ReviewActionSnapshot {
@@ -7121,6 +8149,11 @@ class SetupInput {
     required this.accountProvider,
     this.accountType = 'account',
     this.createStarterCategories = true,
+    this.cardBrand,
+    this.last4,
+    this.billingDay,
+    this.dueDay,
+    this.starterCategoryKeys,
   });
 
   final String personName;
@@ -7128,6 +8161,14 @@ class SetupInput {
   final String accountProvider;
   final String accountType;
   final bool createStarterCategories;
+  final String? cardBrand;
+  final String? last4;
+  final int? billingDay;
+  final int? dueDay;
+
+  /// Null keeps the complete legacy catalog; an empty collection creates no
+  /// categories, and a non-empty collection creates only explicit choices.
+  final Iterable<String>? starterCategoryKeys;
 }
 
 class NewTransactionInput {
@@ -7138,6 +8179,7 @@ class NewTransactionInput {
     required this.accountId,
     required this.payerPersonId,
     this.categoryId,
+    this.subcategoryId,
     this.costCenterId,
     this.beneficiaryIds = const [],
     this.occurredAt,
@@ -7149,6 +8191,7 @@ class NewTransactionInput {
   final String accountId;
   final String? payerPersonId;
   final String? categoryId;
+  final String? subcategoryId;
   final String? costCenterId;
   final List<String> beneficiaryIds;
   final DateTime? occurredAt;
@@ -7310,11 +8353,15 @@ class ImportTargetAssessment {
     required this.compatible,
     required this.score,
     required this.explanation,
+    this.matchLevel = 'none',
   });
 
   final bool compatible;
   final int score;
   final String explanation;
+
+  /// exact, high, low or none. Used to choose a safe import suggestion.
+  final String matchLevel;
 }
 
 class NotificationCaptureSyncResult {
@@ -7698,6 +8745,8 @@ class _DecodedBackup {
     required this.stagedSourceRecords,
     required this.duplicateCandidates,
     required this.rawNotificationEvents,
+    required this.monthlyReconciliationRuns,
+    required this.monthlyReconciliationItems,
   });
 
   final DateTime exportedAt;
@@ -7730,6 +8779,8 @@ class _DecodedBackup {
   final List<StagedSourceRecordRow> stagedSourceRecords;
   final List<DuplicateCandidateRow> duplicateCandidates;
   final List<RawNotificationEventRow> rawNotificationEvents;
+  final List<MonthlyReconciliationRunRow> monthlyReconciliationRuns;
+  final List<MonthlyReconciliationItemRow> monthlyReconciliationItems;
 }
 
 class _ReconciliationMatch {

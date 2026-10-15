@@ -1,5 +1,5 @@
 import 'package:drift/native.dart';
-import 'package:drift/drift.dart' show driftRuntimeOptions;
+import 'package:drift/drift.dart' show Value, driftRuntimeOptions;
 import 'package:flutter_test/flutter_test.dart';
 import 'dart:convert';
 
@@ -277,14 +277,14 @@ void main() {
     );
 
     expect(summary.incomeCents, 1370000);
-    expect(summary.expenseCents, -285222);
+    expect(summary.expenseCents, -227500);
     expect(summary.pendingCount, 2);
     expect(summary.transferCount, 1);
     expect(summary.futureCommitmentCents, greaterThan(500000));
     expect(summary.byPerson.map((item) => item.label), contains('Sofia'));
     expect(
       summary.byCategory.map((item) => item.label),
-      containsAll(['Alimentacao', 'Educacao']),
+      containsAll(['Educacao', 'Transporte']),
     );
     expect(summary.bySource.map((item) => item.label), contains('Manual'));
   });
@@ -302,7 +302,7 @@ void main() {
       kindFilter: 'all',
       statusFilter: 'all',
       sourceFilter: 'all',
-      currentMonthOnly: true,
+      currentMonthOnly: false,
     );
     final byNotification = filterMovementDetails(
       items: details,
@@ -310,7 +310,7 @@ void main() {
       kindFilter: 'expense',
       statusFilter: 'pending',
       sourceFilter: 'notification',
-      currentMonthOnly: true,
+      currentMonthOnly: false,
     );
 
     expect(
@@ -417,6 +417,34 @@ void main() {
     expect(after, isEmpty);
   });
 
+  test('sync run drains every pending outbox batch in one execution', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    await database.seedIfEmpty();
+    for (var index = 0; index < 51; index += 1) {
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+      await database.createManualTransaction(
+        NewTransactionInput(
+          kind: 'expense',
+          amountCents: 100 + index,
+          description: 'Lançamento em lote $index',
+          accountId: 'mp',
+          payerPersonId: 'eu',
+          categoryId: 'alimentacao',
+        ),
+      );
+    }
+
+    final before = await database.countPendingSyncOutbox();
+    final client = _FakeSyncApiClient();
+    final summary = await database.runSyncOnce(client);
+
+    expect(before, greaterThan(50));
+    expect(client.batchSizes, hasLength(greaterThan(1)));
+    expect(summary.pushed, before);
+    expect(await database.countPendingSyncOutbox(), 0);
+  });
+
   test('sync conflict returns the local transaction to review', () async {
     final database = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(database.close);
@@ -515,7 +543,9 @@ void main() {
       final remoteCard = await deviceB.getCreditCard('card-a');
       final remoteLimit = await deviceB.getCreditCardLimitGroup('limit-a');
 
-      expect(cardPull.applied, 2);
+      // Both the funding account and the card's technical account are synced
+      // as registries, in addition to the limit group and card snapshot.
+      expect(cardPull.applied, 4);
       expect(remoteCard?.accountId, 'card-account-a');
       expect(remoteLimit?.totalLimitCents, 100000);
 
@@ -729,15 +759,22 @@ void main() {
       fileName: 'nubank_julho.csv',
       bytes: utf8.encode(csv),
     );
-    await database.confirmImportTarget(
+    expect(second.batch.reviewRows, 2);
+    expect(second.batch.duplicateRows, 0);
+    expect(
+      second.records.map((record) => record.status),
+      everyElement('needs_review'),
+    );
+
+    final confirmed = await database.confirmImportTarget(
       batchId: second.batch.id,
       accountId: 'nu',
     );
 
-    expect(second.batch.reviewRows, 0);
-    expect(second.batch.duplicateRows, 2);
+    expect(confirmed.batch.reviewRows, 0);
+    expect(confirmed.batch.duplicateRows, 2);
     expect(
-      second.records.map((record) => record.status),
+      confirmed.records.map((record) => record.status),
       everyElement('duplicate'),
     );
   });
@@ -774,7 +811,7 @@ void main() {
       expect(confirmed.records.single.status, 'merge_candidate');
       expect(confirmed.records.single.duplicateOfTransactionId, 'tx-mercado');
       expect(candidates.single.transactionId, 'tx-mercado');
-      expect(candidates.single.explanation, contains('valor igual'));
+      expect(candidates.single.explanation, contains('valor exato'));
 
       final promoted = await database.promoteImportBatchToReview(
         details.batch.id,
@@ -802,9 +839,9 @@ void main() {
           '${today.day.toString().padLeft(2, '0')}';
       final csv = [
         'Data;Descricao;Valor;Identificador',
-        '$todayText;Pagamento fatura Nubank;-1200,00;fat-1',
-        '$todayText;Loja Moveis 02/10;-89,90;parc-1',
-        '$todayText;Consorcio administradora auto;-985,00;cons-1',
+        '$todayText;Pagamento fatura Nubank;-1200,01;fat-1',
+        '$todayText;Loja Moveis 02/10;-89,91;parc-1',
+        '$todayText;Consorcio administradora auto;-985,01;cons-1',
       ].join('\n');
 
       final details = await database.importStatementFile(
@@ -853,8 +890,8 @@ void main() {
     await database.recordRawNotificationEvent(
       CapturedNotificationEvent(
         id: 'notification-pix-1',
-        packageName: 'com.mercadopago.wallet',
-        appLabel: 'Mercado Pago',
+        packageName: 'com.nu.production',
+        appLabel: 'Nubank',
         title: 'Pagamento aprovado',
         text: 'Voce pagou R\$ 42,10 no Pix',
         bigText: 'Voce pagou R\$ 42,10 no Pix para Padaria Central',
@@ -875,7 +912,7 @@ void main() {
 
     expect(drafts, 1);
     expect(draft.amountCents, -4210);
-    expect(draft.accountId, 'mp');
+    expect(draft.accountId, 'nu');
     expect(
       draft.descriptionRaw,
       'Voce pagou R\$ 42,10 no Pix para Padaria Central',
@@ -967,9 +1004,7 @@ void main() {
       120,
       (index) => CapturedNotificationEvent(
         id: 'backlog-$index',
-        packageName: index.isEven
-            ? 'com.nu.production'
-            : 'com.mercadopago.wallet',
+        packageName: 'com.nu.production',
         postedAt: now.add(Duration(seconds: index)),
         capturedAt: now.add(Duration(seconds: index)),
         title: 'Aviso sem valor $index',
@@ -1008,7 +1043,7 @@ void main() {
     expect(result.drafts, 0);
     expect(service.acknowledged.expand((ids) => ids), hasLength(120));
     expect(rawEvents, hasLength(120));
-    expect(diagnostics.count('ignored_no_amount'), 120);
+    expect(diagnostics.count('not_interpreted'), 120);
   });
 
   test(
@@ -1073,7 +1108,7 @@ void main() {
             events: [
               CapturedNotificationEvent(
                 id: 'retry-after-bridge-failure',
-                packageName: 'com.mercadopago.wallet',
+                packageName: 'com.nu.production',
                 postedAt: now,
                 capturedAt: now,
                 title: 'Aviso',
@@ -1090,6 +1125,134 @@ void main() {
 
       expect(result.bridgeError, isNotNull);
       expect(service.released, contains('retry-after-bridge-failure'));
+    },
+  );
+
+  test(
+    'notification capture accepts only the official Nubank package',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      final now = DateTime(2026, 8, 10);
+
+      final recorded = await database.recordRawNotificationEvent(
+        CapturedNotificationEvent(
+          id: 'not-nubank',
+          packageName: 'com.mercadopago.wallet',
+          postedAt: now,
+          capturedAt: now,
+          title: 'Compra aprovada',
+          text: 'Compra aprovada de R\$ 10,00',
+        ),
+      );
+
+      expect(recorded, isFalse);
+      expect(await database.listRawNotificationEvents(), isEmpty);
+    },
+  );
+
+  test(
+    'monthly reconciliation keeps OFX and notification evidence auditable',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      await database.upsertAccount(
+        id: 'nubank-case',
+        provider: 'Nubank',
+        name: 'Conta Nubank',
+        type: 'account',
+        ownerPersonId: null,
+      );
+      final date = DateTime(2026, 8, 10);
+      final mergedId = await database.createManualTransaction(
+        NewTransactionInput(
+          kind: 'expense',
+          amountCents: 1000,
+          description: 'Compra OFX',
+          accountId: 'nubank-case',
+          occurredAt: date,
+          payerPersonId: null,
+        ),
+      );
+      final ofxOnlyId = await database.createManualTransaction(
+        NewTransactionInput(
+          kind: 'expense',
+          amountCents: 2000,
+          description: 'Somente OFX',
+          accountId: 'nubank-case',
+          occurredAt: date,
+          payerPersonId: null,
+        ),
+      );
+      final paymentId = await database.createManualTransaction(
+        NewTransactionInput(
+          kind: 'transfer',
+          amountCents: 3000,
+          description: 'Pagamento fatura Nubank',
+          accountId: 'nubank-case',
+          occurredAt: date,
+          payerPersonId: null,
+        ),
+      );
+      for (final id in [mergedId, ofxOnlyId, paymentId]) {
+        await database
+            .into(database.transactionSources)
+            .insert(
+              TransactionSourcesCompanion.insert(
+                id: 'ofx-$id',
+                transactionId: id,
+                sourceKind: 'ofx',
+                provider: 'nubank',
+                fileHash: const Value('ofx-file'),
+                occurredAt: Value(date),
+              ),
+            );
+      }
+      await database.recordRawNotificationEvent(
+        CapturedNotificationEvent(
+          id: 'match-strong',
+          packageName: 'com.nu.production',
+          postedAt: date,
+          capturedAt: date,
+          title: 'Compra aprovada',
+          text: 'Compra aprovada de R\$ 10,00',
+        ),
+      );
+      await database.recordRawNotificationEvent(
+        CapturedNotificationEvent(
+          id: 'notification-only',
+          packageName: 'com.nu.production',
+          postedAt: date,
+          capturedAt: date,
+          title: 'Compra aprovada',
+          text: 'Compra aprovada de R\$ 40,00',
+        ),
+      );
+      expect(await database.processPendingRawNotificationEvents(), 1);
+
+      final runs = await database.rebuildMonthlyReconciliation('2026-08');
+      expect(runs, hasLength(1));
+      expect(runs.single.autoReconciled, 1);
+      expect(runs.single.notificationOnly, 1);
+      expect(runs.single.ofxOnly, 1);
+      expect(runs.single.paymentCandidates, 1);
+
+      final items = await database.listMonthlyReconciliationItems(
+        runs.single.run.id,
+      );
+      final payment = items.firstWhere(
+        (item) => item.item.state == 'payment_candidate',
+      );
+      await database.decideMonthlyReconciliationItem(
+        itemId: payment.item.id,
+        decision: 'confirm_payment',
+        justification: 'Confirmado no extrato pelo usuario.',
+      );
+      await database.closeMonthlyReconciliationWithReservations(
+        runs.single.run.id,
+      );
+      final refreshed = await database.listMonthlyReconciliationRuns('2026-08');
+      expect(refreshed.single.run.status, 'closed_with_reservations');
     },
   );
 
@@ -1372,6 +1535,8 @@ void main() {
 }
 
 class _FakeSyncApiClient implements SyncApiClient {
+  final List<int> batchSizes = [];
+
   @override
   Future<SyncPullResponse> pull({
     required String householdId,
@@ -1382,6 +1547,7 @@ class _FakeSyncApiClient implements SyncApiClient {
 
   @override
   Future<SyncPushResponse> push(SyncPushPayload payload) async {
+    batchSizes.add(payload.operations.length);
     return SyncPushResponse(
       latestSeq: payload.operations.length,
       results: [

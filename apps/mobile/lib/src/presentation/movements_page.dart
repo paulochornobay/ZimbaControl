@@ -142,43 +142,23 @@ class _MovementsPageState extends State<MovementsPage> {
             final registry = registrySnapshot.data;
 
             return Scaffold(
-              appBar: AppBar(
-                toolbarHeight: 72,
-                title: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Movimentações',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontSize: 19,
-                        letterSpacing: -.45,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${filtered.length} ${filtered.length == 1 ? 'lançamento' : 'lançamentos'} · ${movementPeriodLabel(periodFilter)}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: ZimbaColors.secondaryText,
-                      ),
-                    ),
-                  ],
-                ),
-                actions: [
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: TextButton.icon(
+              body: Column(
+                children: [
+                  ZimbaCompactHeader(
+                    title: 'Movimentações',
+                    subtitle:
+                        '${filtered.length} ${filtered.length == 1 ? 'lançamento' : 'lançamentos'} · ${movementPeriodLabel(periodFilter)}',
+                    trailing: _MovementImportButton(
                       onPressed: () => Navigator.of(context).push<void>(
                         MaterialPageRoute(
-                          builder: (_) => ImportPage(database: widget.database),
+                          builder: (_) =>
+                              ImportPage(database: widget.database),
                         ),
                       ),
-                      icon: const Icon(Icons.file_upload_outlined, size: 18),
-                      label: const Text('Importar'),
                     ),
                   ),
-                ],
-              ),
-              body: ListView(
+                  Expanded(
+                    child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
                 children: [
                   Row(
@@ -225,49 +205,72 @@ class _MovementsPageState extends State<MovementsPage> {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (final option in const [
-                          ('all', 'Todos'),
-                          ('expense', 'Despesas'),
-                          ('income', 'Entradas'),
-                          ('transfer', 'Transferências'),
-                          ('adjustment', 'Ajustes'),
-                        ]) ...[
-                          MovementQuickFilter(
-                            label: option.$2,
-                            selected: kindFilter == option.$1,
-                            onTap: () => setState(() => kindFilter = option.$1),
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                      ],
-                    ),
+                  ZimbaChipScroller(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      for (final option in const [
+                        ('all', 'Todos'),
+                        ('expense', 'Despesas'),
+                        ('income', 'Entradas'),
+                        ('transfer', 'Transferências'),
+                        ('adjustment', 'Ajustes'),
+                      ])
+                        MovementQuickFilter(
+                          label: option.$2,
+                          selected: kindFilter == option.$1,
+                          onTap: () => setState(() => kindFilter = option.$1),
+                        ),
+                    ],
                   ),
                   if (advancedFilterCount > 0) ...[
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '$advancedFilterCount ${advancedFilterCount == 1 ? 'filtro ativo' : 'filtros ativos'}',
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: ZimbaColors.secondaryText),
-                          ),
+                    MovementActiveFilters(
+                      registry: registry,
+                      defaultPeriod: movementMonthKey(
+                        widget.referenceDate ?? DateTime.now(),
+                      ),
+                      period: periodFilter,
+                      status: statusFilter,
+                      personIds: personIds,
+                      accountIds: accountIds,
+                      categoryIds: categoryIds,
+                      costCenterIds: costCenterIds,
+                      sourceKinds: sourceKinds,
+                      onClear: clearFilters,
+                      onRemovePeriod: () => setState(
+                        () => periodFilter = movementMonthKey(
+                          widget.referenceDate ?? DateTime.now(),
                         ),
-                        TextButton(
-                          onPressed: clearFilters,
-                          child: const Text('Limpar'),
-                        ),
-                      ],
+                      ),
+                      onRemoveStatus: () =>
+                          setState(() => statusFilter = 'all'),
+                      onRemovePerson: (id) =>
+                          setState(() => personIds.remove(id)),
+                      onRemoveAccount: (id) =>
+                          setState(() => accountIds.remove(id)),
+                      onRemoveCategory: (id) =>
+                          setState(() => categoryIds.remove(id)),
+                      onRemoveCostCenter: (id) =>
+                          setState(() => costCenterIds.remove(id)),
+                      onRemoveSource: (kind) =>
+                          setState(() => sourceKinds.remove(kind)),
                     ),
                   ],
                   const SizedBox(height: 12),
-                  if (snapshot.connectionState == ConnectionState.waiting &&
+                  if (snapshot.hasError)
+                    ZimbaFeedbackBanner(
+                      icon: Icons.error_outline,
+                      title: 'Não foi possível carregar movimentações',
+                      body: 'Tente novamente para consultar os dados locais.',
+                      tone: ZimbaTone.danger,
+                      action: OutlinedButton(
+                        onPressed: () => setState(() {}),
+                        child: const Text('Tentar novamente'),
+                      ),
+                    )
+                  else if (snapshot.connectionState == ConnectionState.waiting &&
                       all.isEmpty)
-                    const LinearProgressIndicator()
+                    const ZimbaLoadingState(label: 'Carregando movimentações')
                   else if (filtered.isEmpty)
                     const ZimbaCard(
                       child: EmptyCompactState(
@@ -286,6 +289,9 @@ class _MovementsPageState extends State<MovementsPage> {
                           ),
                       ],
                     ),
+                ],
+                    ),
+                  ),
                 ],
               ),
             );
@@ -416,6 +422,258 @@ class MovementQuickFilter extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MovementImportButton extends StatelessWidget {
+  const _MovementImportButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Importar arquivo',
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(ZimbaRadii.md),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.file_upload_outlined,
+                  size: 18,
+                  color: ZimbaColors.foreground,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  'Importar',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: ZimbaColors.foreground,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class MovementActiveFilters extends StatelessWidget {
+  const MovementActiveFilters({
+    required this.registry,
+    required this.defaultPeriod,
+    required this.period,
+    required this.status,
+    required this.personIds,
+    required this.accountIds,
+    required this.categoryIds,
+    required this.costCenterIds,
+    required this.sourceKinds,
+    required this.onClear,
+    required this.onRemovePeriod,
+    required this.onRemoveStatus,
+    required this.onRemovePerson,
+    required this.onRemoveAccount,
+    required this.onRemoveCategory,
+    required this.onRemoveCostCenter,
+    required this.onRemoveSource,
+    super.key,
+  });
+
+  final RegistrySnapshot? registry;
+  final String defaultPeriod;
+  final String period;
+  final String status;
+  final Set<String> personIds;
+  final Set<String> accountIds;
+  final Set<String> categoryIds;
+  final Set<String> costCenterIds;
+  final Set<String> sourceKinds;
+  final VoidCallback onClear;
+  final VoidCallback onRemovePeriod;
+  final VoidCallback onRemoveStatus;
+  final ValueChanged<String> onRemovePerson;
+  final ValueChanged<String> onRemoveAccount;
+  final ValueChanged<String> onRemoveCategory;
+  final ValueChanged<String> onRemoveCostCenter;
+  final ValueChanged<String> onRemoveSource;
+
+  @override
+  Widget build(BuildContext context) {
+    final filters = <_MovementActiveFilter>[
+      if (period != defaultPeriod)
+        _MovementActiveFilter(
+          'Período: ${movementPeriodLabel(period)}',
+          onRemovePeriod,
+        ),
+      if (status != 'all')
+        _MovementActiveFilter(
+          'Status: ${movementStatusLabel(status)}',
+          onRemoveStatus,
+        ),
+      for (final id in personIds)
+        _MovementActiveFilter(
+          _personLabel(id),
+          () => onRemovePerson(id),
+        ),
+      for (final id in accountIds)
+        _MovementActiveFilter(
+          _accountLabel(id),
+          () => onRemoveAccount(id),
+        ),
+      for (final id in categoryIds)
+        _MovementActiveFilter(
+          _categoryLabel(id),
+          () => onRemoveCategory(id),
+        ),
+      for (final id in costCenterIds)
+        _MovementActiveFilter(
+          _costCenterLabel(id),
+          () => onRemoveCostCenter(id),
+        ),
+      for (final source in sourceKinds)
+        _MovementActiveFilter(
+          _sourceLabel(source),
+          () => onRemoveSource(source),
+        ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${filters.length} ${filters.length == 1 ? 'filtro ativo' : 'filtros ativos'}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: ZimbaColors.secondaryText,
+                ),
+              ),
+            ),
+            TextButton(onPressed: onClear, child: const Text('Limpar')),
+          ],
+        ),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final filter in filters)
+              _MovementActiveFilterChip(
+                label: filter.label,
+                onRemove: filter.onRemove,
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _personLabel(String id) =>
+      registry?.people
+          .where((item) => item.id == id)
+          .map((item) => item.displayName)
+          .firstOrNull ??
+      'Pessoa';
+
+  String _accountLabel(String id) =>
+      registry?.accounts
+          .where((item) => item.account.id == id)
+          .map((item) => item.account.name)
+          .firstOrNull ??
+      'Conta/cartão';
+
+  String _categoryLabel(String id) =>
+      registry?.categories
+          .where((item) => item.id == id)
+          .map((item) => item.name)
+          .firstOrNull ??
+      'Categoria';
+
+  String _costCenterLabel(String id) =>
+      registry?.costCenters
+          .where((item) => item.id == id)
+          .map((item) => item.name)
+          .firstOrNull ??
+      'Centro de custo';
+
+  String _sourceLabel(String value) => switch (value) {
+    'notification' => 'Notificação',
+    'csv' => 'CSV',
+    'ofx' => 'OFX',
+    'manual' => 'Manual',
+    _ => value,
+  };
+}
+
+class _MovementActiveFilter {
+  const _MovementActiveFilter(this.label, this.onRemove);
+
+  final String label;
+  final VoidCallback onRemove;
+}
+
+class _MovementActiveFilterChip extends StatelessWidget {
+  const _MovementActiveFilterChip({required this.label, required this.onRemove});
+
+  final String label;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Remover filtro $label',
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onRemove,
+        borderRadius: BorderRadius.circular(999),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 40),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: ZimbaColors.surfaceMuted,
+              border: Border.all(color: ZimbaColors.border),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 176),
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: ZimbaColors.secondaryText,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.close,
+                    size: 16,
+                    color: ZimbaColors.secondaryText,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class MovementTransactionRow extends StatelessWidget {
@@ -752,7 +1010,9 @@ class _MovementFilterSheetState extends State<MovementFilterSheet> {
                   MovementFilterGroup(
                     label: 'Categoria',
                     options: [
-                      for (final item in widget.registry.categories)
+                      for (final item in widget.registry.categories.where(
+                        (item) => item.parentId == null,
+                      ))
                         (item.id, item.name),
                     ],
                     selected: categoryIds,

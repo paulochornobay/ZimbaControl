@@ -7,6 +7,185 @@
 > histórico técnico; em caso de divergência, prevalecem os documentos de
 > `docs/product`.
 
+## Readequação visual — setembro de 2026
+
+### Marco 0 — Registro operacional
+
+- Registro feito em **2026-09-01** contra o baseline Lovable
+  `pixel-perfect-pixels@33fb92b55c884cc61a7eb00307b7a8c2c51e25ad`, branch
+  `main`.
+- `http://localhost:8080/` foi analisado e respondeu HTTP 200. A referência
+  Lovable não foi modificada, gerada, publicada nem recebeu commits.
+- O worktree Lovable já estava sujo em `src/routeTree.gen.ts` e
+  `package-lock.json`; manter esse estado preexistente é obrigatório.
+- O worktree Flutter atual também já estava sujo. A decisão deste marco é
+  preservá-lo integralmente, sem `reset`, `stash`, reformatação, atualização de
+  goldens ou alteração de produção.
+
+### Inventário das 21 rotas de tela Lovable
+
+`/review` é apenas um redirecionamento para `/` e não é contado como tela.
+
+| # | Rota | # | Rota | # | Rota |
+| ---: | --- | ---: | --- | ---: | --- |
+| 1 | `/` | 8 | `/import` | 15 | `/settings` |
+| 2 | `/backup` | 9 | `/invoices` | 16 | `/summary` |
+| 3 | `/capture` | 10 | `/local-data` | 17 | `/sync-privacy` |
+| 4 | `/commitments` | 11 | `/movimentacoes` | 18 | `/reports/mensal` |
+| 5 | `/duplicates` | 12 | `/onboarding` | 19 | `/reports/parcelas` |
+| 6 | `/family` | 13 | `/registries` | 20 | `/transaction/$id` |
+| 7 | `/identidade` | 14 | `/rules` | 21 | `/transaction/new` |
+
+### Marco 1 — Fundação visual e shell compartilhado
+
+- Concluído em **2026-09-01**, sem iniciar o Marco 2.
+- `ZimbaTheme` e `zimba_ui.dart` agora centralizam shell das cinco jornadas,
+  header compacto, navegação inferior segura, botões, sheets, segmentação,
+  rows e feedbacks com os tokens Zimba existentes.
+- `ZimbaHomeShell` utiliza `ZimbaHomeScaffold`; as telas mantêm seus próprios
+  estados e operações. Drift, regras financeiras, sync e importação não foram
+  alterados, nem houve atualização de goldens.
+- Os componentes foram exercitados em `360×800` e `390×844`, texto `1,3`.
+
+### Marco 2 — Revisão e Movimentações
+
+- Concluído em **2026-09-01**, sem ampliar o escopo para outros fluxos.
+- Revisão usa o shell compartilhado, estados visuais de carregamento, vazio e
+  erro, e feedback temporário com desfazer; confirmar, ignorar e abrir detalhe
+  continuam ligados às operações Drift existentes.
+- Movimentações usa cabeçalho compacto, busca, chips, lista densa com valores,
+  badges e avatares, e filtros avançados em bottom sheet. Filtros combinados
+  ficam explícitos, podem ser removidos individualmente ou limpos por completo.
+- A regressão de interface passou em 14 testes (`phase1_widget_test.dart`),
+  cobrindo confirmação, ignorar/desfazer, detalhe, busca, filtros combinados e
+  limpar filtros. Foram atualizados goldens determinísticos em `360×800` e
+  `390×844`, com escala de texto `1,3` e sem exceções/overflow.
+- O marco não altera Drift, banco, regras financeiras, sync, parsing,
+  importação ou o baseline Lovable.
+
+### Marco 3 — Novo lançamento e detalhe/edição
+
+- Concluído em **2026-09-01**, sem ampliar o trabalho para outras jornadas.
+- Novo lançamento usa seções compactas e seleção de instrumento em sheet,
+  identificando conta/cartão por instituição, tipo, titular e final. Mantém
+  classificação visual, participantes e criação inline de categoria/centro.
+- Detalhe/Edição inicia bloqueado para leitura, usa sheets para escolha e
+  apresenta origem, confiança, duplicidade provável e transferência sugerida
+  quando esses estados já existem. A conversão de transferência preserva a
+  operação Drift existente.
+- A edição conserva `descriptionRaw` como texto externo imutável e grava o
+  título amigável em `displayDescription`, sem alteração de contrato de dados.
+- Passaram análise estática e 20 testes nas suítes de regressão exercitadas
+  (`phase1_widget_test.dart`, `phase2_test.dart` e `marco3_widget_test.dart`).
+  Goldens do detalhe foram atualizados em `360×800` e `390×844`, incluindo
+  escala de texto `1,3` e textos longos sem exceção/overflow.
+
+### Marco 4 — Resumo e relatórios
+
+- Concluído em **2026-09-01**, sem ampliar o trabalho para outras jornadas.
+- Resumo ganhou competência selecionável e separação explícita entre
+  realizados e pendências. Totais e detalhamentos usam confirmados; as
+  transferências aparecem como neutras, fora de receita, despesa e saldo.
+- O reports_page.dart existente foi consolidado como jornada filha para
+  Relatório mensal e Parcelas futuras, com cabeçalho de retorno. A navegação
+  principal permanece com cinco itens.
+- O mensal alterna categoria/contexto e explica mês vazio. A projeção agrupa
+  planos e recorrências por competência sem criar transações no Drift.
+- marco4_widget_test.dart passou com 3 testes em 360×800 e 390×844, texto 1,3,
+  valores grandes e sem overflow; a regressão de agregação operacional e a
+  análise estática também passaram.
+
+### Marco 5 — Ajustes, cadastros e domínio familiar
+
+- Concluído em **2026-09-01**, sem ampliar o trabalho para outras jornadas.
+- Ajustes, Família, Cadastros, Compromissos e Faturas usam o shell compacto e
+  estados compartilhados, preservando cada fluxo real e seus retornos.
+- Cadastros mantém CRUD e arquivamento de pessoas, instrumentos e taxonomia.
+  A conta técnica de cartão não é exibida duas vezes como conta bancária, o que
+  diferencia corretamente conta e cartão do mesmo banco.
+- Recorrências, planos, faturas, pagamentos, estornos e projeções continuam
+  ligados às operações Drift existentes; previsão não cria lançamento.
+- Passaram 11 testes nas suítes marco5_widget_test.dart, marco_c_widget_test.dart,
+  registries_page_widget_test.dart e phase4b_test.dart, em 360×800 e 390×844
+  com texto 1,3. Foram cobertos vazio, dados longos, instrumentos equivalentes,
+  compromisso ativo, fatura parcial, estorno, pagamento e overflow; flutter
+  analyze também passou.
+
+### Marco 6 — Operações de suporte
+
+- Concluído em **2026-09-01**. Importação, Conciliação,
+  Regras, Backup, Sync/Privacidade, Captura Android e Dados locais/reset usam
+  a hierarquia do shell compacto e os componentes compartilhados.
+- CSV/OFX continua local, com mapeamento, prévia e destino confirmado antes da
+  promoção para revisão. A conciliação preserva as três resoluções existentes;
+  regras, backup/restauração e reset continuam associados às ações Drift.
+- Sync sem configuração não simula conectividade nem envio. Captura Android
+  informa disponibilidade e permissão reais. Reset exige `ZERAR`; a restauração
+  só segue depois da validação do arquivo e da confirmação de substituição.
+- marco6_widget_test.dart passou em 360×800 e 390×844 com escala 1,3. Com
+  phase2_test.dart, import_parser_test.dart e os casos direcionados de
+  app_database_test.dart, foram 20 testes aprovados para estados críticos;
+  `flutter analyze` não encontrou problemas.
+
+### Marco 7 — Onboarding progressivo
+
+- Concluído em **2026-09-01**, sem iniciar novo marco. A primeira execução é
+  uma jornada por etapas para pessoa, instituição, conta/cartão, identidade,
+  ciclo do cartão, categorias e revisão, com progresso visível e retorno que
+  preserva respostas enquanto a configuração permanece aberta.
+- Instituições e bandeiras usam monogramas e ícones vetoriais internos, com
+  “Outra instituição” como fallback; nenhum logo de terceiro foi incluído.
+- O setup normal cria dados reais e transacionais, sem lançamentos de exemplo:
+  conta ou cartão, pessoa, preferências e apenas as categorias selecionadas.
+  Cartão registra bandeira, final, fechamento e vencimento. Demonstração é uma
+  escolha explícita; reset devolve o app ao estado de onboarding.
+- marco7_widget_test.dart, onboarding_widget_test.dart, phase2_test.dart e a
+  regressão de setup inicial passaram (18 testes, com 360×800 e 390×844);
+  `flutter analyze` não encontrou problemas.
+
+### Marco 8 — Regressão visual, acessibilidade e homologação
+
+- Concluído em **2026-09-01** para a homologação automatizada, sem redesign
+  adicional. O baseline de setembro `pixel-perfect-pixels@33fb92b` foi lido e
+  capturado em 21 rotas, sem alterar o worktree Lovable.
+- A matriz agora cobre `/`, `/summary`, `/transaction/new`,
+  `/transaction/$id`, `/movimentacoes`, `/settings`, `/onboarding`,
+  `/import`, `/duplicates`, `/family`, `/rules`, `/backup`,
+  `/sync-privacy`, `/reports/mensal`, `/reports/parcelas`, `/identidade`,
+  `/registries`, `/invoices`, `/commitments`, `/capture` e `/local-data` em
+  `360×800` e `390×844`. Os dois relatórios, antes ausentes da captura ampla,
+  foram incluídos na matriz e nos goldens.
+- Foram revisados 42 pares lado a lado e 42 overlays nos viewports de aceite
+  em `docs/product/comparisons/33fb92b/`; as 63 capturas Lovable ficam em
+  `docs/product/baselines/lovable/33fb92b/` e os goldens Flutter em
+  `apps/mobile/test/goldens/parity/`. O terceiro viewport `440×900` é
+  evidência diagnóstica adicional.
+- A suíte cobriu escala de texto `1,3`, vazio, erro, carregamento, offline e
+  textos/valores longos nas jornadas e estados existentes. `flutter analyze`
+  passou sem problemas e `flutter test` passou com **159 testes**.
+- Correções encontradas: os goldens legados foram sincronizados; o ID de lote
+  de importação ganhou sequência por instância para impedir colisão em duas
+  importações imediatas; testes de filtro e de formulário deixaram de depender
+  do relógio ou do teclado do runner. Não houve mudança de layout de produção.
+- Diferenças deliberadas: dados, totais e estados vêm do Drift real, não dos
+  mocks React; backup, sync, permissões e offline mostram o estado operacional
+  honesto; relatórios permanecem jornadas filhas com voltar nativo. O
+  comparador tolera somente até `0,04%` de pixels de rasterização
+  Chromium/Skia (89 pixels no detalhe), sem dispensar diferenças estruturais.
+- `adb` está instalado, mas não enumerou aparelho físico. Há um emulador
+  `Pixel_Tablet` configurado, não iniciado por não substituir o roteiro físico.
+  A aprovação física/TalkBack permanece pendente de um Android conectado.
+
+### Estratégia de screenshot/overlay
+
+Os marcos posteriores devem capturar Lovable e Flutter na mesma rota/estado,
+usando dados demonstrativos determinísticos e os viewports `360×800` e
+`390×844`. Cada par será comparado por overlay semitransparente para conferir
+moldura, alinhamento, espaçamento, tipografia, cor e overflow, com baseline,
+rota, estado e divergências deliberadas registrados. A base responsiva do
+Marco 1 está validada; as capturas pareadas das demais rotas pertencem aos
+marcos seguintes.
+
 ## Atualização canônica de 2026-08-23
 
 - Item 0 do plano de continuidade concluído: requisitos, auditoria das 12
@@ -244,6 +423,21 @@ Antes de continuar qualquer marco, leia:
 
 ## Problemas Abertos
 
+- A Fase 5H foi iniciada em 2026-09-13. `flutter analyze` passou e as APKs
+  debug e release foram compiladas. A candidata release
+  `apps/mobile/build/app/outputs/flutter-apk/app-release.apk` tem SHA-256
+  `B5611BAB0BECD0868595181281B8F1D03C9B8C926A34C8C9B8014AEA63CFECBA`;
+  `apksigner` validou uma assinatura APK v2 com a chave pessoal RSA 4096.
+  Essa evidência de build não constitui aceite sem a regressão verde e a
+  homologacao fisica.
+- A checagem local da Fase 5H em 2026-09-13 encontrou `flutter analyze` sem
+  problemas, mas `flutter test` com falhas de agregacao/sync e divergencias de
+  golden no worktree atual. Uma nova execucao direcionada tambem foi bloqueada
+  por colisao do asset nativo `sqlite3.dll` no diretorio `build`. Corrigir e
+  reexecutar a regressao antes de aceitar uma APK desta revisao.
+- O Android SDK possui `platform-tools/adb.exe`, mas nenhum aparelho estava
+  enumerado em 2026-09-13; a homologacao fisica continua bloqueada ate conectar
+  e autorizar um dispositivo.
 - Confirmar fixtures reais anonimizadas de Nubank e Mercado Pago.
 - Homologar o APK em Android fisico: instalacao limpa, uso offline, reinicio,
   teclado real e permissao de notificacoes concedida/revogada.
@@ -256,11 +450,14 @@ Antes de continuar qualquer marco, leia:
 
 ## Próximo ciclo
 
-Concluir a parte física da Fase 5 de
-`docs/product/IMPLEMENTATION_ROADMAP.md`: preservar os dados existentes e
-homologar a candidata final assinada no Samsung.
+Executar os marcos formalizados em
+`docs/product/IMPLEMENTATION_ROADMAP.md`, nesta ordem: Fase 5H (homologação
+Android física e release pessoal), Marco 11D (sync em dois dispositivos e
+recuperação) e Marco 12 (hardening de segurança e preparação de publicação).
+Não iniciar um marco posterior sem o aceite documentado do anterior.
 
-Sequencia recomendada:
+Fase 5H começa preservando os dados existentes e homologando a candidata final
+assinada no Samsung:
 
 1. Exportar e conferir um backup local antes de remover o APK anterior.
 2. Desinstalar o APK de debug e instalar a candidata assinada com banco limpo.

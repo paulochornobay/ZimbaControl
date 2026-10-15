@@ -14,6 +14,9 @@ class ZimbaNotificationListenerService : NotificationListenerService() {
     private val executor = Executors.newSingleThreadExecutor()
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
+        if (!NotificationCaptureStore.hasActiveAccount(this)) {
+            return
+        }
         if (!NotificationCaptureStore.isPackageAllowed(this, sbn.packageName)) {
             return
         }

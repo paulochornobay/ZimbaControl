@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zimba_control/src/application/import_parser.dart';
@@ -171,4 +172,89 @@ DATA:OFXSGML
     expect(withoutAccount.statementIdentity.statementType, 'credit_card');
     expect(withoutAccount.statementIdentity.accountId, isNull);
   });
+
+  test(
+    'normalizes OFX institutions from internal metadata and keeps unknowns usable',
+    () {
+      final itau = parseStatementFile(
+        fileName: 'sem_nome_confiavel.ofx',
+        bytes: utf8.encode('''
+<OFX><SIGNONMSGSRSV1><SONRS><FI><ORG>Banco Itaú S.A.<FID>341</FI></SONRS></SIGNONMSGSRSV1>
+<BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>BRL<BANKACCTFROM><BANKID>341<ACCTID>1234</BANKACCTFROM>
+<BANKTRANLIST><STMTTRN><DTPOSTED>20260810<TRNAMT>-1.00<FITID>itau-1<NAME>Teste</STMTTRN></BANKTRANLIST>
+</STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>
+'''),
+      );
+      final unknown = parseStatementFile(
+        fileName: 'nubank_no_nome_apenas_para_teste.ofx',
+        bytes: utf8.encode('''
+<OFX><SIGNONMSGSRSV1><SONRS><FI><ORG>Banco Cooperativo Exemplo<FID>999</FI></SONRS></SIGNONMSGSRSV1>
+<BANKMSGSRSV1><STMTTRNRS><STMTRS><CURDEF>BRL<BANKACCTFROM><BANKID>999<ACCTID>4321</BANKACCTFROM>
+<BANKTRANLIST><STMTTRN><DTPOSTED>20260810<TRNAMT>-1.00<FITID>unknown-1<NAME>Teste</STMTTRN></BANKTRANLIST>
+</STMTRS></STMTTRNRS></BANKMSGSRSV1></OFX>
+'''),
+      );
+
+      expect(itau.provider, 'itau');
+      expect(itau.statementIdentity.institutionName, 'Itaú');
+      expect(unknown.provider, 'unknown');
+      expect(
+        unknown.statementIdentity.institutionName,
+        'Banco Cooperativo Exemplo',
+      );
+    },
+  );
+
+  test(
+    'parses anonymized Nubank credit-card OFX fixture without dropping FITIDs',
+    () async {
+      final bytes = await File(
+        'test/fixtures/nubank_credit_card_anonymized.ofx',
+      ).readAsBytes();
+
+      final result = parseStatementFile(
+        fileName: 'nubank_credit_card_anonymized.ofx',
+        bytes: bytes,
+      );
+
+      expect(result.provider, 'nubank');
+      expect(result.statementIdentity.statementType, 'credit_card');
+      expect(result.statementIdentity.last4, '2468');
+      expect(result.statementIdentity.currencyCode, 'BRL');
+      expect(result.statementIdentity.periodStart, DateTime(2026, 8, 3));
+      expect(result.statementIdentity.periodEnd, DateTime(2026, 9, 3));
+      expect(result.statementIdentity.ledgerBalanceCents, -99999);
+      expect(result.records, hasLength(74));
+      expect(result.records.where((record) => record.isValid), hasLength(74));
+      expect(
+        result.records.where((record) => record.externalId == 'cc-001'),
+        hasLength(2),
+      );
+    },
+  );
+
+  test(
+    'parses anonymized Nubank bank OFX fixture metadata and all rows',
+    () async {
+      final bytes = await File(
+        'test/fixtures/nubank_bank_anonymized.ofx',
+      ).readAsBytes();
+
+      final result = parseStatementFile(
+        fileName: 'nubank_bank_anonymized.ofx',
+        bytes: bytes,
+      );
+
+      expect(result.provider, 'nubank');
+      expect(result.statementIdentity.statementType, 'bank');
+      expect(result.statementIdentity.last4, '9876');
+      expect(result.statementIdentity.currencyCode, 'BRL');
+      expect(result.statementIdentity.periodStart, DateTime(2026, 8, 1));
+      expect(result.statementIdentity.periodEnd, DateTime(2026, 8, 30));
+      expect(result.statementIdentity.ledgerBalanceCents, 432109);
+      expect(result.statementIdentity.availableBalanceCents, 420000);
+      expect(result.records, hasLength(51));
+      expect(result.records.where((record) => record.isValid), hasLength(51));
+    },
+  );
 }

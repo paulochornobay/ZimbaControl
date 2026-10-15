@@ -7,6 +7,7 @@ export type AuthenticatedUser = {
   email: string;
   name?: string;
   picture?: string;
+  accountId?: string;
   householdId?: string;
   role?: "admin" | "member";
 };
@@ -56,6 +57,7 @@ export class SessionService {
       email: user.email,
       name: user.name,
       picture: user.picture,
+      accountId: user.accountId,
       householdId: user.householdId,
       role: user.role,
     })
@@ -80,6 +82,8 @@ export class SessionService {
         name: typeof payload.name === "string" ? payload.name : undefined,
         picture:
           typeof payload.picture === "string" ? payload.picture : undefined,
+        accountId:
+          typeof payload.accountId === "string" ? payload.accountId : undefined,
         householdId:
           typeof payload.householdId === "string" ? payload.householdId : undefined,
         role: payload.role === "admin" || payload.role === "member" ? payload.role : undefined,

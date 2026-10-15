@@ -9,6 +9,7 @@ class ApiSession {
     required this.token,
     required this.expiresInSeconds,
     required this.email,
+    required this.accountId,
     required this.householdId,
     this.name,
     this.picture,
@@ -17,6 +18,9 @@ class ApiSession {
   final String token;
   final int expiresInSeconds;
   final String email;
+  /// Canonical server-owned account scope. `householdId` remains temporarily
+  /// for legacy presentation code and has exactly the same value.
+  final String accountId;
   final String householdId;
   final String? name;
   final String? picture;
@@ -27,7 +31,8 @@ class ApiSession {
       token: json['token'] as String,
       expiresInSeconds: json['expiresInSeconds'] as int? ?? 0,
       email: user['email'] as String,
-      householdId: user['householdId'] as String,
+      accountId: (user['accountId'] ?? user['householdId']) as String,
+      householdId: (user['householdId'] ?? user['accountId']) as String,
       name: user['name'] as String?,
       picture: user['picture'] as String?,
     );
@@ -70,7 +75,9 @@ class GoogleSessionClient {
 
   static const _tokenKey = 'zimbacontrol.sessionToken';
   static const _emailKey = 'zimbacontrol.sessionEmail';
+  static const _accountKey = 'zimbacontrol.sessionAccount';
   static const _householdKey = 'zimbacontrol.sessionHousehold';
+  static const _expiresAtKey = 'zimbacontrol.sessionExpiresAt';
   static bool _initialized = false;
 
   final String apiBaseUrl;
@@ -82,7 +89,40 @@ class GoogleSessionClient {
 
   Future<String?> readSessionEmail() => storage.read(key: _emailKey);
 
+  Future<String?> readSessionAccount() => storage.read(key: _accountKey);
+
   Future<String?> readSessionHousehold() => storage.read(key: _householdKey);
+
+  /// Returns the stored session only when it still has the minimum identity
+  /// data needed by the sync API. Older installations did not persist an
+  /// expiry; their existing session remains valid until the server rejects it.
+  Future<ApiSession?> readStoredSession() async {
+    final token = await readSessionToken();
+    final email = await readSessionEmail();
+    final householdId = await readSessionHousehold();
+    final accountId = await readSessionAccount() ?? householdId;
+    if (token == null || token.isEmpty || email == null || accountId == null) {
+      return null;
+    }
+    final expiresAt = await storage.read(key: _expiresAtKey);
+    final expiresAtMillis = int.tryParse(expiresAt ?? '');
+    if (expiresAtMillis != null &&
+        DateTime.now().millisecondsSinceEpoch >= expiresAtMillis) {
+      await _clearStoredSession();
+      return null;
+    }
+    return ApiSession(
+      token: token,
+      expiresInSeconds: expiresAtMillis == null
+          ? 0
+          : ((expiresAtMillis - DateTime.now().millisecondsSinceEpoch) / 1000)
+              .ceil()
+              .clamp(0, 1 << 31),
+      email: email,
+      accountId: accountId,
+      householdId: householdId ?? accountId,
+    );
+  }
 
   static Future<void> clearStoredSession({
     FlutterSecureStorage? storage,
@@ -90,7 +130,9 @@ class GoogleSessionClient {
     final secureStorage = storage ?? const FlutterSecureStorage();
     await secureStorage.delete(key: _tokenKey);
     await secureStorage.delete(key: _emailKey);
+    await secureStorage.delete(key: _accountKey);
     await secureStorage.delete(key: _householdKey);
+    await secureStorage.delete(key: _expiresAtKey);
   }
 
   Future<ApiSession> signIn() async {
@@ -128,10 +170,28 @@ class GoogleSessionClient {
     return _storeSession(response);
   }
 
+  Future<ApiSession> registerWithPassword({
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    final response = await httpClient.post(
+      Uri.parse('$apiBaseUrl/auth/register'),
+      headers: const {'content-type': 'application/json'},
+      body: jsonEncode({
+        'name': name.trim(),
+        'email': email.trim(),
+        'password': password,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw GoogleSessionException('password_registration_failed_${response.statusCode}');
+    }
+    return _storeSession(response);
+  }
+
   Future<void> signOut() async {
-    await storage.delete(key: _tokenKey);
-    await storage.delete(key: _emailKey);
-    await storage.delete(key: _householdKey);
+    await _clearStoredSession();
     if (googleWebClientId.isEmpty) {
       return;
     }
@@ -153,8 +213,23 @@ class GoogleSessionClient {
     );
     await storage.write(key: _tokenKey, value: session.token);
     await storage.write(key: _emailKey, value: session.email);
+    await storage.write(key: _accountKey, value: session.accountId);
     await storage.write(key: _householdKey, value: session.householdId);
+    if (session.expiresInSeconds > 0) {
+      final expiresAt = DateTime.now()
+          .add(Duration(seconds: session.expiresInSeconds))
+          .millisecondsSinceEpoch;
+      await storage.write(key: _expiresAtKey, value: expiresAt.toString());
+    }
     return session;
+  }
+
+  Future<void> _clearStoredSession() async {
+    await storage.delete(key: _tokenKey);
+    await storage.delete(key: _emailKey);
+    await storage.delete(key: _accountKey);
+    await storage.delete(key: _householdKey);
+    await storage.delete(key: _expiresAtKey);
   }
 }
 

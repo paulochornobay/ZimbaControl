@@ -58,6 +58,19 @@ class MainActivity : FlutterActivity() {
                     val olderThanDays = call.argument<Int>("olderThanDays") ?: 30
                     result.success(NotificationCaptureStore.pruneRawEvents(this, olderThanDays))
                 }
+                "setActiveAccount" -> {
+                    val accountId = call.argument<String>("accountId")
+                    if (accountId.isNullOrBlank()) {
+                        result.error("invalid_account", "accountId is required", null)
+                    } else {
+                        NotificationCaptureStore.setActiveAccount(this, accountId)
+                        result.success(null)
+                    }
+                }
+                "clearActiveAccount" -> {
+                    NotificationCaptureStore.clearActiveAccountAndQueue(this)
+                    result.success(null)
+                }
                 "resetLocalCapture" -> {
                     NotificationCaptureStore.resetLocalData(this)
                     result.success(null)

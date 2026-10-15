@@ -16,10 +16,306 @@
 | 3 | importação vinculada à conta/cartão correto | concluída em 2026-08-23 |
 | 4 | faturas completas por etapas | concluída em 2026-08-23 |
 | 5 | paridade restante, homologação Android e release | concluída tecnicamente; homologação física pendente |
+| 5H | homologação Android física e release pessoal | planejada; depende de aparelho Android físico |
+| 11D | sync em dois dispositivos e recuperação | planejada; depende de API configurada e duas instalações |
+| 12 | hardening de segurança e preparação de publicação | planejada; só inicia após os aceites 5H e 11D |
 
 As fases são sequenciais por dependência de domínio. Correções pequenas e
 isoladas da Fase 1 podem compartilhar um ciclo, mas nenhuma fase deve ser
 declarada concluída sem seus critérios de aceite.
+
+## Próximos marcos de aceite — setembro de 2026
+
+Os Marcos 0–8 da readequação visual encerraram a validação automatizada. Os
+marcos abaixo fecham evidências físicas, sincronização real e proteção de dados
+antes de qualquer distribuição além do uso pessoal estável.
+
+### Fase 5H — Homologação Android física e release pessoal
+
+**Objetivo:** aceitar uma candidata de release em Android real, sem perder os
+dados existentes nem confundir resultado de emulador/widget com comportamento
+físico.
+
+**Pré-requisitos:** aparelho enumerado por ADB, APK candidata assinada e backup
+local conferido. A troca de certificado exige tratar a instalação como nova:
+exportar o backup e não desinstalar o app atual sem confirmação do responsável
+pelos dados.
+
+**Escopo:**
+
+1. Executar instalação limpa, onboarding, reinício e uso offline; registrar
+   modelo, Android, APK, assinatura e checksum.
+2. Exercitar Resumo, Movimentações, Revisão, Novo e Detalhe com teclado, safe
+   areas, textos/valores extensos, toque e TalkBack.
+3. Importar CSV/OFX anonimizado, revisar um lançamento, verificar duplicidade e
+   validar concessão/revogação da permissão de notificações.
+4. Executar `ANDROID_CAPTURE_HOMOLOGATION.md`: allowlist, backlog, retomada e
+   expurgo seguro.
+5. Exportar backup, recusar JSON inválido, cancelar restauração e restaurar um
+   backup válido; revisar recuperação em segundo aparelho quando disponível.
+6. Registrar evidências e falhas reproduzíveis; corrigir somente defeitos
+   confirmados e repetir os itens afetados.
+
+**Não escopo:** nova regra financeira, schema, integração ou publicação em loja.
+
+**Aceite:** `MARCO_E_HOMOLOGATION.md` e `ANDROID_CAPTURE_HOMOLOGATION.md`
+preenchidos com aprovação ou divergência aceita; testes instrumentados relevantes
+executados no dispositivo; APK assinada instalada e recuperável. Sem evidência,
+o marco permanece **em andamento**.
+
+### Marco 11D — Sync em dois dispositivos e recuperação
+
+**Objetivo:** comprovar, com API configurada e duas instalações independentes,
+que a sincronização preserva integridade, autoria e conflitos financeiros.
+
+**Pré-requisitos:** Fase 5H aceita; API HTTPS com banco persistente; segredo de
+sessão fora do repositório; identidade de acesso permitida; dois aparelhos com
+backups independentes.
+
+**Escopo:**
+
+1. Validar login configurado, sessão expirada/rejeitada, sync desligado e
+   operação offline sem envio involuntário.
+2. Criar, editar e sincronizar transações, cadastros e relações nos dois
+   aparelhos; confirmar reenvio idempotente, cursor e retomada após interrupção.
+3. Criar edição concorrente deliberada, revisar os dois snapshots, decidir o
+   resultado e confirmar a nova versão nos dois lados.
+4. Verificar que payload bruto de notificação e arquivo OFX não entram no sync;
+   restaurar backup de um aparelho sem criar duplicatas no outro.
+5. Executar `SYNC_TWO_DEVICE_HOMOLOGATION.md`, guardando apenas evidência
+   anonimizada e sem tokens, e-mails ou dados financeiros reais.
+
+**Não escopo:** multitenancy comercial, Open Finance, backup automático em nuvem
+ou resolução silenciosa de conflitos.
+
+**Aceite:** push/pull, offline, repetição, conflito e recuperação passam em dois
+aparelhos físicos; nenhum lançamento é duplicado, perdido ou sobrescrito sem
+revisão; a API é reconfigurável pela documentação sem expor segredos.
+
+### Marco 12 — Hardening de segurança e preparação de publicação
+
+**Objetivo:** decidir e aplicar a proteção adequada ao uso pessoal estável,
+preservando funcionamento offline e um processo reproduzível de release.
+
+**Pré-requisitos:** Fase 5H e Marco 11D aceitos. SQLCipher é decisão de projeto: não
+será introduzido como troca invisível de banco nem declarado obrigatório sem
+análise de migração, desempenho, recuperação e custo operacional.
+
+**Escopo:**
+
+1. Revisar dados em SQLite/Drift, backup exportado, notificações brutas, logs,
+   tokens, chaves de release, API e telemetria inexistente.
+2. Formalizar retenção configurável de eventos brutos, expurgo verificável e
+   privacidade/permissões coerentes com o comportamento real.
+3. Registrar a decisão de criptografia: manter SQLite com mitigação documentada
+   ou adotar SQLCipher com migração, rollback e testes de backup/restauração.
+4. Automatizar Flutter, API, contratos, lint Android e assinatura/checksum;
+   falhar a validação quando segredos ou dados pessoais surgirem em artefatos.
+5. Criar runbook de release/revogação: segredos fora do Git, versionamento,
+   checksum, instalação, recuperação e resposta a incidente.
+
+**Aceite:** inventário e privacidade revisados; decisão de criptografia
+justificada e testada; pipeline gera APK assinada com proveniência/checksum;
+restauração e revogação ensaiadas sem expor segredos. Publicação pública segue
+como decisão posterior ao uso pessoal estável.
+
+## Readequação visual — setembro de 2026
+
+### Marco 0 — Registro e limite
+
+- **Data:** 2026-09-01; **baseline Lovable:**
+  `pixel-perfect-pixels@33fb92b55c884cc61a7eb00307b7a8c2c51e25ad`, branch
+  `main`.
+- **Localhost analisado:** `http://localhost:8080/` respondeu HTTP 200. O
+  Lovable foi somente lido: não houve edição, geração, commit ou publicação.
+- **Estado sujo preexistente do Lovable:** `src/routeTree.gen.ts` e
+  `package-lock.json`. Esse estado é apenas registrado e deve ser preservado.
+- **Decisão sobre Flutter:** preservar o worktree atual, já sujo; este Marco 0
+  não autoriza `reset`, `stash`, reformat, atualização de goldens ou mudanças
+  em código, testes e artefatos de produção.
+
+### Inventário das 21 rotas de tela
+
+`/review` redireciona para `/` e não entra na contagem de telas.
+
+| # | Rota | # | Rota | # | Rota |
+| ---: | --- | ---: | --- | ---: | --- |
+| 1 | `/` | 8 | `/import` | 15 | `/settings` |
+| 2 | `/backup` | 9 | `/invoices` | 16 | `/summary` |
+| 3 | `/capture` | 10 | `/local-data` | 17 | `/sync-privacy` |
+| 4 | `/commitments` | 11 | `/movimentacoes` | 18 | `/reports/mensal` |
+| 5 | `/duplicates` | 12 | `/onboarding` | 19 | `/reports/parcelas` |
+| 6 | `/family` | 13 | `/registries` | 20 | `/transaction/$id` |
+| 7 | `/identidade` | 14 | `/rules` | 21 | `/transaction/new` |
+
+### Marco 1 — Fundação visual e shell compartilhado
+
+- **Concluído em:** 2026-09-01, sem iniciar o Marco 2.
+- Consolidada a fundação em `ZimbaTheme` e `zimba_ui.dart`: shell das cinco
+  jornadas, cabeçalho compacto, viewport, navegação inferior com área segura,
+  botões, sheets, segmentação, rows e feedbacks reutilizáveis.
+- Os componentes usam exclusivamente os tokens Zimba já canônicos (cores,
+  raios, sombras, espaçamentos e tipografia Inter); não introduzem tokens ou
+  comportamento de domínio novos.
+- A shell principal passou a usar `ZimbaHomeScaffold`; páginas continuam donas
+  de seus estados e operações Drift. Não houve mudança em regras financeiras,
+  sync, importação, banco, parsing ou goldens.
+- Cobertura de regressão dos componentes executada em `360×800` e `390×844`
+  com escala de texto `1,3`; ela verifica leitura, áreas de toque, folha modal,
+  navegação e ausência de exceções/overflow.
+
+### Marco 2 — Revisão e Movimentações
+
+- **Concluído em:** 2026-09-01; escopo encerrado após estas duas jornadas.
+- A Caixa de Revisão recebeu o shell de cabeçalho compacto, estados de
+  carregamento/erro/vazio e feedback temporal com desfazer, mantendo confirmar,
+  ignorar, abrir detalhe e as operações Drift já existentes.
+- Movimentações recebeu o mesmo shell, busca limpável, chips rápidos, linhas
+  densas com avatares, badges e valores, além de filtros avançados em bottom
+  sheet. Os filtros ativos são exibidos individualmente, podem ser removidos e
+  podem ser limpos de uma vez.
+- `flutter analyze` não reportou problemas e `flutter test
+  test/phase1_widget_test.dart --update-goldens` passou com 14 testes. Os
+  goldens de Revisão e Movimentações foram atualizados em `360×800` e
+  `390×844`; as verificações cobrem confirmar, ignorar/desfazer, detalhe,
+  busca, filtros combinados e limpar filtros.
+- Não foram alterados Drift, domínio financeiro, sync, parsing, importação ou
+  o repositório Lovable.
+
+### Marco 3 — Novo lançamento e detalhe/edição
+
+- **Concluído em:** 2026-09-01; escopo encerrado após Novo e Detalhe/Edição.
+- Novo passou a agrupar valor/tipo, descrição, instrumento, classificação e
+  participantes no shell visual. O seletor de instrumento abre em sheet e
+  identifica conta/cartão por tipo, instituição, titular e final; criação
+  inline de categoria e centro permanece integrada ao formulário.
+- Detalhe abre em leitura e só expõe campos após **Editar**. Os seletores usam
+  sheets compartilhados e a tela mostra origem, confiança, duplicidade provável
+  e sugestão de transferência a partir do estado existente, sem inventar dados.
+- A edição atualiza somente `displayDescription`; `descriptionRaw` é visível
+  como texto externo imutável para auditoria. Nenhum contrato Drift, schema ou
+  regra financeira foi alterado.
+- Passaram `flutter analyze`, `phase1_widget_test.dart` (14),
+  `phase2_test.dart` (4) e `marco3_widget_test.dart` (2). A cobertura valida
+  receita, despesa, transferência, criação inline, instrumento ambíguo, edição
+  explícita, texto externo e textos longos; goldens do detalhe foram renovados
+  em `360×800` e `390×844`.
+
+### Marco 4 — Resumo e relatórios
+
+- **Concluído em:** 2026-09-01; escopo encerrado após Resumo, Relatório mensal
+  e Parcelas futuras.
+- O Resumo passa a selecionar competência e separa pendências dos realizados.
+  Receita, despesa, saldo e detalhamentos consideram apenas confirmados;
+  transferências continuam neutras e visíveis sem contaminar os totais.
+- O reports_page.dart existente foi consolidado em uma entrada filha para
+  /reports/mensal e /reports/parcelas, com retorno explícito. Relatórios não
+  foram adicionados como sexto item da navegação principal.
+- Relatório mensal oferece competência, estado vazio e alternância de
+  categoria para grupo/contexto. Parcelas futuras agrupa a projeção de planos
+  e recorrências na competência, respeita o horizonte conhecido e não insere
+  lançamento, compromisso ou dado no Drift.
+- marco4_widget_test.dart passou com 3 testes nos viewports 360×800 e 390×844,
+  com escala 1,3, cobrindo valores grandes, mês vazio, detalhamento alternável
+  e projeção sem escrita. Também passaram a regressão de agregação operacional
+  e flutter analyze, sem overflow.
+- Não houve mudança de schema ou contrato de dados; o ajuste de agregação
+  aplica a regra já exigida de excluir pendências e transferências dos totais.
+
+### Marco 5 — Ajustes, cadastros e domínio familiar
+
+- **Concluído em:** 2026-09-01; escopo encerrado após Ajustes, Família,
+  Cadastros, Compromissos e Faturas.
+- As jornadas secundárias passaram a usar cabeçalho compacto, retorno e ações
+  reais; loading, vazio e erro foram alinhados aos componentes compartilhados.
+  O rótulo de carregamento foi tornado responsivo para não exceder 360 px.
+- Ajustes preserva todas as jornadas filhas. Família mantém a estrutura
+  existente e seus encaminhamentos. Cadastros conserva CRUD, formulários e
+  arquivamento; a lista de contas deixa de repetir a conta técnica de cartões,
+  distinguindo corretamente os instrumentos do mesmo banco.
+- Compromissos preserva recorrências, planos, arquivamento, edição e projeção
+  sem lançamento novo. Faturas preserva ciclo, compra, estorno, pagamento
+  parcial, conciliação, desfazer e projeções, sem alterar seus cálculos.
+- Passaram 11 testes em marco5_widget_test.dart, marco_c_widget_test.dart,
+  registries_page_widget_test.dart e phase4b_test.dart, incluindo 360×800,
+  390×844, texto 1,3, vazio, valores e nomes longos, instrumentos do mesmo
+  banco, compromisso ativo, fatura parcial, estorno e pagamento. flutter
+  analyze não reportou problemas.
+- Não houve alteração de schema, contrato Drift ou regra financeira.
+
+### Marco 6 — Operações de suporte
+
+- **Concluído em:** 2026-09-01; escopo encerrado após Importação, Conciliação,
+  Regras, Backup, Sync/Privacidade, Captura Android e Dados locais/reset.
+- As páginas secundárias passaram a usar o shell compacto e seus estados
+  compartilhados. Importação preserva stepper, prévia, badges e confirmação
+  de destino; Conciliação preserva mesclar, manter separados e ignorar.
+- Regras continua persistindo match, prioridade, estado e destino. Backup
+  valida o JSON antes de uma confirmação explícita de substituição. Reset usa
+  sheet compartilhado, exige `ZERAR` e mantém explícitas as permissões Android
+  que não podem ser revogadas pelo app.
+- Sync sem configuração mostra somente a fila local e declara que nenhum dado
+  será enviado. Captura mostra disponibilidade, permissão e apps reais; em
+  ambiente não Android, os controles permanecem indisponíveis.
+- Passaram marco6_widget_test.dart, phase2_test.dart, import_parser_test.dart
+  e três verificações direcionadas de app_database_test.dart: 20 testes em
+  total, incluindo 360×800 e 390×844, escala 1,3, estados de plataforma,
+  reset, backup/restauração e CSV com destino confirmado. `flutter analyze`
+  não reportou problemas.
+- Não houve mudança de schema, contratos Drift, parser, regras financeiras ou
+  transporte de sync.
+
+### Marco 7 — Onboarding progressivo
+
+- **Concluído em:** 2026-09-01; escopo encerrado após a configuração inicial.
+- O onboarding foi refeito como jornada progressiva: pessoa, instituição,
+  tipo, identidade, dados específicos de cartão, categorias e revisão. O
+  progresso é visível, voltar mantém as respostas e sair não grava dados.
+- O catálogo usa somente monogramas, cores e ícones vetoriais internos, com
+  fallback “Outra instituição”; não há logos sem licença.
+- `SetupInput` e `saveInitialSetup` agora aceitam cartão, bandeira, final,
+  fechamento, vencimento e categorias selecionadas. A criação de pessoa,
+  instrumento, preferências e catálogo ocorre na transação de setup; a opção
+  de demonstração continua explícita e separada.
+- Passaram 18 testes entre marco7_widget_test.dart, onboarding_widget_test.dart,
+  phase2_test.dart e a regressão de setup inicial: instalação limpa, retorno
+  após reset, validações, conta/cartão, dados de cartão, categorias, retorno,
+  interrupção e conclusão, incluindo 360×800 e 390×844. `flutter analyze` não
+  reportou problemas.
+- Não houve schema novo, logo externo ou criação de lançamento artificial.
+
+### Marco 8 — Regressão visual, acessibilidade e homologação
+
+- **Automação aprovada em:** 2026-09-01. Não houve redesign adicional; apenas
+  correções de regressão e atualização de evidências.
+- O capturador de baseline e a matriz golden passaram a cobrir as **21 rotas**
+  Lovable, incluindo `/reports/mensal` e `/reports/parcelas`. Foram geradas 63
+  capturas de `pixel-perfect-pixels@33fb92b`, 42 pares/overlays nos viewports
+  obrigatórios `360×800` e `390×844`, e 21 diagnósticos extras em `440×900`.
+  Artefatos: `baselines/lovable/33fb92b`, `comparisons/33fb92b` e
+  `apps/mobile/test/goldens/parity`.
+- Foram revalidados texto `1,3`, vazio, erro, loading, offline e conteúdo
+  longo nas jornadas cobertas pelas suítes dos Marcos 1–7. `flutter analyze`
+  passou sem problemas; `flutter test` passou com **159 testes**.
+- As correções limitaram-se a: sincronizar goldens, impedir colisão de ID em
+  dois lotes de importação imediatos e estabilizar testes que dependiam do
+  relógio/teclado. A tolerância de comparação é `0,04%` apenas para
+  rasterização (89 pixels no detalhe); não é tolerância de geometria.
+- Diferenças aceitas: Flutter preserva dados e estados reais de Drift, sync,
+  permissões e backup; relatórios são jornadas filhas com retorno nativo, sem
+  sexto item de navegação. Essas diferenças não são mascaradas nos overlays.
+- **Pendência externa:** não houve Android físico no ADB. Há AVD Pixel_Tablet,
+  mas ele não substitui toque/TalkBack em aparelho; o roteiro físico permanece
+  pendente de reconexão de dispositivo.
+
+### Estratégia de screenshot/overlay
+
+Nos marcos posteriores, produzir pares Lovable/Flutter da mesma rota e estado,
+com dados demonstrativos determinísticos, nos viewports `360×800` e `390×844`.
+Sobrepor as imagens para verificar moldura, alinhamento, espaçamento,
+tipografia, cor e overflow; registrar baseline, rota, estado e viewport junto
+de qualquer divergência deliberada. O Marco 1 validou a base responsiva; as
+capturas pareadas das demais rotas pertencem aos marcos posteriores.
 
 ## 2. Fase 0 — Base canônica e auditoria
 

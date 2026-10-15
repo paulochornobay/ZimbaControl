@@ -63,6 +63,154 @@ class ZimbaViewport extends StatelessWidget {
   }
 }
 
+/// The five primary journeys share one shell. Individual pages still own their
+/// real Drift-backed state; this widget only owns the safe navigation frame.
+class ZimbaHomeScaffold extends StatelessWidget {
+  const ZimbaHomeScaffold({
+    required this.body,
+    required this.selectedIndex,
+    required this.onSelected,
+    super.key,
+  });
+
+  final Widget body;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: body,
+      bottomNavigationBar: ZimbaBottomNavigation(
+        selectedIndex: selectedIndex,
+        onSelected: onSelected,
+      ),
+    );
+  }
+}
+
+/// Compact header for secondary pages. It applies the top safe area itself so
+/// it can also be used outside a [Scaffold.appBar].
+class ZimbaCompactHeader extends StatelessWidget {
+  const ZimbaCompactHeader({
+    required this.title,
+    super.key,
+    this.subtitle,
+    this.leading,
+    this.trailing,
+    this.showDivider = true,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget? leading;
+  final Widget? trailing;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final compactWidth = MediaQuery.sizeOf(context).width <= 390;
+    final horizontalPadding = compactWidth ? 8.0 : 16.0;
+    final controlGap = compactWidth ? 0.0 : 8.0;
+    return SafeArea(
+      bottom: false,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: ZimbaColors.background,
+          border: showDivider
+              ? const Border(bottom: BorderSide(color: ZimbaColors.border))
+              : null,
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 64),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              10,
+              horizontalPadding,
+              10,
+            ),
+            child: Row(
+              children: [
+                if (leading != null) ...[leading!, SizedBox(width: controlGap)],
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: ZimbaColors.secondaryText),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (trailing != null) ...[
+                  SizedBox(width: controlGap),
+                  trailing!,
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Applies the shared sheet geometry and safe area without coupling a sheet to
+/// any financial action.
+Future<T?> showZimbaSheet<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool isScrollControlled = false,
+}) {
+  return showModalBottomSheet<T>(
+    context: context,
+    isScrollControlled: isScrollControlled,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) => ZimbaSheet(child: builder(sheetContext)),
+  );
+}
+
+class ZimbaSheet extends StatelessWidget {
+  const ZimbaSheet({required this.child, super.key, this.padding});
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Material(
+        color: ZimbaColors.surface,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(ZimbaRadii.xl),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: padding ?? const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
 class ZimbaSection extends StatelessWidget {
   const ZimbaSection({
     required this.child,
@@ -164,6 +312,124 @@ class ZimbaRows extends StatelessWidget {
                 const Divider(height: 1, color: ZimbaColors.border),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Dense, tappable row for settings and selection lists. The full row keeps a
+/// 48 dp target even when its label is scaled up.
+class ZimbaRow extends StatelessWidget {
+  const ZimbaRow({
+    required this.title,
+    super.key,
+    this.subtitle,
+    this.leading,
+    this.trailing,
+    this.onTap,
+    this.enabled = true,
+  });
+
+  final String title;
+  final String? subtitle;
+  final Widget? leading;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: Row(
+        children: [
+          if (leading != null) ...[
+            IconTheme(
+              data: const IconThemeData(color: ZimbaColors.secondaryText),
+              child: leading!,
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: enabled ? null : ZimbaColors.secondaryText,
+                  ),
+                ),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: ZimbaColors.secondaryText,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (trailing != null) ...[const SizedBox(width: 12), trailing!],
+        ],
+      ),
+    );
+    if (onTap == null) return content;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 48),
+          child: content,
+        ),
+      ),
+    );
+  }
+}
+
+/// Controlled segmented selection with the same resilient horizontal scroll
+/// behaviour on 360 dp screens and with enlarged text.
+class ZimbaSegmentedControl<T> extends StatelessWidget {
+  const ZimbaSegmentedControl({
+    required this.segments,
+    required this.selected,
+    required this.onSelectionChanged,
+    super.key,
+    this.multiSelectionEnabled = false,
+    this.emptySelectionAllowed = false,
+  });
+
+  final List<ButtonSegment<T>> segments;
+  final Set<T> selected;
+  final ValueChanged<Set<T>> onSelectionChanged;
+  final bool multiSelectionEnabled;
+  final bool emptySelectionAllowed;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minWidth: constraints.maxWidth),
+          child: SegmentedButton<T>(
+            segments: segments,
+            selected: selected,
+            onSelectionChanged: onSelectionChanged,
+            multiSelectionEnabled: multiSelectionEnabled,
+            emptySelectionAllowed: emptySelectionAllowed,
+            showSelectedIcon: false,
+          ),
         ),
       ),
     );
@@ -297,12 +563,81 @@ class ZimbaStateMessage extends StatelessWidget {
                 context,
               ).textTheme.bodySmall?.copyWith(color: ZimbaColors.secondaryText),
             ),
-            if (action != null) ...[const SizedBox(height: 16), action!],
+            if (action != null) ...[
+              const SizedBox(height: 16),
+              SizedBox(width: double.infinity, child: action!),
+            ],
           ],
         ),
       ),
     );
   }
+}
+
+/// Loading treatment shared by the operational lists. It keeps a visible
+/// status label and the same dense-surface rhythm used by the Lovable
+/// reference, instead of exposing an isolated platform spinner.
+class ZimbaLoadingState extends StatelessWidget {
+  const ZimbaLoadingState({
+    super.key,
+    this.label = 'Carregando…',
+    this.rows = 3,
+  });
+
+  final String label;
+  final int rows;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: label,
+      liveRegion: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: ZimbaColors.secondaryText,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          for (var index = 0; index < rows; index++) ...[
+            const _ZimbaLoadingRow(),
+            if (index < rows - 1) const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ZimbaLoadingRow extends StatelessWidget {
+  const _ZimbaLoadingRow();
+
+  @override
+  Widget build(BuildContext context) => const DecoratedBox(
+    decoration: BoxDecoration(
+      color: ZimbaColors.surface,
+      borderRadius: BorderRadius.all(Radius.circular(ZimbaRadii.lg)),
+      border: Border.fromBorderSide(BorderSide(color: ZimbaColors.border)),
+    ),
+    child: SizedBox(height: 76),
+  );
 }
 
 /// Reusable inline feedback for recoverable loading, import and local-action
@@ -363,6 +698,43 @@ class ZimbaFeedbackBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Ephemeral feedback that is independent from the current page. Keeping the
+/// duration explicit prevents confirmations from leaking into another tab.
+class ZimbaFeedbackSnackBar extends SnackBar {
+  ZimbaFeedbackSnackBar({
+    required String message,
+    super.key,
+    this.tone = ZimbaTone.neutral,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) : super(
+         duration: const Duration(seconds: 4),
+         persist: false,
+         showCloseIcon: true,
+         content: Row(
+           children: [
+             Icon(_iconFor(tone), size: 18, color: Colors.white),
+             const SizedBox(width: 10),
+             Expanded(child: Text(message)),
+           ],
+         ),
+         action: actionLabel == null || onAction == null
+             ? null
+             : SnackBarAction(label: actionLabel, onPressed: onAction),
+       );
+
+  final ZimbaTone tone;
+
+  static IconData _iconFor(ZimbaTone tone) => switch (tone) {
+    ZimbaTone.success => Icons.check_circle_outline,
+    ZimbaTone.warning => Icons.error_outline,
+    ZimbaTone.danger => Icons.error_outline,
+    ZimbaTone.accent => Icons.info_outline,
+    ZimbaTone.info => Icons.info_outline,
+    ZimbaTone.neutral => Icons.info_outline,
+  };
 }
 
 /// Compact, semantic representation of people in list cards.  Names belong in

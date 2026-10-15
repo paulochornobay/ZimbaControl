@@ -43,13 +43,16 @@ class SummaryBreakdownItem {
 }
 
 DashboardSummary buildDashboardSummary(List<FinanceTransaction> transactions) {
-  final income = transactions
+  final confirmed = transactions
+      .where((tx) => tx.reviewStatus == 'confirmed')
+      .toList(growable: false);
+  final income = confirmed
       .where((tx) => tx.kind == 'income')
       .fold<int>(0, (sum, tx) => sum + tx.amountCents);
-  final expense = transactions
+  final expense = confirmed
       .where((tx) => tx.kind == 'expense')
       .fold<int>(0, (sum, tx) => sum + tx.amountCents);
-  final pending = transactions.where((tx) => tx.reviewStatus == 'pending');
+  final pending = transactions.where((tx) => tx.reviewStatus != 'confirmed');
 
   return DashboardSummary(
     incomeCents: income,
@@ -74,6 +77,9 @@ DashboardSummary buildOperationalDashboardSummary({
   final summary = buildDashboardSummary(
     monthDetails.map((item) => item.transaction).toList(growable: false),
   );
+  final confirmedMonthDetails = monthDetails
+      .where((item) => item.transaction.reviewStatus == 'confirmed')
+      .toList(growable: false);
 
   final commitmentCents =
       recurringSchedules
@@ -88,34 +94,42 @@ DashboardSummary buildOperationalDashboardSummary({
     expenseCents: summary.expenseCents,
     pendingCount: summary.pendingCount,
     transferCount: monthDetails
-        .where((item) => item.transaction.kind == 'transfer')
+        .where(
+          (item) =>
+              item.transaction.reviewStatus == 'confirmed' &&
+              item.transaction.kind == 'transfer',
+        )
         .length,
     transferCents: monthDetails
-        .where((item) => item.transaction.kind == 'transfer')
+        .where(
+          (item) =>
+              item.transaction.reviewStatus == 'confirmed' &&
+              item.transaction.kind == 'transfer',
+        )
         .fold<int>(0, (sum, item) => sum + item.transaction.amountCents.abs()),
     pendingCents: monthDetails
         .where((item) => item.transaction.reviewStatus == 'pending')
         .fold<int>(0, (sum, item) => sum + item.transaction.amountCents),
     futureCommitmentCents: commitmentCents,
     byPerson: _breakdown(
-      monthDetails,
+      confirmedMonthDetails,
       expensesOnly: true,
       labelFor: (item) => item.beneficiaries.isEmpty
           ? 'Sem beneficiario'
           : item.beneficiaries.map((person) => person.displayName).join(', '),
     ),
     byCategory: _breakdown(
-      monthDetails,
+      confirmedMonthDetails,
       expensesOnly: true,
       labelFor: (item) => item.category?.name ?? 'Sem categoria',
     ),
     byCostCenter: _breakdown(
-      monthDetails,
+      confirmedMonthDetails,
       expensesOnly: true,
       labelFor: (item) => item.costCenter?.name ?? 'Sem centro',
     ),
     bySource: _breakdown(
-      monthDetails,
+      confirmedMonthDetails,
       labelFor: (item) => item.sourceLabel,
       includeTransfers: true,
     ),

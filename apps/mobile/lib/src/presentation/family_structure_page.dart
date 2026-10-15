@@ -46,45 +46,46 @@ class _FamilyStructurePageState extends State<FamilyStructurePage> {
       future: snapshotFuture,
       builder: (context, snapshot) {
         return Scaffold(
-          appBar: AppBar(
-            title: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Família'),
-                Text(
-                  'Pessoas, contas e compromissos',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400),
+          body: Column(
+            children: [
+              ZimbaCompactHeader(
+                title: 'Família',
+                subtitle: '${snapshot.data?.people.length ?? 0} pessoas',
+                leading: IconButton(
+                  tooltip: 'Voltar',
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.arrow_back, size: 21),
                 ),
-              ],
-            ),
-            actions: [
-              IconButton(
-                tooltip: 'Atualizar',
-                onPressed: refresh,
-                icon: const Icon(Icons.refresh_outlined),
+                trailing: IconButton(
+                  tooltip: 'Atualizar',
+                  onPressed: refresh,
+                  icon: const Icon(Icons.refresh_outlined),
+                ),
+              ),
+              Expanded(
+                child: switch (snapshot.connectionState) {
+                  ConnectionState.waiting => const ZimbaLoadingState(
+                    label: 'Carregando a família',
+                  ),
+                  _ when snapshot.hasError => ZimbaStateMessage(
+                    icon: Icons.error_outline,
+                    title: 'Não foi possível carregar a família',
+                    body: 'Tente atualizar. Nenhum cadastro foi alterado.',
+                    action: OutlinedButton.icon(
+                      onPressed: refresh,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Atualizar'),
+                    ),
+                  ),
+                  _ => FamilyStructureContent(
+                    database: widget.database,
+                    snapshot: snapshot.data!,
+                    onChanged: refresh,
+                  ),
+                },
               ),
             ],
           ),
-          body: switch (snapshot.connectionState) {
-            ConnectionState.waiting => const Center(
-              child: CircularProgressIndicator(),
-            ),
-            _ when snapshot.hasError => ZimbaStateMessage(
-              icon: Icons.error_outline,
-              title: 'Não foi possível carregar a família',
-              body: 'Tente atualizar. Nenhum cadastro foi alterado.',
-              action: OutlinedButton.icon(
-                onPressed: refresh,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Atualizar'),
-              ),
-            ),
-            _ => FamilyStructureContent(
-              database: widget.database,
-              snapshot: snapshot.data!,
-              onChanged: refresh,
-            ),
-          },
         );
       },
     );
@@ -310,63 +311,73 @@ class DataEnvironmentPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Dados locais')),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
+      body: Column(
         children: [
-          FutureBuilder<LocalDataStatus>(
-            future: database.getLocalDataStatus(),
-            builder: (context, snapshot) => _LocalInventoryCard(
-              status: snapshot.data,
-              loading: snapshot.connectionState == ConnectionState.waiting,
-            ),
+          const ZimbaCompactHeader(
+            title: 'Dados locais',
+            subtitle: 'Armazenamento no aparelho',
           ),
-          const SizedBox(height: 20),
-          _Section(
-            title: 'Ambiente',
-            children: [
-              EnvironmentPanel(
-                database: database,
-                onChanged: () {
-                  Navigator.of(context).pop();
-                  onChanged();
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          const ZimbaSectionTitle('Área de perigo'),
-          ZimbaCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
               children: [
-                const Icon(
-                  Icons.warning_amber_rounded,
-                  color: ZimbaColors.destructive,
-                  size: 30,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Começar do zero',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
+                FutureBuilder<LocalDataStatus>(
+                  future: database.getLocalDataStatus(),
+                  builder: (context, snapshot) => _LocalInventoryCard(
+                    status: snapshot.data,
+                    loading:
+                        snapshot.connectionState == ConnectionState.waiting,
                   ),
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Faça um backup antes se quiser recuperar os lançamentos e cadastros depois.',
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => BackupSettingsPage(database: database),
-                      ),
+                const SizedBox(height: 20),
+                _Section(
+                  title: 'Ambiente',
+                  children: [
+                    EnvironmentPanel(
+                      database: database,
+                      onChanged: () {
+                        Navigator.of(context).pop();
+                        onChanged();
+                      },
                     ),
-                    icon: const Icon(Icons.archive_outlined),
-                    label: const Text('Fazer backup antes'),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const ZimbaSectionTitle('Área de perigo'),
+                ZimbaCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.warning_amber_rounded,
+                        color: ZimbaColors.destructive,
+                        size: 30,
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Começar do zero',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Faça um backup antes se quiser recuperar os lançamentos e cadastros depois.',
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  BackupSettingsPage(database: database),
+                            ),
+                          ),
+                          icon: const Icon(Icons.archive_outlined),
+                          label: const Text('Fazer backup antes'),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -488,25 +499,22 @@ class NotificationSettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 72,
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Captura Android'),
-            Text(
-              'Permissão, apps monitorados e privacidade',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
-            ),
-          ],
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
+      body: Column(
         children: [
-          _Section(
-            title: 'Notificações financeiras',
-            children: [NotificationCapturePanel(database: database)],
+          const ZimbaCompactHeader(
+            title: 'Captura Android',
+            subtitle: 'Permissão, apps e privacidade',
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+              children: [
+                _Section(
+                  title: 'Notificações financeiras',
+                  children: [NotificationCapturePanel(database: database)],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -522,13 +530,22 @@ class BackupSettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Backup e recuperação')),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
+      body: Column(
         children: [
-          _Section(
-            title: 'Arquivo local',
-            children: [BackupPanel(database: database)],
+          const ZimbaCompactHeader(
+            title: 'Backup',
+            subtitle: 'Exportar, recuperar e consultar',
+          ),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+              children: [
+                _Section(
+                  title: 'Arquivo local',
+                  children: [BackupPanel(database: database)],
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -587,10 +604,9 @@ class _EnvironmentPanelState extends State<EnvironmentPanel> {
   Future<void> clearLocalData() async {
     final status = await statusFuture;
     if (!mounted) return;
-    final confirmed = await showModalBottomSheet<bool>(
+    final confirmed = await showZimbaSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
       builder: (_) => _ResetConfirmationSheet(status: status),
     );
     if (confirmed != true) {
@@ -695,91 +711,81 @@ class _ResetConfirmationSheetState extends State<_ResetConfirmationSheet> {
   Widget build(BuildContext context) {
     final enabled = controller.text.trim().toUpperCase() == 'ZERAR';
     final status = widget.status;
-    return SafeArea(
-      top: false,
-      child: Container(
-        padding: EdgeInsets.fromLTRB(
-          20,
-          18,
-          20,
-          16 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        decoration: const BoxDecoration(
-          color: ZimbaColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Zerar aplicativo',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
+    return ZimbaSheet(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        18,
+        20,
+        16 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Zerar aplicativo',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                   ),
-                  IconButton(
-                    tooltip: 'Fechar',
-                    onPressed: () => Navigator.of(context).pop(false),
-                    icon: const Icon(Icons.close),
-                  ),
-                ],
-              ),
-              const Text(
-                'Esta ação remove dados financeiros, importações, regras, sync, fila de notificações e sessão deste aparelho.',
-              ),
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: ZimbaColors.surfaceMuted,
-                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  '${status.transactions} lançamentos · ${status.accounts + status.creditCards} instrumentos\n'
-                  '${status.categories + status.costCenters} classificações · ${status.importBatches} importações\n'
-                  '${status.classificationRules} regras · ${status.syncRecords} registros de sync',
+                IconButton(
+                  tooltip: 'Fechar',
+                  onPressed: () => Navigator.of(context).pop(false),
+                  icon: const Icon(Icons.close),
                 ),
+              ],
+            ),
+            const Text(
+              'Esta ação remove dados financeiros, importações, regras, sync, fila de notificações e sessão deste aparelho.',
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: ZimbaColors.surfaceMuted,
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(height: 12),
-              const Text(
-                'As permissões concedidas pelo Android, como acesso às notificações, permanecem ativas.',
-                style: TextStyle(color: ZimbaColors.secondaryText),
+              child: Text(
+                '${status.transactions} lançamentos · ${status.accounts + status.creditCards} instrumentos\n'
+                '${status.categories + status.costCenters} classificações · ${status.importBatches} importações\n'
+                '${status.classificationRules} regras · ${status.syncRecords} registros de sync',
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                textCapitalization: TextCapitalization.characters,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  labelText: 'Digite ZERAR para confirmar',
-                  border: OutlineInputBorder(),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'As permissões concedidas pelo Android, como acesso às notificações, permanecem ativas.',
+              style: TextStyle(color: ZimbaColors.secondaryText),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Digite ZERAR para confirmar',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: enabled
+                    ? () => Navigator.of(context).pop(true)
+                    : null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: ZimbaColors.destructive,
                 ),
+                icon: const Icon(Icons.delete_forever_outlined),
+                label: const Text('Apagar tudo e voltar ao início'),
               ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: enabled
-                      ? () => Navigator.of(context).pop(true)
-                      : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: ZimbaColors.destructive,
-                  ),
-                  icon: const Icon(Icons.delete_forever_outlined),
-                  label: const Text('Apagar tudo e voltar ao início'),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -807,7 +813,17 @@ class _NotificationCapturePanelState extends State<NotificationCapturePanel> {
   }
 
   Future<_NotificationPanelState> _load() async {
-    final status = await service.loadStatus();
+    var status = await service.loadStatus();
+    const nubankPackage = 'com.nu.production';
+    if (status.available &&
+        status.allowedPackages.any((item) => item != nubankPackage)) {
+      await service.setAllowedPackages(
+        status.allowedPackages.contains(nubankPackage)
+            ? const [nubankPackage]
+            : const [],
+      );
+      status = await service.loadStatus();
+    }
     final sync = await widget.database.syncNotificationCaptureEvents(service);
     final rawEvents = await widget.database.listRawNotificationEvents(limit: 3);
     final diagnostics = await widget.database
@@ -897,7 +913,7 @@ class _NotificationCapturePanelState extends State<NotificationCapturePanel> {
                   : 'Permissao ausente',
               subtitle: status.available
                   ? allowedApps == 0
-                        ? 'Nenhum app permitido. Ative Nubank ou Mercado Pago abaixo.'
+                        ? 'Nenhum app permitido. Ative somente Nubank abaixo.'
                         : '$allowedApps app(s) permitido(s). Os dados ficam locais.'
                   : 'Captura real disponivel apenas no Android.',
             ),
@@ -916,7 +932,7 @@ class _NotificationCapturePanelState extends State<NotificationCapturePanel> {
               'No banco local: ${diagnostics.count('draft_created')} em revisao · '
               '${diagnostics.count('merged')} conciliadas · '
               '${diagnostics.count('duplicate')} duplicadas · '
-              '${diagnostics.count('ignored_no_amount')} sem valor.',
+              '${diagnostics.count('not_interpreted')} nao interpretadas.',
               style: Theme.of(context).textTheme.bodySmall,
             ),
             if ((data.sync.bridgeError ?? diagnostics.lastError ?? '')
@@ -941,13 +957,9 @@ class _NotificationCapturePanelState extends State<NotificationCapturePanel> {
                 onChanged: !status.available
                     ? null
                     : (enabled) async {
-                        final packages = status.allowedPackages.toSet();
-                        if (enabled) {
-                          packages.add(app.packageName);
-                        } else {
-                          packages.remove(app.packageName);
-                        }
-                        await service.setAllowedPackages(packages.toList());
+                        await service.setAllowedPackages(
+                          enabled ? [app.packageName] : const [],
+                        );
                         _refresh();
                       },
               ),
@@ -1051,8 +1063,7 @@ class _NotificationPanelState {
 }
 
 enum _KnownNotificationApp {
-  nubank('Nubank', 'com.nu.production'),
-  mercadoPago('Mercado Pago', 'com.mercadopago.wallet');
+  nubank('Nubank', 'com.nu.production');
 
   const _KnownNotificationApp(this.label, this.packageName);
 
@@ -1061,9 +1072,10 @@ enum _KnownNotificationApp {
 }
 
 class SyncPanel extends StatefulWidget {
-  const SyncPanel({required this.database, super.key});
+  const SyncPanel({required this.database, this.onSyncComplete, super.key});
 
   final AppDatabase database;
+  final VoidCallback? onSyncComplete;
 
   @override
   State<SyncPanel> createState() => _SyncPanelState();
@@ -1239,6 +1251,15 @@ class _SyncPanelState extends State<SyncPanel> {
             '${summary.applied}/${summary.pulled} recebidos aplicados. '
             'Seq ${summary.latestSeq}.';
       });
+      widget.onSyncComplete?.call();
+    } on SyncApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        loading = false;
+        message = 'Nao foi possivel sincronizar agora (${error.message}).';
+      });
     } catch (_) {
       if (!mounted) {
         return;
@@ -1399,9 +1420,8 @@ class _PasswordSignInDialogState extends State<_PasswordSignInDialog> {
                   ),
                 ),
               ),
-              validator: (value) => (value?.isEmpty ?? true)
-                  ? 'Informe a senha.'
-                  : null,
+              validator: (value) =>
+                  (value?.isEmpty ?? true) ? 'Informe a senha.' : null,
             ),
           ],
         ),

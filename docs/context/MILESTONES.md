@@ -141,6 +141,10 @@ marcos abaixo pertencem aos respectivos ciclos históricos.
 - Marco 11 - Sync e Acesso Opcional: em andamento; 11A, 11B e 11C
   implementados tecnicamente; falta homologacao em dois aparelhos
 - Marco 12 - Seguranca e Publicacao: planejado
+- Fase 5H - Homologacao Android e release pessoal: planejada; depende de
+  aparelho fisico e preservacao do backup antes de trocar a instalacao.
+- Marco 11D - Sync em dois dispositivos e recuperacao: planejado; depende do
+  aceite da Fase 5H, API configurada e duas instalacoes Android.
 - Marco A - Captura Android ponta a ponta: implementado tecnicamente; falta
   homologacao em aparelho fisico e execucao dos testes instrumentados
 - Marco B - Sync de dois dispositivos: implementado tecnicamente; falta
@@ -549,3 +553,22 @@ Criterio de aceite:
 
 - Aplicativo instalavel, recuperavel e com tratamento claro dos dados
   sensiveis.
+
+Status: planejado. O escopo executavel, as dependencias e os criterios de
+aceite verificaveis estao em `docs/product/IMPLEMENTATION_ROADMAP.md`, na
+Fase 5H e nos Marcos 11D e 12. SQLCipher permanece uma decisao explicita: o banco local nao
+deve ser trocado silenciosamente.
+
+## Fase 5H - Homologacao Android fisica e release pessoal
+
+Status: planejado. Fecha a parte fisica pendente da Fase 5: instalacao limpa,
+onboarding, offline, teclado, TalkBack, importacao, captura, backup/restauracao
+e APK assinada em aparelho real. Os roteiros obrigatorios sao
+`MARCO_E_HOMOLOGATION.md` e `ANDROID_CAPTURE_HOMOLOGATION.md`.
+
+## Marco 11D - Sync em dois dispositivos e recuperacao
+
+Status: planejado. So inicia apos o aceite da Fase 5H e valida login, push/pull,
+offline, idempotencia, conflito concorrente e recuperacao em duas instalacoes
+Android contra API persistente. O roteiro obrigatorio e
+`SYNC_TWO_DEVICE_HOMOLOGATION.md`.

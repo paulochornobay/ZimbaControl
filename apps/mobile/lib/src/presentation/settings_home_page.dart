@@ -13,17 +13,20 @@ import 'feature_availability_page.dart';
 import 'import_page.dart';
 import 'invoices_page.dart';
 import 'registries_page.dart';
+import 'reports_page.dart';
 
 class SettingsHomePage extends StatefulWidget {
   const SettingsHomePage({
     required this.database,
     required this.onEnvironmentChanged,
+    this.onSignOut,
     this.onNavigate,
     super.key,
   });
 
   final AppDatabase database;
   final VoidCallback onEnvironmentChanged;
+  final Future<void> Function()? onSignOut;
   final ValueChanged<int>? onNavigate;
 
   @override
@@ -44,13 +47,13 @@ class _SettingsHomePageState extends State<SettingsHomePage> {
     final results = await Future.wait<Object>([
       notificationService.loadStatus(),
       widget.database.getLocalDataStatus(),
-      widget.database.listPendingSyncOutbox(),
+      widget.database.countPendingSyncOutbox(),
       widget.database.getNotificationCaptureDiagnostics(),
     ]);
     return _SettingsHubState(
       notification: results[0] as NotificationCaptureStatus,
       localData: results[1] as LocalDataStatus,
-      pendingSync: results[2] as List<SyncOutboxRow>,
+      pendingSync: results[2] as int,
       notificationDiagnostics: results[3] as NotificationCaptureDiagnostics,
     );
   }
@@ -65,181 +68,248 @@ class _SettingsHomePageState extends State<SettingsHomePage> {
     });
   }
 
+  Future<void> _signOut() async {
+    final shouldSignOut = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sair da conta?'),
+        content: const Text(
+          'Os dados locais permanecem neste aparelho. Você precisará entrar novamente para acessá-los.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Sair'),
+          ),
+        ],
+      ),
+    );
+    if (shouldSignOut == true && mounted && widget.onSignOut != null) {
+      await widget.onSignOut!();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<_SettingsHubState>(
       future: stateFuture,
       builder: (context, snapshot) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Ajustes'),
-          actions: [
-            IconButton(
-              tooltip: 'Atualizar estados locais',
-              onPressed: () => setState(() => stateFuture = _load()),
-              icon: const Icon(Icons.refresh_outlined),
-            ),
-          ],
-        ),
-        body: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        body: Column(
           children: [
-            if (snapshot.hasError) ...[
-              const ZimbaFeedbackBanner(
-                icon: Icons.error_outline,
-                title: 'Alguns estados locais não puderam ser lidos',
-                body:
-                    'As jornadas continuam disponíveis; atualize para tentar novamente.',
-                tone: ZimbaTone.warning,
-              ),
-              const SizedBox(height: 14),
-            ],
-            _SettingsOverview(
-              localData: snapshot.data?.localData,
-              loading: snapshot.connectionState == ConnectionState.waiting,
-            ),
-            const SizedBox(height: 14),
-            const ZimbaSectionTitle('Captura de notificação'),
-            ZimbaCard(
-              padding: EdgeInsets.zero,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(ZimbaLayout.cardRadius),
-                onTap: () => _open(
-                  context,
-                  NotificationSettingsPage(database: widget.database),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: _SettingsFeature(
-                    icon: Icons.notifications_none_outlined,
-                    title: 'Captura Android',
-                    subtitle: _notificationSubtitle(
-                      snapshot.data?.notification,
-                    ),
-                    status: _notificationStatus(snapshot.data?.notification),
-                    tone: _notificationTone(snapshot.data?.notification),
-                    accent: true,
-                  ),
-                ),
+            ZimbaCompactHeader(
+              title: 'Ajustes',
+              subtitle: 'Controle fino dos dados da família',
+              trailing: IconButton(
+                tooltip: 'Atualizar estados locais',
+                onPressed: () => setState(() => stateFuture = _load()),
+                icon: const Icon(Icons.refresh_outlined),
               ),
             ),
-            const SizedBox(height: 22),
-            const ZimbaSectionTitle('Dados'),
-            ZimbaRows(
-              children: [
-                _SettingsRow(
-                  icon: Icons.file_upload_outlined,
-                  title: 'Importar CSV/OFX',
-                  subtitle: 'Nubank, Mercado Pago e CSV genérico',
-                  onTap: () =>
-                      _open(context, ImportPage(database: widget.database)),
-                ),
-                _SettingsRow(
-                  icon: Icons.content_copy_outlined,
-                  title: 'Resolver duplicidades',
-                  subtitle: 'Compare e mescle fontes',
-                  onTap: () =>
-                      _open(context, DuplicatesPage(database: widget.database)),
-                ),
-                _SettingsRow(
-                  icon: Icons.auto_awesome_outlined,
-                  title: 'Regras',
-                  subtitle: 'Estado da classificação e próximos recursos',
-                  onTap: () => _open(
-                    context,
-                    RulesPreviewPage(database: widget.database),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+                children: [
+                  if (snapshot.hasError) ...[
+                    const ZimbaFeedbackBanner(
+                      icon: Icons.error_outline,
+                      title: 'Alguns estados locais não puderam ser lidos',
+                      body:
+                          'As jornadas continuam disponíveis; atualize para tentar novamente.',
+                      tone: ZimbaTone.warning,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  _SettingsOverview(
+                    localData: snapshot.data?.localData,
+                    loading:
+                        snapshot.connectionState == ConnectionState.waiting,
                   ),
-                ),
-                _SettingsRow(
-                  icon: Icons.people_alt_outlined,
-                  title: 'Estrutura familiar',
-                  subtitle: 'Pessoas, contas e responsáveis',
-                  onTap: () => _open(
-                    context,
-                    FamilyStructurePage(database: widget.database),
-                  ),
-                ),
-                _SettingsRow(
-                  icon: Icons.tune_outlined,
-                  title: 'Cadastros',
-                  subtitle: 'Contas, cartões, categorias e centros',
-                  onTap: () =>
-                      _open(context, RegistriesPage(database: widget.database)),
-                ),
-                _SettingsRow(
-                  icon: Icons.receipt_long_outlined,
-                  title: 'Faturas de cartões',
-                  subtitle: 'Ciclos, compras, estornos e pagamentos',
-                  onTap: () =>
-                      _open(context, InvoicesPage(database: widget.database)),
-                ),
-                _SettingsRow(
-                  icon: Icons.event_repeat_outlined,
-                  title: 'Compromissos',
-                  subtitle: 'Recorrências e parcelamentos',
-                  onTap: () => _open(
-                    context,
-                    CommitmentsPage(database: widget.database),
-                  ),
-                ),
-                _SettingsRow(
-                  icon: Icons.archive_outlined,
-                  title: 'Backup e recuperação',
-                  subtitle: _backupSubtitle(snapshot.data?.localData),
-                  status: _backupStatus(snapshot.data?.localData),
-                  tone: _backupTone(snapshot.data?.localData),
-                  onTap: () => _open(
-                    context,
-                    BackupSettingsPage(database: widget.database),
-                  ),
-                ),
-                _SettingsRow(
-                  icon: Icons.sync_outlined,
-                  title: 'Sync e privacidade',
-                  subtitle: _syncSubtitle(snapshot.data?.pendingSync),
-                  status: _syncStatus(snapshot.data?.pendingSync),
-                  tone: _syncTone(snapshot.data?.pendingSync),
-                  onTap: () => _open(
-                    context,
-                    SyncPrivacyPreviewPage(database: widget.database),
-                  ),
-                ),
-                _SettingsRow(
-                  icon: LucideIcons.palette,
-                  title: 'Identidade visual',
-                  subtitle: 'Marca, cores, tipografia e tokens',
-                  onTap: () => _open(
-                    context,
-                    BrandIdentityPage(onNavigate: widget.onNavigate),
-                  ),
-                ),
-                _SettingsRow(
-                  icon: Icons.storage_outlined,
-                  title: 'Dados locais',
-                  subtitle: 'Demonstração ou limpeza do aparelho',
-                  onTap: () => _open(
-                    context,
-                    DataEnvironmentPage(
-                      database: widget.database,
-                      onChanged: widget.onEnvironmentChanged,
+                  const SizedBox(height: 14),
+                  const ZimbaSectionTitle('Captura de notificação'),
+                  ZimbaCard(
+                    padding: EdgeInsets.zero,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(
+                        ZimbaLayout.cardRadius,
+                      ),
+                      onTap: () => _open(
+                        context,
+                        NotificationSettingsPage(database: widget.database),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: _SettingsFeature(
+                          icon: Icons.notifications_none_outlined,
+                          title: 'Captura Android',
+                          subtitle: _notificationSubtitle(
+                            snapshot.data?.notification,
+                          ),
+                          status: _notificationStatus(
+                            snapshot.data?.notification,
+                          ),
+                          tone: _notificationTone(snapshot.data?.notification),
+                          accent: true,
+                        ),
+                      ),
                     ),
                   ),
-                  last: true,
-                ),
-              ],
-            ),
-            const SizedBox(height: 22),
-            const ZimbaSectionTitle('Privacidade'),
-            ZimbaCard(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: _SettingsFeature(
-                  icon: Icons.shield_outlined,
-                  title: 'Dados locais primeiro',
-                  subtitle:
-                      'Seus dados ficam no aparelho. Backup e sync são escolhas explícitas.',
-                  status: _privacyStatus(snapshot.data?.pendingSync),
-                  tone: _privacyTone(snapshot.data?.pendingSync),
-                ),
+                  const SizedBox(height: 22),
+                  const ZimbaSectionTitle('Dados'),
+                  ZimbaRows(
+                    children: [
+                      _SettingsRow(
+                        icon: Icons.file_upload_outlined,
+                        title: 'Importar CSV/OFX',
+                        subtitle: 'Nubank, Mercado Pago e CSV genérico',
+                        onTap: () => _open(
+                          context,
+                          ImportPage(database: widget.database),
+                        ),
+                      ),
+                      _SettingsRow(
+                        icon: Icons.content_copy_outlined,
+                        title: 'Resolver duplicidades',
+                        subtitle: 'Compare e mescle fontes',
+                        onTap: () => _open(
+                          context,
+                          DuplicatesPage(database: widget.database),
+                        ),
+                      ),
+                      _SettingsRow(
+                        icon: Icons.auto_awesome_outlined,
+                        title: 'Regras',
+                        subtitle: 'Estado da classificação e próximos recursos',
+                        onTap: () => _open(
+                          context,
+                          RulesPreviewPage(database: widget.database),
+                        ),
+                      ),
+                      _SettingsRow(
+                        icon: Icons.people_alt_outlined,
+                        title: 'Estrutura familiar',
+                        subtitle: 'Pessoas, contas e responsáveis',
+                        onTap: () => _open(
+                          context,
+                          FamilyStructurePage(database: widget.database),
+                        ),
+                      ),
+                      _SettingsRow(
+                        icon: Icons.assessment_outlined,
+                        title: 'Relatórios',
+                        subtitle: 'Mensal e parcelas futuras',
+                        onTap: () => _open(
+                          context,
+                          ReportsPage(database: widget.database),
+                        ),
+                      ),
+                      _SettingsRow(
+                        icon: Icons.tune_outlined,
+                        title: 'Cadastros',
+                        subtitle: 'Contas, cartões, categorias e centros',
+                        onTap: () => _open(
+                          context,
+                          RegistriesPage(database: widget.database),
+                        ),
+                      ),
+                      _SettingsRow(
+                        icon: Icons.receipt_long_outlined,
+                        title: 'Faturas de cartões',
+                        subtitle: 'Ciclos, compras, estornos e pagamentos',
+                        onTap: () => _open(
+                          context,
+                          InvoicesPage(database: widget.database),
+                        ),
+                      ),
+                      _SettingsRow(
+                        icon: Icons.event_repeat_outlined,
+                        title: 'Compromissos',
+                        subtitle: 'Recorrências e parcelamentos',
+                        onTap: () => _open(
+                          context,
+                          CommitmentsPage(database: widget.database),
+                        ),
+                      ),
+                      _SettingsRow(
+                        icon: Icons.archive_outlined,
+                        title: 'Backup e recuperação',
+                        subtitle: _backupSubtitle(snapshot.data?.localData),
+                        status: _backupStatus(snapshot.data?.localData),
+                        tone: _backupTone(snapshot.data?.localData),
+                        onTap: () => _open(
+                          context,
+                          BackupSettingsPage(database: widget.database),
+                        ),
+                      ),
+                      _SettingsRow(
+                        icon: Icons.sync_outlined,
+                        title: 'Sync e privacidade',
+                        subtitle: _syncSubtitle(snapshot.data?.pendingSync),
+                        status: _syncStatus(snapshot.data?.pendingSync),
+                        tone: _syncTone(snapshot.data?.pendingSync),
+                        onTap: () => _open(
+                          context,
+                          SyncPrivacyPreviewPage(database: widget.database),
+                        ),
+                      ),
+                      _SettingsRow(
+                        icon: LucideIcons.palette,
+                        title: 'Identidade visual',
+                        subtitle: 'Marca, cores, tipografia e tokens',
+                        onTap: () => _open(
+                          context,
+                          BrandIdentityPage(onNavigate: widget.onNavigate),
+                        ),
+                      ),
+                      _SettingsRow(
+                        icon: Icons.storage_outlined,
+                        title: 'Dados locais',
+                        subtitle: 'Demonstração ou limpeza do aparelho',
+                        onTap: () => _open(
+                          context,
+                          DataEnvironmentPage(
+                            database: widget.database,
+                            onChanged: widget.onEnvironmentChanged,
+                          ),
+                        ),
+                        last: true,
+                      ),
+                    ],
+                  ),
+                  if (widget.onSignOut != null) ...[
+                    const SizedBox(height: 22),
+                    const ZimbaSectionTitle('Conta'),
+                    ZimbaRows(
+                      children: [
+                        _SettingsRow(
+                          icon: Icons.logout_outlined,
+                          title: 'Sair da conta',
+                          subtitle: 'Mantém os dados locais neste aparelho',
+                          onTap: _signOut,
+                          last: true,
+                        ),
+                      ],
+                    ),
+                  ],
+                  const SizedBox(height: 22),
+                  const ZimbaSectionTitle('Privacidade'),
+                  ZimbaCard(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: _SettingsFeature(
+                        icon: Icons.shield_outlined,
+                        title: 'Dados locais primeiro',
+                        subtitle:
+                            'Seus dados ficam no aparelho. Backup e sync são escolhas explícitas.',
+                        status: _privacyStatus(snapshot.data?.pendingSync),
+                        tone: _privacyTone(snapshot.data?.pendingSync),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -447,7 +517,7 @@ class _SettingsHubState {
 
   final NotificationCaptureStatus notification;
   final LocalDataStatus localData;
-  final List<SyncOutboxRow> pendingSync;
+  final int pendingSync;
   final NotificationCaptureDiagnostics notificationDiagnostics;
 }
 
@@ -480,22 +550,22 @@ ZimbaTone _notificationTone(NotificationCaptureStatus? status) {
   return status.queue.pending > 0 ? ZimbaTone.info : ZimbaTone.success;
 }
 
-String _syncSubtitle(List<SyncOutboxRow>? pendingSync) {
+String _syncSubtitle(int? pendingSync) {
   if (pendingSync == null) return 'Consultando a fila local de operações.';
-  if (pendingSync.isEmpty) {
+  if (pendingSync == 0) {
     return 'Nenhuma operação aguardando envio. Sync segue opcional.';
   }
-  return '${pendingSync.length} operação(ões) aguardando envio no aparelho.';
+  return '$pendingSync operação(ões) aguardando envio no aparelho.';
 }
 
-String _syncStatus(List<SyncOutboxRow>? pendingSync) {
+String _syncStatus(int? pendingSync) {
   if (pendingSync == null) return 'Lendo';
-  return pendingSync.isEmpty ? 'Local' : 'Pendente';
+  return pendingSync == 0 ? 'Local' : 'Pendente';
 }
 
-ZimbaTone _syncTone(List<SyncOutboxRow>? pendingSync) {
+ZimbaTone _syncTone(int? pendingSync) {
   if (pendingSync == null) return ZimbaTone.neutral;
-  return pendingSync.isEmpty ? ZimbaTone.success : ZimbaTone.warning;
+  return pendingSync == 0 ? ZimbaTone.success : ZimbaTone.warning;
 }
 
 String _backupSubtitle(LocalDataStatus? localData) {
@@ -518,12 +588,12 @@ ZimbaTone _backupTone(LocalDataStatus? localData) {
   return localData.isEmpty ? ZimbaTone.warning : ZimbaTone.success;
 }
 
-String _privacyStatus(List<SyncOutboxRow>? pendingSync) {
+String _privacyStatus(int? pendingSync) {
   if (pendingSync == null) return 'Lendo';
-  return pendingSync.isEmpty ? 'Local' : 'Fila local';
+  return pendingSync == 0 ? 'Local' : 'Fila local';
 }
 
-ZimbaTone _privacyTone(List<SyncOutboxRow>? pendingSync) {
+ZimbaTone _privacyTone(int? pendingSync) {
   if (pendingSync == null) return ZimbaTone.neutral;
   return ZimbaTone.success;
 }

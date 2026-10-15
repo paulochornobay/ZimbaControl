@@ -33,7 +33,7 @@ void main() {
     );
     await _pumpUntilFound(
       tester,
-      find.text('Estruture a organização financeira da família'),
+      find.text('Pessoas, instrumentos e taxonomia'),
     );
 
     expect(find.text('Pessoas'), findsAtLeastNWidgets(1));

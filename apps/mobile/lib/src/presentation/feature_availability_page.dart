@@ -16,76 +16,79 @@ class RulesPreviewPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Regras'),
-            Text(
-              'Classificação explicável',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
-            ),
-          ],
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 32),
+      body: Column(
         children: [
-          ZimbaSection(
-            title: 'Disponibilidade',
-            child: _AvailabilityBanner(
-              icon: Icons.auto_awesome_outlined,
-              title: database == null
-                  ? 'Regras indisponíveis neste preview'
-                  : 'Regras locais e explicáveis',
-              body: database == null
-                  ? 'Abra Regras por Ajustes para gerenciar classificações persistentes neste aparelho.'
-                  : 'Cada regra procura um texto na descrição, respeita prioridade e pode preencher categoria ou centro de custo.',
-              tone: database == null ? ZimbaTone.warning : ZimbaTone.success,
-            ),
+          const ZimbaCompactHeader(
+            title: 'Regras',
+            subtitle: 'Classificação local e explicável',
           ),
-          if (database != null) _RulesList(database: database!),
-          ZimbaSection(
-            title: 'Como funciona hoje',
-            child: ZimbaRows(
-              children: const [
-                _AvailabilityRow(
-                  icon: Icons.rate_review_outlined,
-                  title: 'Revisão manual',
-                  subtitle:
-                      'Você confirma, edita ou ignora cada lançamento real.',
-                  label: 'Disponível',
-                  tone: ZimbaTone.success,
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: 96),
+              children: [
+                ZimbaSection(
+                  title: 'Disponibilidade',
+                  child: _AvailabilityBanner(
+                    icon: Icons.auto_awesome_outlined,
+                    title: database == null
+                        ? 'Regras indisponíveis neste preview'
+                        : 'Regras locais e explicáveis',
+                    body: database == null
+                        ? 'Abra Regras por Ajustes para gerenciar classificações persistentes neste aparelho.'
+                        : 'Cada regra procura um texto na descrição, respeita prioridade e pode preencher categoria ou centro de custo.',
+                    tone: database == null
+                        ? ZimbaTone.warning
+                        : ZimbaTone.success,
+                  ),
                 ),
-                _AvailabilityRow(
-                  icon: Icons.tune_outlined,
-                  title: 'Categorias e centros',
-                  subtitle:
-                      'A classificação é preservada nos cadastros locais.',
-                  label: 'Disponível',
-                  tone: ZimbaTone.success,
+                if (database != null) _RulesList(database: database!),
+                ZimbaSection(
+                  title: 'Como funciona hoje',
+                  child: ZimbaRows(
+                    children: const [
+                      _AvailabilityRow(
+                        icon: Icons.rate_review_outlined,
+                        title: 'Revisão manual',
+                        subtitle:
+                            'Você confirma, edita ou ignora cada lançamento real.',
+                        label: 'Disponível',
+                        tone: ZimbaTone.success,
+                      ),
+                      _AvailabilityRow(
+                        icon: Icons.tune_outlined,
+                        title: 'Categorias e centros',
+                        subtitle:
+                            'A classificação é preservada nos cadastros locais.',
+                        label: 'Disponível',
+                        tone: ZimbaTone.success,
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          ),
-          ZimbaSection(
-            title: 'Próximo marco',
-            child: ZimbaRows(
-              children: const [
-                _AvailabilityRow(
-                  icon: Icons.call_split_outlined,
-                  title: 'Rateio de beneficiários',
-                  subtitle: 'Divisão por valor ou percentual por pessoa.',
-                ),
-                _AvailabilityRow(
-                  icon: Icons.lightbulb_outline,
-                  title: 'Explicação e confiança',
-                  subtitle: 'Cada sugestão poderá mostrar a regra responsável.',
-                ),
-                _AvailabilityRow(
-                  icon: Icons.history_outlined,
-                  title: 'Histórico de uso',
-                  subtitle: 'Auditoria sem confirmar despesas silenciosamente.',
+                ZimbaSection(
+                  title: 'Limites atuais',
+                  child: ZimbaRows(
+                    children: const [
+                      _AvailabilityRow(
+                        icon: Icons.call_split_outlined,
+                        title: 'Rateio de beneficiários',
+                        subtitle:
+                            'Não é aplicado automaticamente por uma regra.',
+                      ),
+                      _AvailabilityRow(
+                        icon: Icons.lightbulb_outline,
+                        title: 'Explicação e confiança',
+                        subtitle:
+                            'A tela mostra texto, prioridade e destino; não estima confiança.',
+                      ),
+                      _AvailabilityRow(
+                        icon: Icons.history_outlined,
+                        title: 'Histórico de uso',
+                        subtitle:
+                            'Há contagem de uso, sem auditoria detalhada por lançamento.',
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -371,148 +374,159 @@ class _RuleEditorPageState extends State<_RuleEditorPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.rule == null ? 'Nova regra' : 'Editar regra'),
-        actions: [
-          IconButton(
-            tooltip: 'Salvar',
-            onPressed: saving ? null : save,
-            icon: const Icon(Icons.check),
+      body: Column(
+        children: [
+          ZimbaCompactHeader(
+            title: widget.rule == null ? 'Nova regra' : 'Editar regra',
+            subtitle: 'Texto, prioridade e destino',
+            trailing: IconButton(
+              tooltip: 'Salvar',
+              onPressed: saving ? null : save,
+              icon: const Icon(Icons.check),
+            ),
           ),
-        ],
-      ),
-      body: FutureBuilder<RegistrySnapshot>(
-        future: registryFuture,
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          final registry = snapshot.data!;
-          final categories = registry.categories
-              .where((category) => kind == null || category.kind == kind)
-              .toList(growable: false);
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-            children: [
-              ZimbaCard(
-                child: Column(
+          Expanded(
+            child: FutureBuilder<RegistrySnapshot>(
+              future: registryFuture,
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const ZimbaLoadingState(
+                    label: 'Carregando classificações',
+                  );
+                }
+                final registry = snapshot.data!;
+                final categories = registry.categories
+                    .where((category) => kind == null || category.kind == kind)
+                    .toList(growable: false);
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
                   children: [
-                    TextField(
-                      controller: nameController,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: const InputDecoration(
-                        labelText: 'Nome da regra',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: matchController,
-                      decoration: const InputDecoration(
-                        labelText: 'Texto para encontrar',
-                        helperText: 'Ex.: mercado, uber ou escola',
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String?>(
-                      initialValue: kind,
-                      decoration: const InputDecoration(
-                        labelText: 'Tipo (opcional)',
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: null,
-                          child: Text('Qualquer tipo'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'expense',
-                          child: Text('Despesa'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'income',
-                          child: Text('Receita'),
-                        ),
-                      ],
-                      onChanged: (value) => setState(() {
-                        kind = value;
-                        if (categoryId != null &&
-                            !categories.any((item) => item.id == categoryId)) {
-                          categoryId = null;
-                        }
-                      }),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String?>(
-                      initialValue: categoryId,
-                      decoration: const InputDecoration(
-                        labelText: 'Categoria (opcional)',
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Não alterar categoria'),
-                        ),
-                        for (final category in categories)
-                          DropdownMenuItem(
-                            value: category.id,
-                            child: Text(category.name),
+                    ZimbaCard(
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: nameController,
+                            textCapitalization: TextCapitalization.sentences,
+                            decoration: const InputDecoration(
+                              labelText: 'Nome da regra',
+                            ),
                           ),
-                      ],
-                      onChanged: (value) => setState(() => categoryId = value),
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String?>(
-                      initialValue: costCenterId,
-                      decoration: const InputDecoration(
-                        labelText: 'Centro de custo (opcional)',
-                      ),
-                      items: [
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Não alterar centro'),
-                        ),
-                        for (final center in registry.costCenters)
-                          DropdownMenuItem(
-                            value: center.id,
-                            child: Text(center.name),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: matchController,
+                            decoration: const InputDecoration(
+                              labelText: 'Texto para encontrar',
+                              helperText: 'Ex.: mercado, uber ou escola',
+                            ),
                           ),
-                      ],
-                      onChanged: (value) =>
-                          setState(() => costCenterId = value),
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: priorityController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Prioridade',
-                        helperText: 'O maior número é aplicado primeiro.',
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String?>(
+                            initialValue: kind,
+                            decoration: const InputDecoration(
+                              labelText: 'Tipo (opcional)',
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: null,
+                                child: Text('Qualquer tipo'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'expense',
+                                child: Text('Despesa'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'income',
+                                child: Text('Receita'),
+                              ),
+                            ],
+                            onChanged: (value) => setState(() {
+                              kind = value;
+                              if (categoryId != null &&
+                                  !categories.any(
+                                    (item) => item.id == categoryId,
+                                  )) {
+                                categoryId = null;
+                              }
+                            }),
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String?>(
+                            initialValue: categoryId,
+                            decoration: const InputDecoration(
+                              labelText: 'Categoria (opcional)',
+                            ),
+                            items: [
+                              const DropdownMenuItem(
+                                value: null,
+                                child: Text('Não alterar categoria'),
+                              ),
+                              for (final category in categories)
+                                DropdownMenuItem(
+                                  value: category.id,
+                                  child: Text(category.name),
+                                ),
+                            ],
+                            onChanged: (value) =>
+                                setState(() => categoryId = value),
+                          ),
+                          const SizedBox(height: 12),
+                          DropdownButtonFormField<String?>(
+                            initialValue: costCenterId,
+                            decoration: const InputDecoration(
+                              labelText: 'Centro de custo (opcional)',
+                            ),
+                            items: [
+                              const DropdownMenuItem(
+                                value: null,
+                                child: Text('Não alterar centro'),
+                              ),
+                              for (final center in registry.costCenters)
+                                DropdownMenuItem(
+                                  value: center.id,
+                                  child: Text(center.name),
+                                ),
+                            ],
+                            onChanged: (value) =>
+                                setState(() => costCenterId = value),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: priorityController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Prioridade',
+                              helperText: 'O maior número é aplicado primeiro.',
+                            ),
+                          ),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Regra ativa'),
+                            value: active,
+                            onChanged: (value) =>
+                                setState(() => active = value),
+                          ),
+                        ],
                       ),
                     ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Regra ativa'),
-                      value: active,
-                      onChanged: (value) => setState(() => active = value),
+                    if (error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        error!,
+                        style: const TextStyle(color: ZimbaColors.destructive),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      onPressed: saving ? null : save,
+                      icon: const Icon(Icons.save_outlined),
+                      label: const Text('Salvar regra'),
                     ),
                   ],
-                ),
-              ),
-              if (error != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  error!,
-                  style: const TextStyle(color: ZimbaColors.destructive),
-                ),
-              ],
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                onPressed: saving ? null : save,
-                icon: const Icon(Icons.save_outlined),
-                label: const Text('Salvar regra'),
-              ),
-            ],
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -541,141 +555,143 @@ class _SyncPrivacyContent extends StatefulWidget {
 class _SyncPrivacyContentState extends State<_SyncPrivacyContent> {
   static const syncEnabled = bool.fromEnvironment('SYNC_ENABLED');
   static const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
-  late Future<List<SyncOutboxRow>> outboxFuture;
+  late Future<int> outboxFuture;
 
   bool get configured => syncEnabled && apiBaseUrl.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
-    outboxFuture = widget.database.listPendingSyncOutbox();
+    outboxFuture = widget.database.countPendingSyncOutbox();
   }
 
   void refresh() {
-    setState(() => outboxFuture = widget.database.listPendingSyncOutbox());
+    setState(() => outboxFuture = widget.database.countPendingSyncOutbox());
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Sync e privacidade'),
-            Text(
-              'Opcional e offline-first',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
+      body: Column(
+        children: [
+          ZimbaCompactHeader(
+            title: 'Sync e privacidade',
+            subtitle: 'Opcional e offline-first',
+            trailing: IconButton(
+              tooltip: 'Atualizar estado local',
+              onPressed: refresh,
+              icon: const Icon(Icons.refresh_outlined),
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Atualizar estado local',
-            onPressed: refresh,
-            icon: const Icon(Icons.refresh_outlined),
+          ),
+          Expanded(
+            child: FutureBuilder<int>(
+              future: outboxFuture,
+              builder: (context, snapshot) => ListView(
+                padding: const EdgeInsets.only(bottom: 96),
+                children: [
+                  ZimbaSection(
+                    title: 'Estado local',
+                    child: _AvailabilityBanner(
+                      icon: configured
+                          ? Icons.cloud_sync_outlined
+                          : Icons.phone_android_outlined,
+                      title: configured
+                          ? 'Sync configurado neste ambiente'
+                          : 'Uso local disponível',
+                      body: configured
+                          ? '${snapshot.data ?? 0} operação(ões) pendente(s) na fila local.'
+                          : 'O banco do aparelho continua sendo a fonte de verdade, mesmo sem internet.',
+                      tone: configured ? ZimbaTone.accent : ZimbaTone.success,
+                    ),
+                  ),
+                  ZimbaSection(
+                    title: 'Fila e privacidade',
+                    child: ZimbaRows(
+                      children: [
+                        _AvailabilityRow(
+                          icon: Icons.outbox_outlined,
+                          title: 'Fila local',
+                          subtitle:
+                              snapshot.connectionState ==
+                                  ConnectionState.waiting
+                              ? 'Consultando operações locais.'
+                              : '${snapshot.data ?? 0} operação(ões) aguardando envio.',
+                          label: snapshot.hasError ? 'Indisponível' : 'Local',
+                          tone: snapshot.hasError
+                              ? ZimbaTone.danger
+                              : ZimbaTone.success,
+                        ),
+                        const _AvailabilityRow(
+                          icon: Icons.privacy_tip_outlined,
+                          title: 'Dados financeiros',
+                          subtitle:
+                              'A base local continua disponível mesmo sem sync.',
+                          label: 'Local',
+                          tone: ZimbaTone.success,
+                        ),
+                        const _AvailabilityRow(
+                          icon: Icons.notifications_paused_outlined,
+                          title: 'Notificações brutas',
+                          subtitle:
+                              'A captura Android não entra no envio automaticamente.',
+                          label: 'Protegido',
+                          tone: ZimbaTone.success,
+                        ),
+                      ],
+                    ),
+                  ),
+                  ZimbaSection(
+                    title: configured ? 'Ação disponível' : 'Disponibilidade',
+                    child: configured
+                        ? ZimbaCard(
+                            child: SyncPanel(
+                              database: widget.database,
+                              onSyncComplete: refresh,
+                            ),
+                          )
+                        : const _AvailabilityBanner(
+                            icon: Icons.cloud_off_outlined,
+                            title: 'Sync não configurado',
+                            body:
+                                'Nenhuma informação será enviada. A ação de sync só aparece com SYNC_ENABLED e API_BASE_URL válidos.',
+                            tone: ZimbaTone.neutral,
+                          ),
+                  ),
+                  ZimbaSection(
+                    title: 'Estado técnico',
+                    child: const ZimbaRows(
+                      children: [
+                        _AvailabilityRow(
+                          icon: Icons.sync_outlined,
+                          title: 'Aplicar dados remotos',
+                          subtitle:
+                              'O pull incremental aplica snapshots no banco local por deviceId.',
+                          label: 'Disponível',
+                          tone: ZimbaTone.success,
+                        ),
+                        _AvailabilityRow(
+                          icon: Icons.warning_amber_outlined,
+                          title: 'Conflitos financeiros',
+                          subtitle:
+                              'Casos concorrentes preservam os dois lados para revisão.',
+                          label: 'Disponível',
+                          tone: ZimbaTone.success,
+                        ),
+                        _AvailabilityRow(
+                          icon: Icons.phonelink_setup_outlined,
+                          title: 'Homologação em dois aparelhos',
+                          subtitle:
+                              'Ainda depende de API configurada e duas instalações Android reais.',
+                          label: 'Pendente',
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
-      ),
-      body: FutureBuilder<List<SyncOutboxRow>>(
-        future: outboxFuture,
-        builder: (context, snapshot) => ListView(
-          padding: const EdgeInsets.only(bottom: 32),
-          children: [
-            ZimbaSection(
-              title: 'Estado local',
-              child: _AvailabilityBanner(
-                icon: configured
-                    ? Icons.cloud_sync_outlined
-                    : Icons.phone_android_outlined,
-                title: configured
-                    ? 'Sync configurado neste ambiente'
-                    : 'Uso local disponível',
-                body: configured
-                    ? '${snapshot.data?.length ?? 0} operação(ões) pendente(s) na fila local.'
-                    : 'O banco do aparelho continua sendo a fonte de verdade, mesmo sem internet.',
-                tone: configured ? ZimbaTone.accent : ZimbaTone.success,
-              ),
-            ),
-            ZimbaSection(
-              title: 'Fila e privacidade',
-              child: ZimbaRows(
-                children: [
-                  _AvailabilityRow(
-                    icon: Icons.outbox_outlined,
-                    title: 'Fila local',
-                    subtitle:
-                        snapshot.connectionState == ConnectionState.waiting
-                        ? 'Consultando operações locais.'
-                        : '${snapshot.data?.length ?? 0} operação(ões) aguardando envio.',
-                    label: snapshot.hasError ? 'Indisponível' : 'Local',
-                    tone: snapshot.hasError
-                        ? ZimbaTone.danger
-                        : ZimbaTone.success,
-                  ),
-                  const _AvailabilityRow(
-                    icon: Icons.privacy_tip_outlined,
-                    title: 'Dados financeiros',
-                    subtitle:
-                        'A base local continua disponível mesmo sem sync.',
-                    label: 'Local',
-                    tone: ZimbaTone.success,
-                  ),
-                  const _AvailabilityRow(
-                    icon: Icons.notifications_paused_outlined,
-                    title: 'Notificações brutas',
-                    subtitle:
-                        'A captura Android não entra no envio automaticamente.',
-                    label: 'Protegido',
-                    tone: ZimbaTone.success,
-                  ),
-                ],
-              ),
-            ),
-            ZimbaSection(
-              title: configured ? 'Ação disponível' : 'Disponibilidade',
-              child: configured
-                  ? ZimbaCard(child: SyncPanel(database: widget.database))
-                  : const _AvailabilityBanner(
-                      icon: Icons.cloud_off_outlined,
-                      title: 'Sync não configurado',
-                      body:
-                          'Nenhuma informação será enviada. A ação de sync só aparece com SYNC_ENABLED e API_BASE_URL válidos.',
-                      tone: ZimbaTone.neutral,
-                    ),
-            ),
-            ZimbaSection(
-              title: 'Estado técnico',
-              child: const ZimbaRows(
-                children: [
-                  _AvailabilityRow(
-                    icon: Icons.sync_outlined,
-                    title: 'Aplicar dados remotos',
-                    subtitle:
-                        'O pull incremental aplica snapshots no banco local por deviceId.',
-                    label: 'Disponível',
-                    tone: ZimbaTone.success,
-                  ),
-                  _AvailabilityRow(
-                    icon: Icons.warning_amber_outlined,
-                    title: 'Conflitos financeiros',
-                    subtitle:
-                        'Casos concorrentes preservam os dois lados para revisão.',
-                    label: 'Disponível',
-                    tone: ZimbaTone.success,
-                  ),
-                  _AvailabilityRow(
-                    icon: Icons.phonelink_setup_outlined,
-                    title: 'Homologação em dois aparelhos',
-                    subtitle:
-                        'Ainda depende de API configurada e duas instalações Android reais.',
-                    label: 'Pendente',
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

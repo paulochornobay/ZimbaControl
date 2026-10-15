@@ -1,5 +1,11 @@
 # ZimbaControl - Architecture
 
+> Estado vigente: a arquitetura online está documentada em
+> [`MONGODB_ONLINE_ARCHITECTURE.md`](MONGODB_ONLINE_ARCHITECTURE.md). MongoDB,
+> por meio da API autenticada, é a fonte única de dados financeiros; não há
+> outbox, sincronização financeira nem fallback local. As seções abaixo são um
+> registro histórico do desenho offline anterior e não orientam código novo.
+
 ## Visao
 
 Arquitetura offline-first com fonte da verdade local. O app grava primeiro em

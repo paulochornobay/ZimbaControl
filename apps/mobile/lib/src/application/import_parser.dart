@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 
+import 'financial_institution_registry.dart';
+
 class ImportParseResult {
   const ImportParseResult({
     required this.fileHash,
@@ -22,6 +24,7 @@ class StatementIdentity {
   const StatementIdentity({
     required this.statementType,
     required this.provider,
+    required this.institutionName,
     required this.currencyCode,
     this.accountId,
     this.bankId,
@@ -35,6 +38,7 @@ class StatementIdentity {
 
   final String statementType;
   final String provider;
+  final String institutionName;
   final String currencyCode;
   final String? accountId;
   final String? bankId;
@@ -215,6 +219,7 @@ ImportParseResult _parseCsv({
       statementIdentity: const StatementIdentity(
         statementType: 'unknown',
         provider: 'unknown',
+        institutionName: 'Instituição não identificada',
         currencyCode: 'BRL',
       ),
       records: const [],
@@ -302,8 +307,8 @@ ImportParseResult _parseOfx({required String text, required String fileHash}) {
     caseSensitive: false,
     dotAll: true,
   ).allMatches(normalized).toList(growable: false);
-  final provider = _detectOfxProvider(normalized);
-  final statementIdentity = _ofxStatementIdentity(normalized, provider);
+  final statementIdentity = _ofxStatementIdentity(normalized);
+  final provider = statementIdentity.provider;
   final records = <CanonicalImportRecord>[];
 
   for (var index = 0; index < blocks.length; index += 1) {
@@ -368,13 +373,14 @@ StatementIdentity _csvStatementIdentity(
   return StatementIdentity(
     statementType: 'unknown',
     provider: provider,
+    institutionName: FinancialInstitutionRegistry.displayNameFor(provider),
     currencyCode: records.isEmpty ? 'BRL' : records.first.currencyCode,
     periodStart: periodStart,
     periodEnd: periodEnd,
   );
 }
 
-StatementIdentity _ofxStatementIdentity(String text, String provider) {
+StatementIdentity _ofxStatementIdentity(String text) {
   final hasCreditCard = RegExp(
     r'<CCACCTFROM>',
     caseSensitive: false,
@@ -388,12 +394,21 @@ StatementIdentity _ofxStatementIdentity(String text, String provider) {
       : hasBankAccount
       ? 'bank'
       : 'unknown';
+  final org = _ofxTag(text, 'ORG');
+  final fid = _ofxTag(text, 'FID');
+  final bankId = _ofxTag(text, 'BANKID');
+  final institution = FinancialInstitutionRegistry.resolve(
+    org: org,
+    fid: fid,
+    bankId: bankId,
+  );
   return StatementIdentity(
     statementType: statementType,
-    provider: provider,
+    provider: institution.key,
+    institutionName: institution.displayName,
     currencyCode: (_ofxTag(text, 'CURDEF') ?? 'BRL').toUpperCase(),
     accountId: _ofxTag(text, 'ACCTID'),
-    bankId: _ofxTag(text, 'BANKID'),
+    bankId: bankId,
     branchId: _ofxTag(text, 'BRANCHID'),
     accountType: _ofxTag(text, 'ACCTTYPE'),
     periodStart: parseOfxDate(_ofxTag(text, 'DTSTART') ?? ''),
@@ -419,18 +434,6 @@ String? _ofxTag(String block, String tag) {
     caseSensitive: false,
   ).firstMatch(block);
   return match?.group(1)?.trim();
-}
-
-String _detectOfxProvider(String text) {
-  final normalized = text.toLowerCase();
-  if (normalized.contains('nubank') || normalized.contains('nu pagamentos')) {
-    return 'nubank';
-  }
-  if (normalized.contains('mercado pago') ||
-      normalized.contains('mercadopago')) {
-    return 'mercado_pago';
-  }
-  return 'unknown';
 }
 
 String _detectCsvProvider(String fileName, List<String> header) {

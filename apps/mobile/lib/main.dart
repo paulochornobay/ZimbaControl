@@ -1,23 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
-import 'src/data/local/app_database.dart';
-import 'src/presentation/dashboard_page.dart';
+import 'src/infrastructure/google_session_client.dart';
+import 'src/infrastructure/notification_capture_service.dart';
+import 'src/infrastructure/notification_capture_uploader.dart';
+import 'src/infrastructure/online_finance_client.dart';
+import 'src/presentation/auth_page.dart';
 import 'src/presentation/design/zimba_theme.dart';
 import 'src/presentation/design/zimba_ui.dart';
-import 'src/presentation/movements_page.dart';
-import 'src/presentation/new_transaction_page.dart';
-import 'src/presentation/onboarding_page.dart';
-import 'src/presentation/review_page.dart';
-import 'src/presentation/settings_home_page.dart';
+import 'src/presentation/online_home_page.dart';
 
-void main() {
-  runApp(const ZimbaControlApp());
-}
+void main() => runApp(const ZimbaControlApp());
 
+/// The application has one financial data path: an authenticated online API.
+/// It deliberately has no local-database fallback.
 class ZimbaControlApp extends StatefulWidget {
-  const ZimbaControlApp({super.key, this.database});
+  const ZimbaControlApp({super.key, this.sessionClient});
 
-  final AppDatabase? database;
+  final GoogleSessionClient? sessionClient;
 
   @override
   State<ZimbaControlApp> createState() => _ZimbaControlAppState();
@@ -25,17 +26,29 @@ class ZimbaControlApp extends StatefulWidget {
 
 class _ZimbaControlAppState extends State<ZimbaControlApp>
     with WidgetsBindingObserver {
-  late final AppDatabase database;
-  late final bool ownsDatabase;
-  late Future<StartupState> startupFuture;
+  static const apiBaseUrl = String.fromEnvironment('API_BASE_URL');
+  static const googleWebClientId = String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+  );
+
+  late final GoogleSessionClient sessionClient;
+  late Future<ApiSession?> sessionFuture;
+  ApiSession? activeSession;
   bool drainingNotificationCapture = false;
+  final notificationCapture = const NotificationCaptureService();
+
+  bool get isApiConfigured => apiBaseUrl.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
-    database = widget.database ?? AppDatabase();
-    ownsDatabase = widget.database == null;
-    startupFuture = database.getStartupState();
+    sessionClient =
+        widget.sessionClient ??
+        GoogleSessionClient(
+          apiBaseUrl: apiBaseUrl,
+          googleWebClientId: googleWebClientId,
+        );
+    sessionFuture = _loadSession();
     WidgetsBinding.instance.addObserver(this);
     _drainNotificationCaptureWhenReady();
   }
@@ -43,38 +56,56 @@ class _ZimbaControlAppState extends State<ZimbaControlApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    if (ownsDatabase) {
-      database.close();
-    }
     super.dispose();
   }
 
-  void refreshStartup() {
+  Future<ApiSession?> _loadSession() async {
+    final session = await sessionClient.readStoredSession();
+    activeSession = session;
+    if (session != null) {
+      await notificationCapture.setActiveAccount(session.householdId);
+      unawaited(_drainNotificationCaptureWhenReady());
+    }
+    return session;
+  }
+
+  void refreshSession() => setState(() => sessionFuture = _loadSession());
+
+  void _onAuthenticated(ApiSession session) {
     setState(() {
-      startupFuture = database.getStartupState();
+      activeSession = session;
+      sessionFuture = Future.value(session);
+    });
+    unawaited(notificationCapture.setActiveAccount(session.householdId));
+    unawaited(_drainNotificationCaptureWhenReady());
+  }
+
+  Future<void> _signOut() async {
+    await notificationCapture.clearActiveAccount();
+    await sessionClient.signOut();
+    if (!mounted) return;
+    setState(() {
+      activeSession = null;
+      sessionFuture = Future.value(null);
     });
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _drainNotificationCaptureWhenReady();
-    }
+    if (state == AppLifecycleState.resumed) _drainNotificationCaptureWhenReady();
   }
 
   Future<void> _drainNotificationCaptureWhenReady() async {
-    if (drainingNotificationCapture) {
-      return;
-    }
+    if (drainingNotificationCapture || activeSession == null || !isApiConfigured) return;
     drainingNotificationCapture = true;
     try {
-      final startup = await database.getStartupState();
-      if (!startup.needsOnboarding) {
-        await database.syncNotificationCaptureEvents();
-      }
+      final session = activeSession!;
+      await NotificationCaptureUploader(
+        baseUrl: apiBaseUrl,
+        token: session.token,
+      ).drain(notificationCapture);
     } catch (_) {
-      // The diagnostics screen keeps the failure recoverable; startup must not
-      // be blocked by an Android bridge that is temporarily unavailable.
+      // The encrypted notification queue retries after a later lifecycle event.
     } finally {
       drainingNotificationCapture = false;
     }
@@ -88,79 +119,31 @@ class _ZimbaControlAppState extends State<ZimbaControlApp>
       theme: ZimbaTheme.light,
       builder: (context, child) =>
           ZimbaViewport(child: child ?? const SizedBox.shrink()),
-      home: FutureBuilder<StartupState>(
-        future: startupFuture,
+      home: FutureBuilder<ApiSession?>(
+        future: sessionFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const _StartupLoading();
           }
-          if (snapshot.hasError || !snapshot.hasData) {
-            return _StartupError(onRetry: refreshStartup);
-          }
-          if (snapshot.data!.needsOnboarding) {
-            return OnboardingPage(
-              database: database,
-              onCompleted: refreshStartup,
+          if (snapshot.hasError) return _StartupError(onRetry: refreshSession);
+          if (!isApiConfigured) return const _ApiConfigurationRequired();
+          final session = snapshot.data;
+          if (session == null) {
+            return ZimbaAuthPage(
+              client: sessionClient,
+              isConfigured: true,
+              onAuthenticated: _onAuthenticated,
             );
           }
-          return ZimbaHomeShell(
-            database: database,
-            onEnvironmentChanged: refreshStartup,
+          return OnlineHomePage(
+            client: OnlineFinanceClient(
+              baseUrl: apiBaseUrl,
+              sessionToken: session.token,
+            ),
+            email: session.email,
+            onSignOut: _signOut,
           );
         },
-      ),
-    );
-  }
-}
-
-class ZimbaHomeShell extends StatefulWidget {
-  const ZimbaHomeShell({
-    required this.database,
-    required this.onEnvironmentChanged,
-    super.key,
-  });
-
-  final AppDatabase database;
-  final VoidCallback onEnvironmentChanged;
-
-  @override
-  State<ZimbaHomeShell> createState() => _ZimbaHomeShellState();
-}
-
-class _ZimbaHomeShellState extends State<ZimbaHomeShell> {
-  var selectedIndex = 0;
-
-  void select(int index) {
-    ScaffoldMessenger.maybeOf(context)?.removeCurrentSnackBar();
-    setState(() => selectedIndex = index);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final pages = [
-      DashboardPage(database: widget.database, onNavigate: select),
-      ReviewPage(database: widget.database, onNavigate: select),
-      NewTransactionPage(
-        database: widget.database,
-        onSaved: () => select(3),
-        onOpenSettings: () => select(4),
-      ),
-      MovementsPage(database: widget.database),
-      SettingsHomePage(
-        database: widget.database,
-        onEnvironmentChanged: widget.onEnvironmentChanged,
-        onNavigate: select,
-      ),
-    ];
-
-    return Scaffold(
-      body: IndexedStack(index: selectedIndex, children: pages),
-      bottomNavigationBar: DecoratedBox(
-        decoration: const BoxDecoration(),
-        child: ZimbaBottomNavigation(
-          selectedIndex: selectedIndex,
-          onSelected: select,
-        ),
       ),
     );
   }
@@ -170,53 +153,57 @@ class _StartupLoading extends StatelessWidget {
   const _StartupLoading();
 
   @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: SizedBox(
-          width: 30,
-          height: 30,
-          child: CircularProgressIndicator(strokeWidth: 2.5),
+  Widget build(BuildContext context) => const Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 30,
+            height: 30,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
         ),
-      ),
-    );
-  }
+      );
 }
 
 class _StartupError extends StatelessWidget {
   const _StartupError({required this.onRetry});
-
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 44),
-              const SizedBox(height: 14),
-              Text(
-                'Não foi possível abrir seus dados',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Tente novamente. Nenhuma informação foi alterada.',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: onRetry,
-                child: const Text('Tentar novamente'),
-              ),
-            ],
+  Widget build(BuildContext context) => Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(28),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 44),
+                const SizedBox(height: 14),
+                Text('Não foi possível abrir sua sessão',
+                    style: Theme.of(context).textTheme.titleMedium),
+                const SizedBox(height: 8),
+                const Text('Tente novamente. Nenhuma informação financeira é guardada neste aparelho.'),
+                const SizedBox(height: 18),
+                FilledButton(onPressed: onRetry, child: const Text('Tentar novamente')),
+              ],
+            ),
           ),
         ),
-      ),
-    );
-  }
+      );
+}
+
+class _ApiConfigurationRequired extends StatelessWidget {
+  const _ApiConfigurationRequired();
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(28),
+            child: Text(
+              'A API online precisa ser configurada para usar o ZimbaControl. Dados financeiros não são mantidos localmente.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
+      );
 }

@@ -49,79 +49,78 @@ class _DuplicatesPageState extends State<DuplicatesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 82,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Duplicidades',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(letterSpacing: -.5),
+      body: Column(
+        children: [
+          const ZimbaCompactHeader(
+            title: 'Conciliação',
+            subtitle: 'Comparar fontes e resolver',
+          ),
+          Expanded(
+            child: FutureBuilder<List<DuplicateCandidateDetails>>(
+              future: future,
+              builder: (context, snapshot) {
+                final items =
+                    snapshot.data ?? const <DuplicateCandidateDetails>[];
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    items.isEmpty) {
+                  return const ZimbaLoadingState(
+                    label: 'Procurando candidatos locais',
+                  );
+                }
+                if (snapshot.hasError) {
+                  return ZimbaStateMessage(
+                    icon: Icons.error_outline,
+                    title: 'Não foi possível carregar duplicidades',
+                    body: 'Tente atualizar. Nenhuma sugestão foi alterada.',
+                    action: OutlinedButton.icon(
+                      onPressed: refresh,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Atualizar'),
+                    ),
+                  );
+                }
+                if (items.isEmpty) {
+                  return const _EmptyDuplicatesState();
+                }
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                  children: [
+                    ZimbaFeedbackBanner(
+                      icon: Icons.compare_arrows_outlined,
+                      title: '${items.length} candidato(s) para conciliar',
+                      body:
+                          'Mesclar preserva o histórico das fontes. Manter separados ou ignorar não altera o lançamento principal.',
+                      tone: ZimbaTone.accent,
+                    ),
+                    const SizedBox(height: 12),
+                    if (loading) const LinearProgressIndicator(),
+                    for (final item in items) ...[
+                      _DuplicateCard(
+                        details: item,
+                        onMerge: () => resolve(
+                          item.candidate.id,
+                          'merge',
+                          'Duplicidade mesclada.',
+                        ),
+                        onKeep: () => resolve(
+                          item.candidate.id,
+                          'kept_separate',
+                          'Lancamentos mantidos separados.',
+                        ),
+                        onIgnore: () => resolve(
+                          item.candidate.id,
+                          'ignored',
+                          'Sugestao ignorada.',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                  ],
+                );
+              },
             ),
-            const SizedBox(height: 3),
-            Text(
-              'Comparar e resolver',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: ZimbaColors.secondaryText,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: FutureBuilder<List<DuplicateCandidateDetails>>(
-        future: future,
-        builder: (context, snapshot) {
-          final items = snapshot.data ?? const <DuplicateCandidateDetails>[];
-          if (snapshot.connectionState == ConnectionState.waiting &&
-              items.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError) {
-            return ZimbaStateMessage(
-              icon: Icons.error_outline,
-              title: 'Não foi possível carregar duplicidades',
-              body: 'Tente atualizar. Nenhuma sugestão foi alterada.',
-              action: OutlinedButton.icon(
-                onPressed: refresh,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Atualizar'),
-              ),
-            );
-          }
-          if (items.isEmpty) {
-            return const _EmptyDuplicatesState();
-          }
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
-            children: [
-              if (loading) const LinearProgressIndicator(),
-              for (final item in items) ...[
-                _DuplicateCard(
-                  details: item,
-                  onMerge: () => resolve(
-                    item.candidate.id,
-                    'merge',
-                    'Duplicidade mesclada.',
-                  ),
-                  onKeep: () => resolve(
-                    item.candidate.id,
-                    'kept_separate',
-                    'Lancamentos mantidos separados.',
-                  ),
-                  onIgnore: () => resolve(
-                    item.candidate.id,
-                    'ignored',
-                    'Sugestao ignorada.',
-                  ),
-                ),
-                const SizedBox(height: 10),
-              ],
-            ],
-          );
-        },
+          ),
+        ],
       ),
     );
   }

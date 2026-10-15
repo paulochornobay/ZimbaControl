@@ -9,11 +9,18 @@ class RegistriesPage extends StatefulWidget {
   const RegistriesPage({
     required this.database,
     this.initialTabIndex = 0,
+    this.initialInstrumentKind,
     super.key,
-  }) : assert(initialTabIndex >= 0 && initialTabIndex < 3);
+  }) : assert(initialTabIndex >= 0 && initialTabIndex < 3),
+       assert(
+         initialInstrumentKind == null ||
+             initialInstrumentKind == 'account' ||
+             initialInstrumentKind == 'card',
+       );
 
   final AppDatabase database;
   final int initialTabIndex;
+  final String? initialInstrumentKind;
 
   @override
   State<RegistriesPage> createState() => _RegistriesPageState();
@@ -36,6 +43,11 @@ class _RegistriesPageState extends State<RegistriesPage>
     selectedTabIndex = tabController.index;
     tabController.addListener(_handleTabChanged);
     snapshotFuture = widget.database.getRegistrySnapshot();
+    if (widget.initialInstrumentKind != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) openCurrentForm(initialKind: widget.initialInstrumentKind);
+      });
+    }
   }
 
   void _handleTabChanged() {
@@ -59,12 +71,12 @@ class _RegistriesPageState extends State<RegistriesPage>
     });
   }
 
-  Future<void> openCurrentForm() async {
+  Future<void> openCurrentForm({String? initialKind}) async {
     final snapshot = await snapshotFuture;
     if (!mounted) {
       return;
     }
-    final kind = switch (tabController.index) {
+    final kind = initialKind ?? switch (tabController.index) {
       0 => 'person',
       1 => await _chooseNewRegistryKind(
         title: 'Novo instrumento',
@@ -137,35 +149,6 @@ class _RegistriesPageState extends State<RegistriesPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 78,
-        title: const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Cadastros'),
-            Text(
-              'Estruture a organização financeira da família',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
-            ),
-          ],
-        ),
-        bottom: TabBar(
-          controller: tabController,
-          isScrollable: true,
-          tabAlignment: TabAlignment.start,
-          labelColor: ZimbaColors.foreground,
-          unselectedLabelColor: ZimbaColors.secondaryText,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-          indicatorColor: ZimbaColors.accent,
-          indicatorSize: TabBarIndicatorSize.label,
-          tabs: const [
-            Tab(text: 'Pessoas'),
-            Tab(text: 'Contas'),
-            Tab(text: 'Taxonomia'),
-          ],
-        ),
-      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: openCurrentForm,
         backgroundColor: ZimbaColors.foreground,
@@ -177,60 +160,95 @@ class _RegistriesPageState extends State<RegistriesPage>
         icon: const Icon(Icons.add, size: 20),
         label: Text(_registryTabMeta[selectedTabIndex].newLabel),
       ),
-      body: FutureBuilder<RegistrySnapshot>(
-        future: snapshotFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError || !snapshot.hasData) {
-            return _EmptyRegistryState(
-              icon: Icons.error_outline,
-              title: 'Nao foi possivel carregar',
-              body: 'Tente abrir os cadastros novamente.',
-              onRetry: refresh,
-            );
-          }
-          final data = snapshot.data!;
-          final counts = [
-            data.people.length,
-            data.accounts.length + data.creditCards.length,
-            data.categories.length + data.costCenters.length,
-          ];
-          return Column(
-            children: [
-              _RegistryTabOverview(
-                meta: _registryTabMeta[selectedTabIndex],
-                count: counts[selectedTabIndex],
-              ),
-              Expanded(
-                child: TabBarView(
-                  controller: tabController,
+      body: Column(
+        children: [
+          ZimbaCompactHeader(
+            title: 'Cadastros',
+            subtitle: 'Pessoas, instrumentos e taxonomia',
+            leading: IconButton(
+              tooltip: 'Voltar',
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back, size: 21),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: ZimbaSegmentedControl<int>(
+              segments: const [
+                ButtonSegment(value: 0, label: Text('Pessoas')),
+                ButtonSegment(value: 1, label: Text('Contas')),
+                ButtonSegment(
+                  value: 2,
+                  label: Tooltip(message: 'Taxonomia', child: Text('Tax.')),
+                ),
+              ],
+              selected: {selectedTabIndex},
+              onSelectionChanged: (selection) {
+                tabController.animateTo(selection.first);
+              },
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<RegistrySnapshot>(
+              future: snapshotFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const ZimbaLoadingState(label: 'Carregando cadastros');
+                }
+                if (snapshot.hasError || !snapshot.hasData) {
+                  return _EmptyRegistryState(
+                    icon: Icons.error_outline,
+                    title: 'Nao foi possivel carregar',
+                    body: 'Tente abrir os cadastros novamente.',
+                    onRetry: refresh,
+                  );
+                }
+                final data = snapshot.data!;
+                final counts = [
+                  data.people.length,
+                  data.accounts
+                          .where((item) => item.account.type != 'credit_card')
+                          .length +
+                      data.creditCards.length,
+                  data.categories.length + data.costCenters.length,
+                ];
+                return Column(
                   children: [
-                    _PersonList(
-                      database: widget.database,
-                      people: data.people,
-                      onChanged: refresh,
+                    _RegistryTabOverview(
+                      meta: _registryTabMeta[selectedTabIndex],
+                      count: counts[selectedTabIndex],
                     ),
-                    _AccountList(
-                      database: widget.database,
-                      people: data.people,
-                      accounts: data.accounts,
-                      cards: data.creditCards,
-                      onChanged: refresh,
-                    ),
-                    _CategoryList(
-                      database: widget.database,
-                      categories: data.categories,
-                      costCenters: data.costCenters,
-                      onChanged: refresh,
+                    Expanded(
+                      child: TabBarView(
+                        controller: tabController,
+                        children: [
+                          _PersonList(
+                            database: widget.database,
+                            people: data.people,
+                            onChanged: refresh,
+                          ),
+                          _AccountList(
+                            database: widget.database,
+                            people: data.people,
+                            accounts: data.accounts,
+                            cards: data.creditCards,
+                            onChanged: refresh,
+                          ),
+                          _CategoryList(
+                            database: widget.database,
+                            categories: data.categories,
+                            costCenters: data.costCenters,
+                            onChanged: refresh,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
-                ),
-              ),
-            ],
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -393,7 +411,10 @@ class _AccountList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (accounts.isEmpty && cards.isEmpty) {
+    final bankAccounts = accounts
+        .where((item) => item.account.type != 'credit_card')
+        .toList(growable: false);
+    if (bankAccounts.isEmpty && cards.isEmpty) {
       return const _EmptyRegistryState(
         icon: Icons.account_balance_wallet_outlined,
         title: 'Nenhum instrumento',
@@ -404,10 +425,10 @@ class _AccountList extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 112),
       children: [
         const ZimbaSectionTitle('Contas'),
-        if (accounts.isEmpty)
+        if (bankAccounts.isEmpty)
           const _InlineEmptyRegistry('Nenhuma conta cadastrada.')
         else
-          for (final item in accounts) ...[
+          for (final item in bankAccounts) ...[
             _InstrumentRegistryTile(
               instrument: InstrumentDisplay.account(item),
               inactive: !item.account.active,
@@ -562,8 +583,12 @@ class _CategoryList extends StatelessWidget {
           ),
           title: category.name,
           subtitle:
-              '${_kindLabel(category.kind)} · ordem ${category.sortOrder}',
-          inactive: !category.active,
+              '${_kindLabel(category.kind)} · ${category.isHidden
+                  ? 'Oculta'
+                  : category.active
+                  ? 'Ativa'
+                  : 'Arquivada'}',
+          inactive: !category.active || category.isHidden,
           onTap: () async {
             final result = await Navigator.of(context).push<String>(
               MaterialPageRoute(
@@ -578,7 +603,7 @@ class _CategoryList extends StatelessWidget {
           onArchive: () async {
             await database.archiveCategory(
               category.id,
-              active: !category.active,
+              active: category.isHidden ? true : !category.active,
             );
             onChanged();
           },
@@ -725,6 +750,9 @@ class AccountFormPage extends StatefulWidget {
     this.initialProvider,
     this.initialLast4,
     this.initialType,
+    this.initialName,
+    this.initialExternalAccountId,
+    this.initialCurrencyCode,
     super.key,
   });
 
@@ -734,6 +762,9 @@ class AccountFormPage extends StatefulWidget {
   final String? initialProvider;
   final String? initialLast4;
   final String? initialType;
+  final String? initialName;
+  final String? initialExternalAccountId;
+  final String? initialCurrencyCode;
 
   @override
   State<AccountFormPage> createState() => _AccountFormPageState();
@@ -743,6 +774,7 @@ class _AccountFormPageState extends State<AccountFormPage> {
   late final TextEditingController nameController;
   late final TextEditingController providerController;
   late final TextEditingController last4Controller;
+  late final TextEditingController currencyController;
   late String type;
   String? ownerPersonId;
   late bool active;
@@ -751,12 +783,17 @@ class _AccountFormPageState extends State<AccountFormPage> {
   void initState() {
     super.initState();
     final account = widget.account;
-    nameController = TextEditingController(text: account?.name ?? '');
+    nameController = TextEditingController(
+      text: account?.name ?? widget.initialName ?? '',
+    );
     providerController = TextEditingController(
       text: account?.provider ?? widget.initialProvider ?? 'manual',
     );
     last4Controller = TextEditingController(
       text: account?.last4 ?? widget.initialLast4 ?? '',
+    );
+    currencyController = TextEditingController(
+      text: account?.currencyCode ?? widget.initialCurrencyCode ?? 'BRL',
     );
     type = account?.type ?? widget.initialType ?? 'account';
     ownerPersonId = account?.ownerPersonId;
@@ -768,6 +805,7 @@ class _AccountFormPageState extends State<AccountFormPage> {
     nameController.dispose();
     providerController.dispose();
     last4Controller.dispose();
+    currencyController.dispose();
     super.dispose();
   }
 
@@ -782,6 +820,8 @@ class _AccountFormPageState extends State<AccountFormPage> {
       type: type,
       ownerPersonId: ownerPersonId,
       last4: last4Controller.text,
+      currencyCode: currencyController.text,
+      externalAccountId: widget.initialExternalAccountId,
       active: active,
     );
     if (mounted) {
@@ -808,6 +848,17 @@ class _AccountFormPageState extends State<AccountFormPage> {
           decoration: const InputDecoration(
             labelText: 'Provedor',
             helperText: 'Ex.: nubank, mercado_pago ou manual',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: currencyController,
+          textCapitalization: TextCapitalization.characters,
+          maxLength: 3,
+          decoration: const InputDecoration(
+            labelText: 'Moeda',
+            helperText: 'Ex.: BRL',
             border: OutlineInputBorder(),
           ),
         ),
@@ -863,6 +914,13 @@ class _AccountFormPageState extends State<AccountFormPage> {
             border: OutlineInputBorder(),
           ),
         ),
+        if (widget.initialExternalAccountId?.trim().isNotEmpty == true) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Identificador OFX detectado: final ${_maskedLast4(widget.initialExternalAccountId!)}. Ele será vinculado ao salvar.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: const Text('Ativo'),
@@ -881,6 +939,9 @@ class CreditCardFormPage extends StatefulWidget {
     this.creditCard,
     this.initialProvider,
     this.initialLast4,
+    this.initialName,
+    this.initialExternalAccountId,
+    this.initialCurrencyCode,
     super.key,
   });
 
@@ -889,6 +950,9 @@ class CreditCardFormPage extends StatefulWidget {
   final CreditCardRow? creditCard;
   final String? initialProvider;
   final String? initialLast4;
+  final String? initialName;
+  final String? initialExternalAccountId;
+  final String? initialCurrencyCode;
 
   @override
   State<CreditCardFormPage> createState() => _CreditCardFormPageState();
@@ -913,7 +977,9 @@ class _CreditCardFormPageState extends State<CreditCardFormPage> {
   void initState() {
     super.initState();
     final card = widget.creditCard;
-    nameController = TextEditingController(text: card?.name ?? '');
+    nameController = TextEditingController(
+      text: card?.name ?? widget.initialName ?? '',
+    );
     providerController = TextEditingController(
       text: card?.provider ?? widget.initialProvider ?? 'manual',
     );
@@ -986,6 +1052,8 @@ class _CreditCardFormPageState extends State<CreditCardFormPage> {
       ownerPersonId: ownerPersonId,
       brand: brandController.text,
       last4: last4Controller.text,
+      currencyCode: widget.initialCurrencyCode,
+      externalAccountId: widget.initialExternalAccountId,
       billingDay: billingDay,
       dueDay: dueDay,
       limitGroupId: limitGroupId,
@@ -1073,6 +1141,13 @@ class _CreditCardFormPageState extends State<CreditCardFormPage> {
             ),
           ],
         ),
+        if (widget.initialExternalAccountId?.trim().isNotEmpty == true) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Identificador OFX detectado: final ${_maskedLast4(widget.initialExternalAccountId!)}. Ele será vinculado ao salvar.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
         const SizedBox(height: 12),
         Row(
           children: [
@@ -1449,47 +1524,35 @@ class _RegistryFormScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 72,
-        leading: IconButton(
-          tooltip: 'Voltar',
-          onPressed: () => Navigator.of(context).pop(),
-          color: ZimbaColors.accent,
-          icon: const Icon(Icons.arrow_back),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title),
-            Text(
-              'Cadastro salvo somente neste aparelho',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: ZimbaColors.secondaryText),
+      body: Column(
+        children: [
+          ZimbaCompactHeader(
+            title: title,
+            subtitle: 'Cadastro salvo somente neste aparelho',
+            leading: IconButton(
+              tooltip: 'Voltar',
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(Icons.arrow_back, size: 21),
             ),
-          ],
-        ),
-        actions: [
-          Tooltip(
-            message: 'Salvar',
-            child: TextButton.icon(
+            trailing: IconButton(
+              tooltip: 'Salvar',
               onPressed: onSave,
-              icon: const Icon(Icons.check, size: 18),
-              label: const Text('Salvar'),
+              icon: const Icon(Icons.check, size: 21),
             ),
           ),
-          const SizedBox(width: 4),
-        ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        children: [
-          const ZimbaSectionTitle('Informações'),
-          ZimbaCard(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: children,
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              children: [
+                const ZimbaSectionTitle('Informações'),
+                ZimbaCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: children,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1799,6 +1862,12 @@ class _EmptyRegistryState extends StatelessWidget {
             ),
     );
   }
+}
+
+String _maskedLast4(String value) {
+  final compact = value.replaceAll(RegExp(r'[^0-9A-Za-z]'), '');
+  if (compact.isEmpty) return 'não disponível';
+  return compact.length <= 4 ? compact : compact.substring(compact.length - 4);
 }
 
 String _kindLabel(String kind) {

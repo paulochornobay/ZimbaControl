@@ -385,64 +385,61 @@ class _InvoicesPageState extends State<InvoicesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 72,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Faturas'),
-            Text(
-              'Compras consolidadas pelo ciclo do cartão',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: ZimbaColors.secondaryText),
+      body: Column(
+        children: [
+          ZimbaCompactHeader(
+            title: 'Faturas',
+            subtitle: 'Ciclo aberto por cartão',
+            leading: IconButton(
+              tooltip: 'Voltar',
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back, size: 21),
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Atualizar faturas',
-            onPressed: reload,
-            icon: const Icon(Icons.refresh_outlined),
+            trailing: IconButton(
+              tooltip: 'Atualizar faturas',
+              onPressed: reload,
+              icon: const Icon(Icons.refresh_outlined),
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<_InvoicesViewData>(
+              future: dataFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const ZimbaLoadingState(label: 'Calculando faturas');
+                }
+                if (snapshot.hasError || !snapshot.hasData) {
+                  return ZimbaStateMessage(
+                    icon: Icons.error_outline,
+                    title: 'Não foi possível calcular as faturas',
+                    body:
+                        'Os lançamentos não foram alterados. Tente novamente.',
+                    action: FilledButton.icon(
+                      onPressed: reload,
+                      icon: const Icon(Icons.refresh_outlined),
+                      label: const Text('Tentar novamente'),
+                    ),
+                  );
+                }
+                final data = snapshot.data!;
+                if (data.cards.isEmpty) {
+                  return ZimbaStateMessage(
+                    icon: Icons.credit_card_off_outlined,
+                    title: 'Nenhum cartão cadastrado',
+                    body:
+                        'Cadastre o cartão com fechamento e vencimento para consolidar as compras.',
+                    action: FilledButton.icon(
+                      onPressed: openCardRegistry,
+                      icon: const Icon(Icons.add_card_outlined),
+                      label: const Text('Cadastrar cartão'),
+                    ),
+                  );
+                }
+                return _buildContent(data);
+              },
+            ),
           ),
         ],
-      ),
-      body: FutureBuilder<_InvoicesViewData>(
-        future: dataFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError || !snapshot.hasData) {
-            return ZimbaStateMessage(
-              icon: Icons.error_outline,
-              title: 'Não foi possível calcular as faturas',
-              body: 'Os lançamentos não foram alterados. Tente novamente.',
-              action: FilledButton.icon(
-                onPressed: reload,
-                icon: const Icon(Icons.refresh_outlined),
-                label: const Text('Tentar novamente'),
-              ),
-            );
-          }
-          final data = snapshot.data!;
-          if (data.cards.isEmpty) {
-            return ZimbaStateMessage(
-              icon: Icons.credit_card_off_outlined,
-              title: 'Nenhum cartão cadastrado',
-              body:
-                  'Cadastre o cartão com fechamento e vencimento para consolidar as compras.',
-              action: FilledButton.icon(
-                onPressed: openCardRegistry,
-                icon: const Icon(Icons.add_card_outlined),
-                label: const Text('Cadastrar cartão'),
-              ),
-            );
-          }
-          return _buildContent(data);
-        },
       ),
     );
   }

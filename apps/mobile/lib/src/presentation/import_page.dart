@@ -137,112 +137,102 @@ class _ImportPageState extends State<ImportPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 82,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Importar arquivo',
-              style: Theme.of(
-                context,
-              ).textTheme.titleLarge?.copyWith(letterSpacing: -.5),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              'CSV e OFX locais',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: ZimbaColors.secondaryText,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: FutureBuilder<ImportBatchDetails?>(
-        future: latestFuture,
-        builder: (context, snapshot) {
-          final details = snapshot.data;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 96),
-            children: [
-              ImportStepper(batch: details?.batch),
-              const SizedBox(height: 16),
-              if (details == null)
-                ImportIntroCard(onPick: loading ? null : pickAndImport)
-              else
-                OutlinedButton.icon(
-                  onPressed: loading ? null : pickAndImport,
-                  icon: const Icon(Icons.upload_file_outlined),
-                  label: const Text('Importar outro arquivo'),
-                ),
-              if (loading) ...[
-                const SizedBox(height: 16),
-                const LinearProgressIndicator(),
-              ],
-              if (errorMessage != null) ...[
-                const SizedBox(height: 16),
-                ZimbaFeedbackBanner(
-                  icon: Icons.error_outline,
-                  title: 'Importação não concluída',
-                  body: errorMessage!,
-                  tone: ZimbaTone.danger,
-                  action: OutlinedButton.icon(
-                    onPressed: loading ? null : pickAndImport,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Tentar novamente'),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              if (snapshot.hasError)
-                ZimbaStateMessage(
-                  icon: Icons.error_outline,
-                  title: 'Não foi possível ler a importação',
-                  body:
-                      'Tente abrir a tela novamente. Nenhum dado foi alterado.',
-                  action: OutlinedButton.icon(
-                    onPressed: () => setState(
-                      () => latestFuture = widget.database
-                          .getLatestImportBatchDetails(),
-                    ),
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Atualizar'),
-                  ),
-                )
-              else if (snapshot.connectionState == ConnectionState.waiting &&
-                  details == null)
-                const Center(child: CircularProgressIndicator())
-              else if (details == null)
-                const EmptyImportState()
-              else
-                Column(
+      body: Column(
+        children: [
+          const ZimbaCompactHeader(
+            title: 'Importar',
+            subtitle: 'CSV e OFX no aparelho',
+          ),
+          Expanded(
+            child: FutureBuilder<ImportBatchDetails?>(
+              future: latestFuture,
+              builder: (context, snapshot) {
+                final details = snapshot.data;
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
                   children: [
-                    ImportBatchView(
-                      database: widget.database,
-                      details: details,
-                      onTargetConfirmed: targetConfirmed,
-                      onPromote:
-                          loading ||
-                              details.batch.targetConfirmedAt == null ||
-                              details.batch.status == 'promoted'
-                          ? null
-                          : () => promote(details.batch.id),
-                    ),
-                    const SizedBox(height: 18),
-                    ImportHistoryView(
-                      database: widget.database,
-                      currentBatchId: details.batch.id,
-                      onOpen: (batchId) => setState(
-                        () => latestFuture = widget.database
-                            .getImportBatchDetails(batchId),
+                    ImportStepper(batch: details?.batch),
+                    const SizedBox(height: 16),
+                    if (details == null)
+                      ImportIntroCard(onPick: loading ? null : pickAndImport)
+                    else
+                      OutlinedButton.icon(
+                        onPressed: loading ? null : pickAndImport,
+                        icon: const Icon(Icons.upload_file_outlined),
+                        label: const Text('Importar outro arquivo'),
                       ),
-                    ),
+                    if (loading) ...[
+                      const SizedBox(height: 16),
+                      const LinearProgressIndicator(),
+                    ],
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 16),
+                      ZimbaFeedbackBanner(
+                        icon: Icons.error_outline,
+                        title: 'Importação não concluída',
+                        body: errorMessage!,
+                        tone: ZimbaTone.danger,
+                        action: OutlinedButton.icon(
+                          onPressed: loading ? null : pickAndImport,
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Tentar novamente'),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    if (snapshot.hasError)
+                      ZimbaStateMessage(
+                        icon: Icons.error_outline,
+                        title: 'Não foi possível ler a importação',
+                        body:
+                            'Tente abrir a tela novamente. Nenhum dado foi alterado.',
+                        action: OutlinedButton.icon(
+                          onPressed: () => setState(
+                            () => latestFuture = widget.database
+                                .getLatestImportBatchDetails(),
+                          ),
+                          icon: const Icon(Icons.refresh),
+                          label: const Text('Atualizar'),
+                        ),
+                      )
+                    else if (snapshot.connectionState ==
+                            ConnectionState.waiting &&
+                        details == null)
+                      const ZimbaLoadingState(label: 'Lendo importações locais')
+                    else if (details == null)
+                      const EmptyImportState()
+                    else
+                      Column(
+                        children: [
+                          ImportBatchView(
+                            database: widget.database,
+                            details: details,
+                            onTargetConfirmed: targetConfirmed,
+                            onPromote:
+                                loading ||
+                                    details.batch.targetConfirmedAt == null ||
+                                    details.batch.status == 'promoted' ||
+                                    details.batch.reviewRows == 0
+                                ? null
+                                : () => promote(details.batch.id),
+                          ),
+                          const SizedBox(height: 18),
+                          ImportHistoryView(
+                            database: widget.database,
+                            currentBatchId: details.batch.id,
+                            onOpen: (batchId) => setState(
+                              () => latestFuture = widget.database
+                                  .getImportBatchDetails(batchId),
+                            ),
+                          ),
+                        ],
+                      ),
                   ],
-                ),
-            ],
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -482,6 +472,9 @@ class ImportBatchView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final batch = details.batch;
+    final hasCommittedRecords = details.records.any(
+      (record) => record.status == 'promoted' || record.status == 'merged',
+    );
     final visibleRecords = details.records.take(8).toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -499,7 +492,9 @@ class ImportBatchView extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               InstrumentDisplay(
-                name: instrumentProviderLabel(batch.provider),
+                name: batch.statementInstitutionName?.trim().isNotEmpty == true
+                    ? batch.statementInstitutionName!
+                    : instrumentProviderLabel(batch.provider),
                 provider: batch.provider,
                 type: 'statement',
                 compact: true,
@@ -549,7 +544,7 @@ class ImportBatchView extends StatelessWidget {
               ImportTargetPanel(
                 database: database,
                 batchId: batch.id,
-                locked: batch.status == 'promoted',
+                locked: batch.status == 'promoted' && hasCommittedRecords,
                 onConfirmed: onTargetConfirmed,
               ),
               const SizedBox(height: 12),
@@ -576,6 +571,8 @@ class ImportBatchView extends StatelessWidget {
                       ? 'Importação concluída'
                       : batch.targetConfirmedAt == null
                       ? 'Confirme o destino para continuar'
+                      : batch.reviewRows == 0
+                      ? 'Nenhum registro novo para enviar'
                       : 'Enviar novos para revisão',
                 ),
               ),
@@ -681,6 +678,9 @@ class _ImportTargetPanelState extends State<ImportTargetPanel> {
             selectedAccountId ??
             data.batch.targetAccountId ??
             data.suggestedAccountId;
+        final reprocessing = data.batch.targetConfirmedAt != null;
+        final changingDestination =
+            reprocessing && effectiveSelection != data.batch.targetAccountId;
         final compatible = data.options
             .where((option) => option.assessment.compatible)
             .toList(growable: false);
@@ -768,8 +768,18 @@ class _ImportTargetPanelState extends State<ImportTargetPanel> {
                     onPressed: busy || effectiveSelection == null
                         ? null
                         : () => confirm(data, effectiveSelection),
-                    icon: const Icon(Icons.check_circle_outline),
-                    label: const Text('Confirmar destino'),
+                    icon: Icon(
+                      reprocessing
+                          ? Icons.refresh_outlined
+                          : Icons.check_circle_outline,
+                    ),
+                    label: Text(
+                      !reprocessing
+                          ? 'Confirmar destino'
+                          : changingDestination
+                          ? 'Alterar destino e reprocessar'
+                          : 'Reprocessar lote',
+                    ),
                   ),
                 ],
               ),
@@ -798,7 +808,11 @@ class _ImportTargetPanelState extends State<ImportTargetPanel> {
       final details = await widget.database.confirmImportTarget(
         batchId: widget.batchId,
         accountId: accountId,
-        reason: accountId == data.suggestedAccountId
+        reason: data.batch.targetConfirmedAt != null
+            ? accountId == data.batch.targetAccountId
+                  ? 'reprocessed_by_user'
+                  : 'destination_changed_and_reprocessed'
+            : accountId == data.suggestedAccountId
             ? 'suggested_and_confirmed'
             : 'selected_and_confirmed',
       );
@@ -869,6 +883,9 @@ class _ImportTargetPanelState extends State<ImportTargetPanel> {
                     ? null
                     : batch.provider,
                 initialLast4: initialLast4,
+                initialName: batch.statementInstitutionName,
+                initialExternalAccountId: batch.statementAccountId,
+                initialCurrencyCode: batch.currencyCode,
               ),
             ),
           )
@@ -882,6 +899,9 @@ class _ImportTargetPanelState extends State<ImportTargetPanel> {
                     : batch.provider,
                 initialLast4: initialLast4,
                 initialType: 'account',
+                initialName: batch.statementInstitutionName,
+                initialExternalAccountId: batch.statementAccountId,
+                initialCurrencyCode: batch.currencyCode,
               ),
             ),
           );

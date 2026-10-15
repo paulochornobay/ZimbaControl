@@ -16,11 +16,8 @@ class NotificationCaptureStoreInstrumentedTest {
 
     @Before
     fun setUp() {
-        context.deleteDatabase("zimba_notification_events.db")
-        context.getSharedPreferences("zimba_notification_capture", android.content.Context.MODE_PRIVATE)
-            .edit()
-            .clear()
-            .commit()
+        NotificationCaptureStore.resetLocalData(context)
+        NotificationCaptureStore.setActiveAccount(context, "account-a")
     }
 
     @After
@@ -61,7 +58,23 @@ class NotificationCaptureStoreInstrumentedTest {
             drain.events.map { it.getValue("id") as String }
         )
 
-        assertEquals(1, NotificationCaptureStore.pruneRawEvents(context, 1))
+        // A durable API acknowledgement removes raw content immediately.
+        assertEquals(0, NotificationCaptureStore.pruneRawEvents(context, 1))
+        assertTrue(NotificationCaptureStore.drainPendingEvents(context, 10).events.isEmpty())
+    }
+
+    @Test
+    fun switchingAccountsDiscardsThePreviousAccountsPendingRawEvents() {
+        NotificationCaptureStore.insertEvent(context, event("account-a-event", 1))
+
+        NotificationCaptureStore.setActiveAccount(context, "account-b")
+
+        assertTrue(NotificationCaptureStore.drainPendingEvents(context, 10).events.isEmpty())
+        NotificationCaptureStore.insertEvent(context, event("account-b-event", 2))
+        assertEquals(
+            listOf("account-b-event"),
+            NotificationCaptureStore.drainPendingEvents(context, 10).events.map { it.getValue("id") },
+        )
     }
 
     private fun event(id: String, notificationId: Int, capturedAt: Long = System.currentTimeMillis()) =

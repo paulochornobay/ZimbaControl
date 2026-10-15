@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -163,6 +164,249 @@ void main() {
     );
   });
 
+  test(
+    'vínculo OFX persiste e FITID repetido não duplica na mesma conta',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      await database.upsertAccount(
+        id: 'nu-linked',
+        provider: 'nubank',
+        name: 'Conta Nubank',
+        type: 'checking',
+        ownerPersonId: null,
+        // Deliberately stale: the persisted OFX id must have precedence.
+        last4: '0000',
+        externalAccountId: '000123456789',
+      );
+
+      final first = await database.importStatementFile(
+        fileName: 'arquivo-a.ofx',
+        bytes: utf8.encode(
+          _ofx(
+            container: 'BANK',
+            accountId: '000123456789',
+            fitId: 'persistent-fitid',
+            amount: '-1.00',
+          ),
+        ),
+      );
+      final firstOptions = await database.getImportTargetOptions(
+        first.batch.id,
+      );
+      final exact = firstOptions.options.single;
+      expect(exact.assessment.matchLevel, 'exact');
+      expect(firstOptions.suggestedAccountId, 'nu-linked');
+      await database.confirmImportTarget(
+        batchId: first.batch.id,
+        accountId: 'nu-linked',
+      );
+      expect(await database.promoteImportBatchToReview(first.batch.id), 1);
+
+      final second = await database.importStatementFile(
+        fileName: 'arquivo-b.ofx',
+        bytes: utf8.encode(
+          _ofx(
+            container: 'BANK',
+            accountId: '000123456789',
+            fitId: 'persistent-fitid',
+            amount: '-2.00',
+          ),
+        ),
+      );
+      await database.confirmImportTarget(
+        batchId: second.batch.id,
+        accountId: 'nu-linked',
+      );
+      final secondDetails = await database.getImportBatchDetails(
+        second.batch.id,
+      );
+      expect(secondDetails?.batch.duplicateRows, 1);
+      expect(await database.promoteImportBatchToReview(second.batch.id), 0);
+      final afterEmptyPromotion = await database.getImportBatchDetails(
+        second.batch.id,
+      );
+      expect(afterEmptyPromotion?.batch.status, 'staged');
+    },
+  );
+
+  test(
+    'confirmar uma conta compatível grava o identificador OFX para a próxima importação',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      await database.upsertAccount(
+        id: 'nu-first-link',
+        provider: 'nubank',
+        name: 'Nubank principal',
+        type: 'checking',
+        ownerPersonId: null,
+        last4: '6789',
+      );
+      final batch = await database.importStatementFile(
+        fileName: 'primeiro.ofx',
+        bytes: utf8.encode(
+          _ofx(
+            container: 'BANK',
+            accountId: '000123456789',
+            fitId: 'first-link',
+            amount: '-1.00',
+          ),
+        ),
+      );
+      await database.confirmImportTarget(
+        batchId: batch.batch.id,
+        accountId: 'nu-first-link',
+      );
+      final linked = (await database.listAccountsWithOwners()).single.account;
+      expect(linked.externalAccountId, '000123456789');
+    },
+  );
+
+  test(
+    'reimporting a pending batch or choosing another target does not create duplicates',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      for (final id in ['nu-a', 'nu-b']) {
+        await database.upsertAccount(
+          id: id,
+          provider: 'nubank',
+          name: 'Conta $id',
+          type: 'checking',
+          ownerPersonId: null,
+          last4: '6789',
+        );
+      }
+      final bytes = utf8.encode(
+        _ofx(
+          container: 'BANK',
+          accountId: '000123456789',
+          fitId: 'same-file-fitid',
+          amount: '-7.00',
+        ),
+      );
+
+      final first = await database.importStatementFile(
+        fileName: 'mesmo-extrato.ofx',
+        bytes: bytes,
+      );
+      final second = await database.importStatementFile(
+        fileName: 'mesmo-extrato.ofx',
+        bytes: bytes,
+      );
+      expect(first.batch.duplicateRows, 0);
+      expect(second.batch.duplicateRows, 0);
+      expect(second.records.single.status, 'needs_review');
+
+      await database.confirmImportTarget(
+        batchId: first.batch.id,
+        accountId: 'nu-a',
+      );
+      await database.confirmImportTarget(
+        batchId: second.batch.id,
+        accountId: 'nu-b',
+      );
+      expect(await database.promoteImportBatchToReview(first.batch.id), 1);
+      expect(await database.promoteImportBatchToReview(second.batch.id), 1);
+    },
+  );
+
+  test('confirming again recovers a legacy batch stuck as duplicate', () async {
+    final database = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(database.close);
+    await database.upsertAccount(
+      id: 'nu-linked',
+      provider: 'nubank',
+      name: 'Conta Nubank',
+      type: 'checking',
+      ownerPersonId: null,
+      last4: '6789',
+    );
+    final batch = await database.importStatementFile(
+      fileName: 'lote-legado.ofx',
+      bytes: utf8.encode(
+        _ofx(
+          container: 'BANK',
+          accountId: '000123456789',
+          fitId: 'legacy-fitid',
+          amount: '-5.00',
+        ),
+      ),
+    );
+    await (database.update(
+      database.stagedSourceRecords,
+    )..where((row) => row.batchId.equals(batch.batch.id))).write(
+      const StagedSourceRecordsCompanion(
+        status: Value('duplicate'),
+        errorMessage: Value('Lote anterior identificado incorretamente.'),
+      ),
+    );
+    await (database.update(
+      database.importBatches,
+    )..where((row) => row.id.equals(batch.batch.id))).write(
+      const ImportBatchesCompanion(
+        status: Value('promoted'),
+        reviewRows: Value(0),
+      ),
+    );
+
+    final recovered = await database.confirmImportTarget(
+      batchId: batch.batch.id,
+      accountId: 'nu-linked',
+    );
+    expect(recovered.batch.duplicateRows, 0);
+    expect(recovered.batch.reviewRows, 1);
+    expect(recovered.records.single.status, 'needs_review');
+    expect(await database.promoteImportBatchToReview(batch.batch.id), 1);
+  });
+
+  test(
+    'the same file becomes duplicate only after its target is confirmed',
+    () async {
+      final database = AppDatabase.forTesting(NativeDatabase.memory());
+      addTearDown(database.close);
+      await database.upsertAccount(
+        id: 'nu-linked',
+        provider: 'nubank',
+        name: 'Conta Nubank',
+        type: 'checking',
+        ownerPersonId: null,
+        last4: '6789',
+      );
+      final bytes = utf8.encode(
+        _ofx(
+          container: 'BANK',
+          accountId: '000123456789',
+          fitId: 'same-target-fitid',
+          amount: '-3.00',
+        ),
+      );
+      final first = await database.importStatementFile(
+        fileName: 'mesmo-destino.ofx',
+        bytes: bytes,
+      );
+      await database.confirmImportTarget(
+        batchId: first.batch.id,
+        accountId: 'nu-linked',
+      );
+      expect(await database.promoteImportBatchToReview(first.batch.id), 1);
+
+      final second = await database.importStatementFile(
+        fileName: 'mesmo-destino.ofx',
+        bytes: bytes,
+      );
+      expect(second.batch.duplicateRows, 0);
+      final confirmed = await database.confirmImportTarget(
+        batchId: second.batch.id,
+        accountId: 'nu-linked',
+      );
+      expect(confirmed.batch.duplicateRows, 1);
+      expect(confirmed.records.single.status, 'duplicate');
+      expect(await database.promoteImportBatchToReview(second.batch.id), 0);
+    },
+  );
+
   test('backup de lote anterior à fase 3 continua restaurável', () async {
     final source = AppDatabase.forTesting(NativeDatabase.memory());
     await source.importStatementFile(
@@ -251,6 +495,7 @@ void main() {
         ),
       );
       await _pumpUntilFound(tester, find.text('DESTINO CONFIRMADO'));
+      expect(find.text('Reprocessar lote'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await tester.drag(find.byType(Scrollable).first, const Offset(0, -600));
       await tester.pumpAndSettle();

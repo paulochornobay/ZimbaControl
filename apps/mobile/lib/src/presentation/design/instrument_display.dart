@@ -249,6 +249,17 @@ IconData classificationIcon(String key) => switch (key) {
   'work' => Icons.work_outline,
   'car' => Icons.directions_car_filled_outlined,
   'personal' => Icons.person_outline,
+  'clothing' => Icons.checkroom_outlined,
+  'personal-care' => Icons.auto_awesome_outlined,
+  'home-goods' => Icons.chair_outlined,
+  'subscriptions' => Icons.repeat_outlined,
+  'wellness' => Icons.fitness_center_outlined,
+  'financial' => Icons.account_balance_outlined,
+  'gift' => Icons.card_giftcard_outlined,
+  'other' => Icons.more_horiz,
+  'pets' => Icons.pets_outlined,
+  'travel' => Icons.flight_outlined,
+  'business' => Icons.business_center_outlined,
   _ => Icons.sell_outlined,
 };
 

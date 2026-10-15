@@ -34,6 +34,8 @@ const routes = [
   ['rules', '/rules'],
   ['backup', '/backup'],
   ['sync-privacy', '/sync-privacy'],
+  ['reports-mensal', '/reports/mensal'],
+  ['reports-parcelas', '/reports/parcelas'],
   ['identidade', '/identidade'],
   ['registries', '/registries'],
   ['invoices', '/invoices'],

@@ -233,12 +233,63 @@ abstract final class ZimbaTheme {
           TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
         ),
       ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: ZimbaColors.surface,
+        surfaceTintColor: Colors.transparent,
+        modalBackgroundColor: ZimbaColors.surface,
+        modalBarrierColor: ZimbaColors.foreground.withValues(alpha: .32),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(ZimbaRadii.xl),
+          ),
+        ),
+        dragHandleColor: ZimbaColors.borderStrong,
+        dragHandleSize: const Size(36, 4),
+        showDragHandle: true,
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: ButtonStyle(
+          minimumSize: const WidgetStatePropertyAll(Size(44, 44)),
+          padding: const WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          ),
+          side: const WidgetStatePropertyAll(
+            BorderSide(color: ZimbaColors.border),
+          ),
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(ZimbaRadii.md),
+            ),
+          ),
+          foregroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? ZimbaColors.accent
+                : ZimbaColors.secondaryText,
+          ),
+          backgroundColor: WidgetStateProperty.resolveWith(
+            (states) => states.contains(WidgetState.selected)
+                ? ZimbaColors.accentSoft
+                : ZimbaColors.surface,
+          ),
+          textStyle: const WidgetStatePropertyAll(
+            TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
       dividerColor: ZimbaColors.border,
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: ZimbaColors.foreground,
         contentTextStyle: const TextStyle(color: Colors.white),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        actionTextColor: ZimbaColors.accentSoft,
+        insetPadding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(ZimbaRadii.md),
+        ),
       ),
     );
   }

@@ -1,7 +1,7 @@
 # Frontends e referências externas
 
-O ZimbaControl mantém o cliente Flutter, a API Fastify e os contratos de
-sincronização. O frontend React web independente está em
+O ZimbaControl mantém o cliente Flutter, a API Fastify e os contratos online.
+O frontend React web independente está em
 `C:\dev\ZimbaFront` (`paulochornobay/ZimbaFront`) e usa
 `VITE_API_BASE_URL` para consumir a mesma API.
 

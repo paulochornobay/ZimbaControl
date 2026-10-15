@@ -1,7 +1,14 @@
 # ZimbaControl Mobile
 
-Aplicativo Flutter offline-first do ZimbaControl. O banco principal é SQLite
-via Drift; importações, classificação, revisão e backup funcionam localmente.
+Cliente Flutter online do ZimbaControl. MongoDB, acessado exclusivamente pela
+API autenticada, e a fonte de dados de cadastros, movimentos, importações,
+revisões, relatórios e backups. O aplicativo não possui banco financeiro local
+nem modo demonstrativo.
+
+Sem `API_BASE_URL` ou sem conectividade, o app informa indisponibilidade e não
+aceita operações financeiras. A exceção limitada é a fila Android criptografada
+de notificações: ela é vinculada à conta autenticada, limitada, enviada à API
+em lote e apagada ao sair da conta.
 
 ## Desenvolvimento
 
@@ -9,62 +16,17 @@ via Drift; importações, classificação, revisão e backup funcionam localment
 flutter pub get
 flutter analyze
 flutter test
-flutter run
+flutter run --dart-define=API_BASE_URL=http://SEU_IP_LOCAL:3333
 ```
 
-Para regenerar o código do Drift após alterar tabelas:
-
-```powershell
-dart run build_runner build --delete-conflicting-outputs
-```
+Para Google Sign-In, acrescente
+`--dart-define=GOOGLE_WEB_CLIENT_ID=SEU_CLIENT_ID_WEB.apps.googleusercontent.com`.
 
 ## Android release
 
-Gerar a APK:
-
 ```powershell
-flutter build apk --release
+flutter build apk --release --dart-define=API_BASE_URL=https://api.exemplo.com
 ```
 
-Instalar ou atualizar no aparelho conectado, preservando os dados:
-
-```powershell
-adb install -r build\app\outputs\flutter-apk\app-release.apk
-```
-
-O artefato atual é adequado para desenvolvimento e homologação pessoal. A
-assinatura própria e o release final de distribuição pertencem à Fase 5 do
-roadmap.
-
-## Dados locais
-
-Em **Ajustes > Dados locais**, “Zerar aplicativo” mostra contagens, oferece um
-backup e só habilita a exclusão após digitar `ZERAR`. O fluxo remove dados
-financeiros, importações em staging, regras, estado de sync, fila nativa,
-preferências internas e sessão, retornando ao onboarding. Permissões já
-concedidas pelo Android precisam ser revogadas nas configurações do sistema.
-
-## Importação CSV/OFX
-
-O arquivo é processado localmente. OFX preserva conta versus cartão, `ACCTID`,
-moeda, período e saldos quando disponíveis; CSV pode exigir mapeamento manual.
-Antes da promoção, o usuário precisa confirmar uma conta/cartão compatível. O
-app nunca escolhe silenciosamente quando há empate ou identidade insuficiente,
-e permite cadastrar o instrumento ausente dentro do próprio lote.
-
-## Faturas de cartão — Fase 4A
-
-O banco local associa compras de cartão ao ciclo calculado pela data de
-postagem, usando a data da compra quando a postagem não existe. Fechamento,
-vencimento, estornos, pagamentos e atraso geram totais e estados derivados.
-Pagamento de fatura é registrado separadamente e continua sendo transferência,
-sem virar uma segunda despesa. Ajustes manuais de competência exigem motivo e
-ficam na auditoria.
-
-Em **Ajustes > Faturas de cartões**, a Fase 4B apresenta fatura atual/próxima,
-total, fechamento, vencimento, estado, compras, estornos e pagamentos. Os
-filtros por competência, categoria e pessoa atuam sobre os lançamentos reais.
-A conciliação automática e a projeção de parcelas pertencem à Fase 4C.
-
-O escopo e a ordem dos próximos trabalhos estão em
-`../../docs/product/IMPLEMENTATION_ROADMAP.md`.
+Não use instalação que preserve dados de versões offline anteriores: o reset de
+desenvolvimento deve remover essas bases antes da homologação do corte online.

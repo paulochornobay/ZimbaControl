@@ -40,6 +40,26 @@ class NotificationCaptureService {
     }
   }
 
+  /// The Android listener records only while this authenticated account is
+  /// active. Clearing it also securely discards pending notification content.
+  Future<void> setActiveAccount(String accountId) async {
+    try {
+      await _channel.invokeMethod<void>('setActiveAccount', {
+        'accountId': accountId,
+      });
+    } on MissingPluginException {
+      return;
+    }
+  }
+
+  Future<void> clearActiveAccount() async {
+    try {
+      await _channel.invokeMethod<void>('clearActiveAccount');
+    } on MissingPluginException {
+      return;
+    }
+  }
+
   Future<List<CapturedNotificationEvent>> getRecentEvents({
     int limit = 50,
   }) async {

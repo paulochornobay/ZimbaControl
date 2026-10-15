@@ -9,10 +9,9 @@ class NotificationReprocessWorker(
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
-        // Drift remains the financial source of truth, so this worker never
-        // parses or creates transactions. It does make recovery durable: a
-        // notification captured while Flutter is stopped is marked as a
-        // delivery request and stays pending until Flutter acknowledges it.
+        // MongoDB, through the authenticated API, is the financial source of
+        // truth. This worker never parses or creates a transaction; it only
+        // requests delivery of the bounded encrypted notification queue.
         NotificationCaptureStore.requestDelivery(applicationContext, "workmanager")
         return Result.success()
     }

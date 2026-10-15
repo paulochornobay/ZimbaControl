@@ -55,12 +55,14 @@ class _ReviewPageState extends State<ReviewPage> {
             if (snapshot.hasError) {
               return ReviewScaffold(
                 count: 0,
-                child: ReviewStateMessage(
+                child: ZimbaStateMessage(
                   icon: Icons.error_outline,
                   title: 'Nao foi possivel carregar',
                   body: 'A caixa de revisao encontrou um erro local.',
-                  actionLabel: 'Tentar novamente',
-                  onAction: () => setState(() {}),
+                  action: OutlinedButton(
+                    onPressed: () => setState(() {}),
+                    child: const Text('Tentar novamente'),
+                  ),
                 ),
               );
             }
@@ -69,7 +71,10 @@ class _ReviewPageState extends State<ReviewPage> {
                 !snapshot.hasData) {
               return const ReviewScaffold(
                 count: 0,
-                child: Center(child: CircularProgressIndicator()),
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: ZimbaLoadingState(label: 'Carregando revisão'),
+                ),
               );
             }
 
@@ -83,7 +88,7 @@ class _ReviewPageState extends State<ReviewPage> {
                   ? 'Sem pendências'
                   : '${allItems.length} pendentes · ${filteredItems.length} nesta visão',
               child: allItems.isEmpty
-                  ? const ReviewStateMessage(
+                  ? const ZimbaStateMessage(
                       icon: Icons.inbox_outlined,
                       title: 'Caixa zerada',
                       body:
@@ -99,14 +104,16 @@ class _ReviewPageState extends State<ReviewPage> {
                         ),
                         const SizedBox(height: 28),
                         if (filteredItems.isEmpty)
-                          ReviewStateMessage(
+                          ZimbaStateMessage(
                             icon: Icons.filter_alt_off_outlined,
                             title: 'Nada neste filtro',
                             body:
                                 'Troque o filtro para continuar a revisao dos lancamentos pendentes.',
-                            actionLabel: 'Ver todos',
-                            onAction: () => widget.database.setReviewFilter(
-                              ReviewFilter.all.key,
+                            action: OutlinedButton(
+                              onPressed: () => widget.database.setReviewFilter(
+                                ReviewFilter.all.key,
+                              ),
+                              child: const Text('Ver todos'),
                             ),
                           )
                         else ...[
@@ -220,17 +227,11 @@ class _ReviewPageState extends State<ReviewPage> {
 
     ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        duration: const Duration(seconds: 4),
-        persist: false,
-        showCloseIcon: true,
-        action: SnackBarAction(
-          label: 'Desfazer',
-          onPressed: () async {
-            await widget.database.restoreReviewSnapshot(snapshot);
-          },
-        ),
+      ZimbaFeedbackSnackBar(
+        message: message,
+        tone: ZimbaTone.success,
+        actionLabel: 'Desfazer',
+        onAction: () => widget.database.restoreReviewSnapshot(snapshot),
       ),
     );
   }
@@ -251,36 +252,15 @@ class ReviewScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 82,
-        titleSpacing: 20,
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: ZimbaColors.border),
-        ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Caixa de revisão',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                letterSpacing: -.5,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 3),
-            Text(
-              subtitle ?? '$count pendentes nesta visão',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: ZimbaColors.secondaryText,
-                fontWeight: FontWeight.w400,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
+      body: Column(
+        children: [
+          ZimbaCompactHeader(
+            title: 'Caixa de revisão',
+            subtitle: subtitle ?? '$count pendentes nesta visão',
+          ),
+          Expanded(child: child),
+        ],
       ),
-      body: child,
     );
   }
 }

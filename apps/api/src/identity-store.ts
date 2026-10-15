@@ -12,13 +12,17 @@ const scrypt = promisify(scryptCallback);
 export type Identity = {
   id: string;
   email: string;
+  /** Canonical private tenant identifier. */
+  accountId: string;
+  /** @deprecated Internal compatibility alias; equal to accountId. */
   householdId: string;
   role: "admin" | "member";
   name?: string;
 };
 
 type StoredUser = Identity & {
-  passwordHash: string;
+  /** A password is optional because a Google identity can be the first login. */
+  passwordHash?: string;
   createdAt: string;
 };
 
@@ -33,6 +37,12 @@ export interface IdentityStore {
   close(): Promise<void>;
   register(input: { email: string; password: string; name?: string }): Promise<Identity>;
   authenticate(email: string, password: string): Promise<Identity>;
+  /**
+   * Google proves control of an email address.  It therefore resolves to the
+   * same private account as password login, instead of minting an unscoped
+   * JWT (the old behaviour).
+   */
+  resolveGoogleIdentity(input: { email: string; name?: string }): Promise<Identity>;
   isMember(userId: string, householdId: string): Promise<boolean>;
   ensureAdmin(input: { email: string; password: string; name?: string }): Promise<Identity>;
 }
@@ -53,10 +63,19 @@ export class MemoryIdentityStore implements IdentityStore {
 
   async authenticate(email: string, password: string): Promise<Identity> {
     const user = this.usersByEmail.get(normalizeEmail(email));
-    if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
       throw new IdentityError("invalid_credentials");
     }
     return publicIdentity(user);
+  }
+
+  async resolveGoogleIdentity(input: { email: string; name?: string }): Promise<Identity> {
+    const email = normalizeEmail(input.email);
+    const existing = this.usersByEmail.get(email);
+    if (existing) return publicIdentity(existing);
+    const identity = newIdentity(email, input.name);
+    this.usersByEmail.set(email, { ...identity, createdAt: new Date().toISOString() });
+    return identity;
   }
 
   async isMember(userId: string, householdId: string): Promise<boolean> {
@@ -85,8 +104,17 @@ export class MongoIdentityStore implements IdentityStore {
     this.users = db.collection<StoredUser>("users");
     this.households = db.collection<Record<string, unknown>>("households");
     this.memberships = db.collection<Record<string, unknown>>("memberships");
+    // Development databases created before the account terminology used the
+    // same identifier under householdId. Repair that shape before adding the
+    // unique account index; no account data is merged or shared.
+    await this.users.updateMany(
+      { accountId: { $exists: false }, householdId: { $type: "string" } },
+      [{ $set: { accountId: "$householdId" } }],
+    );
     await Promise.all([
       this.users.createIndex({ email: 1 }, { unique: true }),
+      this.users.createIndex({ accountId: 1 }, { unique: true }),
+      this.households.createIndex({ id: 1 }, { unique: true }),
       this.memberships.createIndex({ userId: 1, householdId: 1 }, { unique: true }),
     ]);
   }
@@ -106,7 +134,7 @@ export class MongoIdentityStore implements IdentityStore {
         if (exists) throw new IdentityError("email_already_registered");
         const now = new Date().toISOString();
         await this.users.insertOne({ ...identity, passwordHash, createdAt: now }, { session });
-        await this.households.insertOne({ id: identity.householdId, ownerUserId: identity.id, createdAt: now }, { session });
+        await this.households.insertOne({ id: identity.accountId, ownerUserId: identity.id, createdAt: now }, { session });
         await this.memberships.insertOne({ userId: identity.id, householdId: identity.householdId, role: "admin", createdAt: now }, { session });
       });
       return identity;
@@ -117,10 +145,35 @@ export class MongoIdentityStore implements IdentityStore {
 
   async authenticate(email: string, password: string): Promise<Identity> {
     const user = await this.users.findOne({ email: normalizeEmail(email) });
-    if (!user || !(await verifyPassword(password, user.passwordHash))) {
+    if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
       throw new IdentityError("invalid_credentials");
     }
     return publicIdentity(user);
+  }
+
+  async resolveGoogleIdentity(input: { email: string; name?: string }): Promise<Identity> {
+    const email = normalizeEmail(input.email);
+    const session = this.client.startSession();
+    try {
+      let identity: Identity | undefined;
+      await session.withTransaction(async () => {
+        const existing = await this.users.findOne({ email }, { session });
+        if (existing) {
+          identity = publicIdentity(existing);
+          return;
+        }
+        const created = newIdentity(email, input.name);
+        const now = new Date().toISOString();
+        await this.users.insertOne({ ...created, createdAt: now }, { session });
+        await this.households.insertOne({ id: created.accountId, ownerUserId: created.id, createdAt: now }, { session });
+        await this.memberships.insertOne({ userId: created.id, householdId: created.householdId, role: "admin", createdAt: now }, { session });
+        identity = created;
+      });
+      if (!identity) throw new Error("google_identity_unavailable");
+      return identity;
+    } finally {
+      await session.endSession();
+    }
   }
 
   async isMember(userId: string, householdId: string): Promise<boolean> {
@@ -134,7 +187,8 @@ export class MongoIdentityStore implements IdentityStore {
 }
 
 function newIdentity(email: string, name?: string): Identity {
-  return { id: `user-${randomUUID()}`, email, householdId: `household-${randomUUID()}`, role: "admin", name };
+  const accountId = `account-${randomUUID()}`;
+  return { id: `user-${randomUUID()}`, email, accountId, householdId: accountId, role: "admin", name };
 }
 
 function publicIdentity(user: StoredUser): Identity {

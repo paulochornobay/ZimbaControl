@@ -29,6 +29,7 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
   var kind = 'expense';
   String? accountId;
   String? categoryId;
+  String? subcategoryId;
   String? costCenterId;
   String? payerId;
   Set<String> beneficiaryIds = {};
@@ -86,9 +87,12 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
     if (cents == null ||
         cents == 0 ||
         descriptionController.text.trim().isEmpty ||
-        accountId == null) {
+        accountId == null ||
+        (kind != 'transfer' && categoryId == null)) {
       setState(() {
-        error = 'Informe valor, descrição e conta.';
+        error = kind == 'transfer'
+            ? 'Informe valor, descrição e conta.'
+            : 'Informe valor, descrição, conta e categoria.';
       });
       return;
     }
@@ -106,6 +110,7 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
           accountId: accountId!,
           payerPersonId: payerId,
           categoryId: kind == 'transfer' ? null : categoryId,
+          subcategoryId: kind == 'transfer' ? null : subcategoryId,
           costCenterId: kind == 'transfer' ? null : costCenterId,
           beneficiaryIds: beneficiaryIds.toList(),
         ),
@@ -115,6 +120,7 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
       descriptionController.clear();
       setState(() {
         categoryId = null;
+        subcategoryId = null;
         costCenterId = null;
         saving = false;
       });
@@ -154,6 +160,7 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
     if (!mounted) return;
     setState(() {
       categoryId = id;
+      subcategoryId = null;
       dataFuture = Future.value(_NewTransactionData(registry));
     });
   }
@@ -175,198 +182,300 @@ class _NewTransactionPageState extends State<NewTransactionPage> {
     });
   }
 
+  Future<void> pickAccount(List<AccountWithOwner> accounts) async {
+    final picked = await showZimbaSheet<String>(
+      context: context,
+      builder: (sheetContext) => _NewPickerSheet(
+        title: 'Escolher instrumento',
+        child: ListView.separated(
+          shrinkWrap: true,
+          itemCount: accounts.length,
+          separatorBuilder: (_, _) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final item = accounts[index];
+            final selected = item.account.id == accountId;
+            return ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+              onTap: () => Navigator.of(sheetContext).pop(item.account.id),
+              title: InstrumentDisplay.account(item),
+              trailing: selected
+                  ? const Icon(Icons.check_circle, color: ZimbaColors.accent)
+                  : const Icon(Icons.chevron_right, color: ZimbaColors.muted),
+            );
+          },
+        ),
+      ),
+    );
+    if (picked != null && mounted) setState(() => accountId = picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 72,
-        title: Text(
-          'Novo lançamento',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(letterSpacing: -.5),
-        ),
-      ),
-      body: FutureBuilder<_NewTransactionData>(
-        future: dataFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasError || !snapshot.hasData) {
-            return const Center(child: Text('Não foi possível carregar.'));
-          }
-          final registry = snapshot.data!.registry;
-          if (registry.accounts.isEmpty || registry.people.isEmpty) {
-            return _MissingSetup(onOpenSettings: widget.onOpenSettings);
-          }
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 112),
-            children: [
-              ZimbaCard(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
+        children: [
+          ZimbaCompactHeader(
+            title: 'Novo lançamento',
+            subtitle: 'Registro manual',
+            leading: IconButton(
+              tooltip: 'Voltar',
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.arrow_back, size: 21),
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<_NewTransactionData>(
+              future: dataFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const ZimbaLoadingState(
+                    label: 'Preparando lançamento',
+                  );
+                }
+                if (snapshot.hasError || !snapshot.hasData) {
+                  return ZimbaStateMessage(
+                    icon: Icons.error_outline,
+                    title: 'Não foi possível carregar',
+                    body: 'Tente abrir o lançamento novamente.',
+                    action: OutlinedButton(
+                      onPressed: () => setState(() => dataFuture = _load()),
+                      child: const Text('Tentar novamente'),
+                    ),
+                  );
+                }
+                final registry = snapshot.data!.registry;
+                if (registry.accounts.isEmpty || registry.people.isEmpty) {
+                  return _MissingSetup(onOpenSettings: widget.onOpenSettings);
+                }
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 112),
                   children: [
-                    Text(
-                      'VALOR',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: ZimbaColors.secondaryText,
-                        letterSpacing: 0.7,
+                    ZimbaCard(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'VALOR',
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
+                                  color: ZimbaColors.secondaryText,
+                                  letterSpacing: 0.7,
+                                ),
+                          ),
+                          TextField(
+                            key: const ValueKey('new-transaction-amount'),
+                            controller: amountController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                            decoration: const InputDecoration(
+                              prefixText: 'R\$ ',
+                              filled: false,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(vertical: 8),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _TransactionKindPicker(
+                            selected: kind,
+                            onSelected: (value) => setState(() {
+                              kind = value;
+                              categoryId = null;
+                              subcategoryId = null;
+                            }),
+                          ),
+                        ],
                       ),
                     ),
-                    TextField(
-                      key: const ValueKey('new-transaction-amount'),
-                      controller: amountController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                      decoration: const InputDecoration(
-                        prefixText: 'R\$ ',
-                        filled: false,
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(vertical: 8),
+                    const SizedBox(height: 20),
+                    const ZimbaSectionTitle('Descrição'),
+                    ZimbaCard(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: TextField(
+                        key: const ValueKey('new-transaction-description'),
+                        controller: descriptionController,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: const InputDecoration(
+                          hintText: 'Ex.: Padaria da esquina',
+                          filled: false,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    _TransactionKindPicker(
-                      selected: kind,
-                      onSelected: (value) => setState(() => kind = value),
+                    const SizedBox(height: 24),
+                    const ZimbaSectionTitle('Instrumento'),
+                    ZimbaCard(
+                      padding: EdgeInsets.zero,
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 6,
+                        ),
+                        onTap: () => pickAccount(registry.accounts),
+                        title: Text(
+                          'Conta ou cartão',
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(color: ZimbaColors.secondaryText),
+                        ),
+                        subtitle: Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child:
+                              registry.accounts
+                                  .where((item) => item.account.id == accountId)
+                                  .map(InstrumentDisplay.account)
+                                  .firstOrNull ??
+                              const Text('Escolher instrumento'),
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                      ),
                     ),
+                    if (kind == 'transfer') ...[
+                      const SizedBox(height: 12),
+                      const ZimbaFeedbackBanner(
+                        tone: ZimbaTone.accent,
+                        icon: Icons.swap_horiz_outlined,
+                        title: 'Transferência interna',
+                        body:
+                            'Não exige categoria e não entra como receita ou despesa. A conta acima é a origem do lançamento.',
+                      ),
+                    ],
+                    if (kind != 'transfer') ...[
+                      const SizedBox(height: 20),
+                      _SectionHeader(
+                        title: 'Categoria',
+                        actionLabel: 'Criar',
+                        onAction: createCategoryInline,
+                      ),
+                      _OptionWrap(
+                        children: [
+                          for (final category in registry.categories.where(
+                            (item) =>
+                                item.kind == kind &&
+                                item.parentId == null &&
+                                !item.isHidden,
+                          ))
+                            _FormOption(
+                              label: category.name,
+                              leading: ClassificationBadge(
+                                iconKey: category.iconKey,
+                                colorKey: category.colorKey,
+                                compact: true,
+                              ),
+                              selected: categoryId == category.id,
+                              onTap: () => setState(() {
+                                categoryId = categoryId == category.id
+                                    ? null
+                                    : category.id;
+                                subcategoryId = null;
+                              }),
+                            ),
+                        ],
+                      ),
+                      if (categoryId != null &&
+                          registry.categories.any(
+                            (item) =>
+                                item.parentId == categoryId &&
+                                item.active &&
+                                !item.isHidden,
+                          )) ...[
+                        const SizedBox(height: 20),
+                        const ZimbaSectionTitle('Subcategoria'),
+                        _OptionWrap(
+                          children: [
+                            for (final item in registry.categories.where(
+                              (item) =>
+                                  item.parentId == categoryId &&
+                                  item.active &&
+                                  !item.isHidden,
+                            ))
+                              _FormOption(
+                                label: item.name,
+                                selected: subcategoryId == item.id,
+                                onTap: () => setState(
+                                  () => subcategoryId = subcategoryId == item.id
+                                      ? null
+                                      : item.id,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      _SectionHeader(
+                        title: 'Grupo / Contexto',
+                        actionLabel: 'Criar',
+                        onAction: createCostCenterInline,
+                      ),
+                      _OptionWrap(
+                        children: [
+                          for (final center in registry.costCenters)
+                            _FormOption(
+                              label: center.name,
+                              leading: ClassificationBadge(
+                                iconKey: center.iconKey,
+                                colorKey: center.colorKey,
+                                compact: true,
+                              ),
+                              selected: costCenterId == center.id,
+                              onTap: () => setState(
+                                () => costCenterId = costCenterId == center.id
+                                    ? null
+                                    : center.id,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+                    const ZimbaSectionTitle('Beneficiários'),
+                    _OptionWrap(
+                      children: [
+                        for (final person in registry.people)
+                          _FormOption(
+                            label: person.displayName,
+                            selected: beneficiaryIds.contains(person.id),
+                            onTap: () {
+                              setState(() {
+                                if (!beneficiaryIds.contains(person.id)) {
+                                  beneficiaryIds.add(person.id);
+                                } else {
+                                  beneficiaryIds.remove(person.id);
+                                }
+                              });
+                            },
+                          ),
+                      ],
+                    ),
+                    if (error != null) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        error!,
+                        style: const TextStyle(color: ZimbaColors.destructive),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                    FilledButton.icon(
+                      onPressed: saving ? null : save,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Adicionar lançamento'),
+                    ),
+                    if (saving) ...[
+                      const SizedBox(height: 14),
+                      const LinearProgressIndicator(),
+                    ],
                   ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              const ZimbaSectionTitle('Descrição'),
-              ZimbaCard(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: TextField(
-                  key: const ValueKey('new-transaction-description'),
-                  controller: descriptionController,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    hintText: 'Ex.: Padaria da esquina',
-                    filled: false,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const ZimbaSectionTitle('Conta'),
-              Column(
-                children: [
-                  for (final item in registry.accounts)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: InstrumentChoice(
-                        instrument: InstrumentDisplay.account(item),
-                        selected: accountId == item.account.id,
-                        onTap: () =>
-                            setState(() => accountId = item.account.id),
-                      ),
-                    ),
-                ],
-              ),
-              if (kind != 'transfer') ...[
-                const SizedBox(height: 20),
-                _SectionHeader(
-                  title: 'Categoria',
-                  actionLabel: 'Criar',
-                  onAction: createCategoryInline,
-                ),
-                _OptionWrap(
-                  children: [
-                    for (final category in registry.categories.where(
-                      (item) => item.kind == kind,
-                    ))
-                      _FormOption(
-                        label: category.name,
-                        leading: ClassificationBadge(
-                          iconKey: category.iconKey,
-                          colorKey: category.colorKey,
-                          compact: true,
-                        ),
-                        selected: categoryId == category.id,
-                        onTap: () => setState(
-                          () => categoryId = categoryId == category.id
-                              ? null
-                              : category.id,
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                _SectionHeader(
-                  title: 'Centro de custo',
-                  actionLabel: 'Criar',
-                  onAction: createCostCenterInline,
-                ),
-                _OptionWrap(
-                  children: [
-                    for (final center in registry.costCenters)
-                      _FormOption(
-                        label: center.name,
-                        leading: ClassificationBadge(
-                          iconKey: center.iconKey,
-                          colorKey: center.colorKey,
-                          compact: true,
-                        ),
-                        selected: costCenterId == center.id,
-                        onTap: () => setState(
-                          () => costCenterId = costCenterId == center.id
-                              ? null
-                              : center.id,
-                        ),
-                      ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: 20),
-              const ZimbaSectionTitle('Beneficiários'),
-              _OptionWrap(
-                children: [
-                  for (final person in registry.people)
-                    _FormOption(
-                      label: person.displayName,
-                      selected: beneficiaryIds.contains(person.id),
-                      onTap: () {
-                        setState(() {
-                          if (!beneficiaryIds.contains(person.id)) {
-                            beneficiaryIds.add(person.id);
-                          } else {
-                            beneficiaryIds.remove(person.id);
-                          }
-                        });
-                      },
-                    ),
-                ],
-              ),
-              if (error != null) ...[
-                const SizedBox(height: 16),
-                Text(
-                  error!,
-                  style: const TextStyle(color: ZimbaColors.destructive),
-                ),
-              ],
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: saving ? null : save,
-                icon: const Icon(Icons.add),
-                label: const Text('Adicionar lançamento'),
-              ),
-              if (saving) ...[
-                const SizedBox(height: 14),
-                const LinearProgressIndicator(),
-              ],
-            ],
-          );
-        },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -384,6 +493,37 @@ class _OptionWrap extends StatelessWidget {
       child: Wrap(spacing: 8, runSpacing: 8, children: children),
     );
   }
+}
+
+class _NewPickerSheet extends StatelessWidget {
+  const _NewPickerSheet({required this.title, required this.child});
+
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: 420,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Center(
+          child: Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: ZimbaColors.border,
+              borderRadius: BorderRadius.circular(99),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(title, style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        Expanded(child: child),
+      ],
+    ),
+  );
 }
 
 class _TransactionKindPicker extends StatelessWidget {
